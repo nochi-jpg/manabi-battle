@@ -54,12 +54,12 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null };
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
     const days = Math.max(1, Math.round((new Date(t) - new Date(S.day)) / 864e5) || 1);
-    S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null;
+    S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0;
     save();
   }
   function packRun() {
@@ -174,8 +174,9 @@
 
   // ---- 4択（連打対策つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
   let fastRun = 0;
-  function ask(q, { head = '', fighter = null, onAnswer = null } = {}) {
+  function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null } = {}) {
     return new Promise(res => {
+      let done = false;
       const opts = shuffle(q.a.map((t, i) => ({ t, ok: i === 0 })));
       const lock = Math.min(3000, Math.max(1000, 600 + q.t.length * 30));
       const o = overlay(`<div class="qbox">
@@ -196,8 +197,16 @@
         mb.onclick = () => { fighter.megane--; mb.remove(); let k = 0; btns.forEach((b, i) => { if (!opts[i].ok && k < 2) { b.style.visibility = 'hidden'; k++; } }); };
         o.querySelector('.megane').appendChild(mb);
       }
+      const finish = r => { if (done) return; done = true; o.remove(); res(r); };
+      if (ctl) ctl.cancel = () => finish({ cancel: true });
+      if (extra) {
+        const xb = document.createElement('button'); xb.className = 'btn-gray'; xb.style.fontSize = '18px'; xb.textContent = extra;
+        xb.onclick = () => finish({ quit: true });
+        o.querySelector('.megane').appendChild(xb);
+      }
       btns.forEach((b, i) => (b.onclick = async () => {
         const dt = Date.now() - openAt;
+        if (done) return;
         btns.forEach(x => (x.disabled = true)); o.querySelector('.megane').innerHTML = '';
         const ok = opts[i].ok;
         if (onAnswer) onAnswer(ok);
@@ -220,7 +229,7 @@
           after.innerHTML = `<div class="expl" style="text-align:center">🐢 はやすぎるよ！ 問題をよく読もうね</div>`;
           await wait(3000);
         }
-        o.remove(); res({ ok });
+        finish({ ok });
       }));
     });
   }
@@ -335,7 +344,8 @@
   function home() {
     dayCheck(); refreshType();
     const t = total(S.st), luck = luckOf(S.st), sk = skillsOf(t);
-    const review = Object.values(S.qs).filter(v => v === 2).length;
+    const review = dueList().length;
+    const towerLeft = Math.max(0, K.TOWER_MS - S.towerMs);
     const el = render(`
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
         <span>⚡ スタミナ ${S.stamina}</span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
@@ -352,7 +362,7 @@
       <div class="menuR">
         <button class="wide" id="dun">⚔️ 育成ダンジョン<small>スタミナ ${K.DUNGEON_COST} をつかう</small></button>
         <button id="rev">📕 復習ダンジョン<small>まっている問題 ${review}問</small></button>
-        <button id="tow">🗼 無限の塔<small>きょうの のこり 30:00</small></button>
+        <button id="tow">🗼 無限の塔<small>きょうの のこり ${fmtTime(towerLeft)}</small></button>
         <button id="vs" style="grid-column:span 2">🆚 対戦モード<small>2人で1台</small></button>
       </div>
       <div class="menuB">
@@ -361,7 +371,10 @@
     $('#me', el).onclick = () => { $('#say', el).textContent = '「' + pick(LINES) + '」'; };
     $('#dun', el).onclick = () => startDungeon();
     $('#set', el).onclick = () => settings();
-    ['rev', 'tow', 'vs', 'b1', 'b2', 'b3', 'b4', 'b5'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
+    $('#rev', el).onclick = () => reviewDungeon();
+    $('#tow', el).onclick = () => towerSelect();
+    $('#b3', el).onclick = () => questionList();
+    ['vs', 'b1', 'b2', 'b4', 'b5'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
 
@@ -1239,6 +1252,203 @@
     $('#evb', o).innerHTML = '<button class="btn-main">ホームへ</button>';
     await new Promise(r => ($('#evb button', o).onclick = r));
     o.remove();
+  }
+
+  // =====================================================================
+  // 復習ダンジョン（スタミナなし）
+  // まちがい（2）→ 正解で +8・コイン+10 →（3：別の日まで待つ）→ 別の日に正解で +2 → 卒業（4）
+  // まちがえたら、ほかの問題をはさんで もう一度出る
+  // =====================================================================
+  function dueList() {
+    const t = today();
+    return Object.entries(S.qs).filter(([id, v]) => v === 2 || (v === 3 && (S.qd[id] || '') < t)).map(([id]) => +id).filter(id => Q[id]);
+  }
+  async function reviewDungeon() {
+    const due = dueList();
+    if (!due.length) { await dialog({ who: '📕', text: '回答できる問題はないようだ。\n（まちがえた問題は、ここで取りもどせるよ）' }); return; }
+    const st0 = { ...S.st }, type0 = S.type;
+    let queue = shuffle(due), retry = [], okN = 0, ngN = 0;
+    const el = render(`
+      <div class="prog"><span class="mid">📕 復習ダンジョン</span><span class="coin gold" id="coin">🪙 ${S.coins}</span></div>
+      <div class="field">
+        <div><div class="me">${artPlayer(S.type, total(S.st))}</div><div class="lbl">${esc(S.cname)}</div></div>
+        <div><div class="foe" id="foe"></div><div class="lbl" id="foelbl"></div></div>
+      </div>
+      <div class="msg panel" id="msg" style="width:1232px"></div>
+      <div class="subjbar" id="subj"></div>`, 'dun');
+    const left = () => queue.length + retry.length;
+    while (true) {
+      let id = null;
+      const ri = retry.findIndex(r => r.wait <= 0);
+      if (ri >= 0) id = retry.splice(ri, 1)[0].id;
+      else if (queue.length) id = queue.shift();
+      else break;
+      const q = Q[id], stage = S.qs[id];
+      $('#foe').innerHTML = artZako(stage === 3 ? '🦉' : '👻'); $('#foe').className = 'foe fadein';
+      $('#foelbl').textContent = stage === 3 ? 'ふくしゅう 2回目（卒業）' : 'ふくしゅう 1回目';
+      msg(`のこり <b>${left() + 1}</b> 問。まちがえた問題に もう一度 挑戦！`);
+      let out = null;
+      const r = await ask(q, {
+        head: stage === 3 ? '（ふくしゅう2回目）' : '（ふくしゅう1回目）', extra: '🏠 ホームへ',
+        onAnswer: ok => {
+          retry.forEach(x => x.wait--);
+          if (ok) {
+            if (S.qs[id] === 2) { S.qs[id] = 3; S.qd[id] = today(); S.st[q.s] += K.GAIN_REVIEW1; S.coins += K.COIN_REVIEW; out = { gain: K.GAIN_REVIEW1, c: K.COIN_REVIEW }; }
+            else { S.qs[id] = 4; delete S.qd[id]; S.st[q.s] += K.GAIN_REVIEW2; out = { gain: K.GAIN_REVIEW2, c: 0, grad: true }; }
+            okN++;
+          } else { retry.push({ id, wait: 2 }); ngN++; }
+          refreshType(); save();
+        },
+      });
+      if (r.quit) { queue.unshift(id); break; }
+      const c = $('#coin'); if (c) c.textContent = '🪙 ' + S.coins;
+      if (r.ok) {
+        $('#foe').classList.add('bye');
+        floatAt(820, 180, `${q.s} +${out.gain}`, D.SUBJ_COLOR[q.s]);
+        if (out.c) setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
+        msg(out.grad ? `🎓 卒業！ この問題は もう だいじょうぶ！ ${q.s} +${out.gain}` : `⭕ 取りもどした！ ${q.s} +${out.gain}<br><span class="sm">別の日に もう一度正解すると 卒業だよ</span>`);
+      } else msg(`💨 にげられた… ${queue.length + retry.length > 1 ? 'ほかの問題のあとで、もう一度出るよ' : 'また あとで 挑戦しよう'}`);
+      await wait(900);
+      if (!left()) break;
+      const go = await new Promise(res => {
+        $('#subj').innerHTML = `<button class="btn-main" id="nx">つぎの問題へ</button><button class="btn-gray" id="hm">🏠 ホームへ</button>`;
+        $('#nx').onclick = () => res(true); $('#hm').onclick = () => res(false);
+      });
+      $('#subj').innerHTML = '';
+      if (!go) break;
+    }
+    if (!left() && retry.length === 0) msg('📕 いまできる復習は ぜんぶおわった！');
+    await dialog({ who: '📕', text: `きょうの復習\n⭕ ${okN}問　❌ ${ngN}問${dueList().length ? `\nまだ ${dueList().length}問 まっているよ` : ''}` });
+    await evolution(st0, type0);
+    home();
+  }
+
+  // =====================================================================
+  // 無限の塔（スタミナなし・ステータスは上がらない・正誤は記録しない）
+  // =====================================================================
+  function fmtTime(ms) {
+    ms = Math.max(0, ms); const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(c).padStart(2, '0')}`;
+  }
+  function towerOrder(subj) { return [4, 5, 6].flatMap(g => shuffle(QBY[subj].filter(q => q.g === g).map(q => q.id))); }
+  async function towerSelect() {
+    dayCheck();
+    const left = K.TOWER_MS - S.towerMs;
+    if (left <= 0) { await dialog({ who: '🗼', text: 'きょうは もう のぼれないよ（1日30分まで）\nまた あしたの朝5時から のぼれるよ' }); return; }
+    const el = render(`<div class="scr center" style="gap:16px">
+      <div class="big">🗼 無限の塔</div>
+      <div class="mid">きょうの のこり時間 <span class="gold">${fmtTime(left)}</span></div>
+      <div class="sm dim">1問＝1階。ハート3つ。3回まちがえたら 1階からやりなおし。いつでも中断できるよ</div>
+      <div class="row" id="ts">${SUBJ.map(s => {
+        const t = S.tower[s], top = QBY[s].length;
+        return `<button data-s="${s}" style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span><span class="sm">${t && t.floor ? `つづきから ${t.floor + 1}階` : '1階から'}</span>
+          <span class="xs">${t ? '❤️'.repeat(t.hearts) : '❤️❤️❤️'}</span><span class="xs dim">さいこう ${S.towerBest[s] || 0}階 ／ 頂上 ${top}階</span></button>`;
+      }).join('')}</div>
+      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
+    $('#bk', el).onclick = () => home();
+    el.querySelectorAll('#ts button').forEach(b => (b.onclick = () => towerRun(b.dataset.s)));
+  }
+  async function towerRun(subj) {
+    if (!S.tower[subj] || !S.tower[subj].order.length) { S.tower[subj] = { order: towerOrder(subj), floor: 0, hearts: K.TOWER_HEARTS }; save(); }
+    const tw = S.tower[subj], top = tw.order.length;
+    const el = render(`
+      <div class="prog"><span class="mid">🗼 ${D.SUBJ_EMO[subj]} ${subj}の塔</span><span class="mid" style="margin-left:24px" id="hearts"></span>
+        <span class="coin">⏱️ <b class="gold" id="timer"></b></span></div>
+      <div class="field" style="flex-direction:column;justify-content:center">
+        <div style="font-size:140px;line-height:1">🗼</div><div class="big" id="floor"></div><div class="sm dim" id="best"></div>
+      </div>
+      <div class="msg panel" id="msg" style="width:1232px"></div>
+      <div class="subjbar" id="subj"></div>`, 'dun');
+    const upd = () => {
+      $('#hearts').textContent = '❤️'.repeat(tw.hearts) + '🖤'.repeat(K.TOWER_HEARTS - tw.hearts);
+      $('#floor').textContent = `${tw.floor + 1}階`;
+      $('#best').textContent = `さいこう ${S.towerBest[subj] || 0}階 ／ 頂上 ${top}階`;
+    };
+    upd();
+    // 時計（塔にいる間だけ減る）
+    let last = Date.now(), lastSave = Date.now(), timeUp = false;
+    const ctl = {};
+    const tick = setInterval(() => {
+      const now = Date.now(); S.towerMs += now - last; last = now;
+      const t = $('#timer'); if (t) t.textContent = fmtTime(K.TOWER_MS - S.towerMs);
+      if (now - lastSave > 3000) { lastSave = now; save(); }
+      if (S.towerMs >= K.TOWER_MS && !timeUp) { timeUp = true; if (ctl.cancel) ctl.cancel(); }
+    }, 47);
+    let endMsg = null;
+    try {
+      while (!timeUp) {
+        if (tw.floor >= top) { endMsg = 'top'; break; }
+        msg(`${tw.floor + 1}階の問題！ 正解すると 上の階へ。 <span class="sm dim">（25階ごとに コインがもらえるよ）</span>`);
+        const q = Q[tw.order[tw.floor]];
+        let gotCoin = 0;
+        const r = await ask(q, {
+          head: `（${tw.floor + 1}階）`, extra: '⏸️ 中断してホームへ', ctl,
+          onAnswer: ok => {
+            if (ok) {
+              tw.floor++;
+              if (tw.floor % K.TOWER_STEP === 0) { // 25階ごと（初めて＋250／2回目から＋25）
+                gotCoin = tw.floor > (S.towerBest[subj] || 0) ? K.TOWER_COIN_FIRST : K.TOWER_COIN_AGAIN;
+                S.coins += gotCoin;
+              }
+              S.towerBest[subj] = Math.max(S.towerBest[subj] || 0, tw.floor);
+            } else tw.hearts--;
+            save();
+          },
+        });
+        if (r.cancel) break;
+        if (r.quit) { endMsg = 'quit'; break; }
+        upd();
+        if (r.ok) { msg(`⭕ ${tw.floor}階 クリア！${gotCoin ? ` <span class="gold">🪙+${gotCoin}</span>` : ''}`); if (gotCoin) floatAt(600, 200, `🪙+${gotCoin}`, '#ffd54a'); }
+        else msg(`💔 ハートが へった…（のこり ${tw.hearts}）`);
+        await wait(900);
+        if (tw.hearts <= 0) { endMsg = 'over'; break; }
+      }
+    } finally { clearInterval(tick); save(); }
+    if (timeUp) {
+      await dialog({ who: '⏰', text: 'きょうはここまで！\nセーブしたから大丈夫。また明日つづきから登ろう' });
+      return home();
+    }
+    if (endMsg === 'over') {
+      const f = tw.floor; S.tower[subj] = null; save();
+      await dialog({ who: '💔', text: `ざんねん！ ${f}階まで のぼった\n（さいこう記録 ${S.towerBest[subj] || 0}階）\n次は 1階から やりなおしだよ` });
+      return towerSelect();
+    }
+    if (endMsg === 'top') {
+      S.tower[subj] = null; save();
+      await dialog({ who: '🏆', text: `${subj}の塔の 頂上に 到達！！ ${top}階\nすごい！ ${subj}の問題を ぜんぶ 解いたよ！` });
+      return towerSelect();
+    }
+    home();
+  }
+
+  // =====================================================================
+  // 問題リスト（教科ごとに問題と解説を読める。まだの学年も見られる）
+  // =====================================================================
+  const QST = { 0: ['⬜', 'まだ'], 1: ['⭕', '正解'], 2: ['❌', '復習まち'], 3: ['🔁', 'あと1回'], 4: ['🎓', '卒業'] };
+  function questionList(subj = '国語', grade = 4) {
+    const qs = QBY[subj].filter(q => q.g === grade);
+    const cnt = k => QBY[subj].filter(q => (S.qs[q.id] || 0) === k).length;
+    const el = render(`
+      <div class="prog"><span class="mid">📋 問題リスト</span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
+      <div style="position:absolute;top:70px;left:24px;right:24px" class="col">
+        <div class="row">${SUBJ.map(s => `<button data-s="${s}" class="${s === subj ? 'btn-main' : ''}" style="font-size:20px;padding:8px 16px;border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}</button>`).join('')}
+          <span style="width:24px"></span>${[4, 5, 6].map(g => `<button data-g="${g}" class="${g === grade ? 'btn-blue' : ''}" style="font-size:20px;padding:8px 16px">${g}年</button>`).join('')}</div>
+        <div class="sm dim">${subj}：${[1, 2, 3, 4].map(k => `${QST[k][0]}${QST[k][1]} ${cnt(k)}`).join('　')}　⬜まだ ${cnt(0)}</div>
+        <div class="panel" id="ql" style="height:520px;overflow-y:auto;padding:8px">
+          ${qs.map(q => { const v = S.qs[q.id] || 0; return `<div class="qrow" data-id="${q.id}">${QST[v][0]} <span class="xs dim">No.${q.id}</span> ${esc(q.t)}</div>`; }).join('')}
+        </div></div>`, 'res');
+    $('#bk', el).onclick = () => home();
+    el.querySelectorAll('[data-s]').forEach(b => (b.onclick = () => questionList(b.dataset.s, grade)));
+    el.querySelectorAll('[data-g]').forEach(b => (b.onclick = () => questionList(subj, +b.dataset.g)));
+    el.querySelectorAll('.qrow').forEach(r => (r.onclick = () => {
+      const q = Q[r.dataset.id], v = S.qs[q.id] || 0;
+      const o = overlay(`<div class="qbox"><div class="qh">${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年　No.${q.id}　${QST[v][0]} ${QST[v][1]}</div>
+        <div class="qt">${esc(q.t)}</div>
+        <div class="opts">${q.a.map((t, i) => `<button disabled class="${i === 0 ? 'ok' : ''}" style="opacity:1">${i === 0 ? '⭕ ' : ''}${esc(t)}</button>`).join('')}</div>
+        <div class="expl">${esc(q.x)}</div><div style="text-align:right;margin-top:10px"><button class="btn-blue">とじる</button></div></div>`);
+      o.querySelector('.expl + div button').onclick = () => o.remove();
+    }));
   }
 
   // ---- テスト用の入口（Playwright などから使う）----

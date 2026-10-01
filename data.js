@@ -17,6 +17,7 @@ window.DATA = (function () {
     COIN_OK: 50, COIN_NG: 40, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4, TAKEHOME_PER_DAY: 2,
     BOSS_Q: 3, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
+    COIN_REVIEW: 10, TOWER_MS: 30 * 60 * 1000, TOWER_STEP: 25, TOWER_COIN_FIRST: 250, TOWER_COIN_AGAIN: 25, TOWER_HEARTS: 3,
     STAGE_LINE: [1500, 3500],           // ステータス合計でボス・見た目の段階が変わる
     SKILL_LINE: { 連続攻撃: 650, ガードバッシュ: 800, ドレイン: 1300, かんつう: 1800, カウンター: 2500, パワーシュート: 3200, ふういん: 4200 },
   };
