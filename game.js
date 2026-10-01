@@ -47,7 +47,7 @@
   // =====================================================================
   // qs[id]: 2=復習待ち 3=あと1回 4=卒業（qd[id] = 最後に1段階上がった日。1日1回まで）
   // 全問 最低2回 正解して卒業：ダンジョンで正解→あと1回／不正解→復習待ち → 復習ダンジョンで1段階ずつ上がる
-  const SAVE_KEY = 'manabi_battle_save', SAVE_V = 2;
+  const SAVE_KEY = 'manabi_battle_save', SAVE_V = 3;
   let S = null;   // セーブデータ本体
   let R = null;   // いまのダンジョン（S.run にしまう）
   let BT = null;  // いまのボス戦（R.bt にしまう）
@@ -55,7 +55,7 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0,
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0,
       playDays: 1, clears: 0, bossWin: {}, boss3: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
@@ -95,8 +95,24 @@
       for (const k in s.qs || {}) if (s.qs[k] === 1) s.qs[k] = 3;
       s.v = 2;
     }
+    if (s.v === 2) s.v = 3; // v2→v3：問題の番号に「問題DBの版（qv）」をつけた
+    remapSave(s);
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
+  }
+  // 問題の番号をそろえなおしたとき（qmap.js）、セーブの中の古い番号を新しい番号にする
+  function remapSave(s) {
+    const C = window.SAVECODE, from = s.qv || 1;
+    if (from >= C.QV()) { s.qv = C.QV(); return s; }
+    s.qs = C.remapKeys(s.qs, from); s.qd = C.remapKeys(s.qd, from); s.miss = C.remapKeys(s.miss, from);
+    for (const k in s.tower || {}) if (s.tower[k]) s.tower[k].order = C.remapList(s.tower[k].order, from);
+    if (s.run) {
+      const r = s.run;
+      for (const k in r.qpre || {}) r.qpre[k] = r.qpre[k].map(x => ({ ...x, id: C.mapId(x.id, from) })).filter(x => x.id);
+      r.usedQ = C.remapList(r.usedQ, from);
+      if (r.bt) r.bt.used = C.remapList(r.bt.used, from);
+    }
+    s.qv = C.QV(); return s;
   }
   function resetSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } S = null; R = null; BT = null; }
 
@@ -532,7 +548,7 @@
       <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         <div class="mid" style="color:#f9a8d4">♡ おきにいり</div>
         <div class="bkrow">${S.fav.filter(n => S.owned.includes(n)).map(cell).join('') || '<span class="sm dim">アイテムをタップして ♡ をおすと、ここに並ぶよ</span>'}</div>
-        ${sorted.map(([c, list]) => `<div class="sm gold" style="margin-top:8px">${D.CAT_NAME[c]}</div><div class="bkrow">${list.map(it => cell(it.n)).join('')}</div>`).join('')}
+        ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
       </div>`, 'res');
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
@@ -1750,7 +1766,14 @@
   const VS_KEY = 'manabi_battle_vs';
   let VSV = null;
   function saveVs() { if (!VSV) return; if (BT && BT.vs) VSV.bt = packBT(); try { localStorage.setItem(VS_KEY, JSON.stringify(VSV)); } catch (e) { console.warn(e); } }
-  function loadVs() { try { const v = JSON.parse(localStorage.getItem(VS_KEY) || 'null'); return v && v.phase ? v : null; } catch (e) { return null; } }
+  function loadVs() {
+    try {
+      const v = JSON.parse(localStorage.getItem(VS_KEY) || 'null');
+      if (!v || !v.phase) return null;
+      if (Object.values(v.prof || {}).some(p => (p.qv || 1) !== window.SAVECODE.QV())) { localStorage.removeItem(VS_KEY); return null; } // 問題の番号が変わった古い対戦は消す
+      return v;
+    } catch (e) { return null; }
+  }
   function clearVs() { VSV = null; BT = null; try { localStorage.removeItem(VS_KEY); } catch (e) { } }
   const AB = { a: 'A', b: 'B' };
   function vsCfg(pr, items) {
@@ -1833,7 +1856,7 @@
           <div class="row" style="position:absolute;top:66px;left:24px;font-size:30px;gap:10px">${sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>'}</div>
           <div class="panel" style="position:absolute;top:112px;left:24px;right:24px;bottom:16px;overflow-y:auto">
             <div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
-            ${D.CAT_ORDER.map(c => `<div class="sm gold" style="margin-top:6px">${D.CAT_NAME[c]}</div><div class="bkrow">${D.ITEMS.filter(it => it.cat === c).map(it => cell(it.n)).join('')}</div>`).join('')}
+            ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
           </div>`, 'res');
         $('#ok', el).onclick = finish;
         $('#rs', el).onclick = () => { sel = []; draw(); };
@@ -1925,7 +1948,11 @@
     titleScreen();
   }
   // ---- 先生用ページ ----
-  function teachLoad() { try { return JSON.parse(localStorage.getItem(TEACH_KEY) || '[]'); } catch (e) { return []; } }
+  function teachLoad() {
+    let l = []; try { l = JSON.parse(localStorage.getItem(TEACH_KEY) || '[]'); } catch (e) { return []; }
+    const C = window.SAVECODE;
+    return l.map(p => { const v = p.qv || 1; if (v < C.QV()) { p.qs = C.remapKeys(p.qs, v); p.miss = C.remapKeys(p.miss, v); p.qv = C.QV(); } return p; });
+  }
   function teachSave(list) { try { localStorage.setItem(TEACH_KEY, JSON.stringify(list)); } catch (e) { tip('保存できませんでした'); } }
   function rateOf(p, subj) { // 一発で正解した割合（解いた問題のうち）
     const ids = Object.keys(p.qs).filter(id => Q[id] && (!subj || Q[id].s === subj));

@@ -3,13 +3,20 @@
 window.SAVECODE = (function () {
   'use strict';
   const D = window.DATA, SUBJ = D.SUBJ;
-  const MAGIC = [0x4d, 0x42], FMT = 1;           // 'MB' ＋ 形式番号
+  const MAGIC = [0x4d, 0x42], FMT = 2;     // 形式2：問題DBの版を入れる・アイテムの並びを新しくした           // 'MB' ＋ 形式番号
   const KEY = 'manabi-battle/2026/まなび学園';     // チェック用の数字を作るカギ（書きかえ防止）
   const BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
   const TYPES = ['全教科', ...SUBJ], AURA = ['', '銀', '金', '虹'], BG = Object.keys(D.BGS);
   const QCODE = { 2: 1, 3: 2, 4: 3 }, QBACK = [0, 2, 3, 4]; // 0=まだ 1=復習まち 2=あと1回 3=卒業
   const EPOCH = Date.UTC(2020, 0, 1);
   const te = new TextEncoder(), td = new TextDecoder();
+  // 形式1のときのアイテムの並び（QRの持ち物ビットの順番）
+  const ITEMS_FMT1 = ['国語の紋章', '算数の紋章', '理科の紋章', '社会の紋章', '英語の紋章', '特化の王冠', 'バランスの天秤', 'あばれ斧', 'ねらいのメガネ', '一撃の角', '背水の書', '弱点さがしの虫めがね', 'にじの紋章', 'えんぴつのお守り', '連続正解の炎', '百科じてん', 'ひらめき電球', '失敗は成功のもと', 'ひらめきメガネ', 'やり直し消しゴム', 'どくキバ', 'かみなりの羽', 'もうどくビン', '雷鳴の太鼓', 'ひのこ石', '火山のかけら', 'こおりの結晶', '雪女のかんざし', 'うずまきキャンディ', '道化のトランプ', 'しゃぼん玉の杖', 'やみの霧', 'みつまたの槍', '悪魔の契約書', '木の盾', '城の大盾', 'トゲよろい', 'がんじょう石', 'おまもり', 'ばんそうこう', 'いのちの実', '巨人のハート', 'ドレインの牙', 'すなどけい', 'はね返しの鏡', 'ふういんの鍵', '鉄壁のこて', '吸血マント', 'いかさまサイコロ', '運命の指輪', 'おにぎり', '赤白ぼうし', 'ランドセル', '給食の牛乳', 'ラストのあめ', 'うわばき', 'くつした', 'じょうぎ', '教室のベル', 'たこあげ', 'ジュース', 'くまのぬいぐるみ', '応援ラッパ', 'ふたつのお面', '竜の逆鱗', '両刃の剣', '運命の水晶', '嵐の羽', '重力の石', 'ユニコーンの角'];
+  const QV = () => window.QDB_VERSION || 1;
+  // 古い問題番号 → 今の番号（qmap.js の対応表を順に当てる）
+  function mapId(id, fromV) { let x = +id; for (let v = fromV; v < QV(); v++) { const m = (window.QID_MAPS || {})[v]; x = m && m[x] ? m[x] : 0; if (!x) return 0; } return x; }
+  function remapKeys(obj, fromV) { if (!obj || fromV >= QV()) return obj; const o = {}; for (const k in obj) { const n = mapId(k, fromV); if (n) o[n] = obj[k]; } return o; }
+  const remapList = (a, fromV) => (fromV >= QV() ? a : (a || []).map(x => mapId(x, fromV)).filter(Boolean));
 
   class W {
     constructor() { this.b = []; }
@@ -36,7 +43,7 @@ window.SAVECODE = (function () {
   // S（セーブ）→ バイト列
   function encode(S, qmax) {
     const w = new W();
-    MAGIC.forEach(x => w.u8(x)); w.u8(FMT);
+    MAGIC.forEach(x => w.u8(x)); w.u8(FMT); w.u8(QV());
     w.str(S.pname); w.str(S.cname);
     SUBJ.forEach(s => w.vu(S.st[s]));
     w.u8(Math.max(0, TYPES.indexOf(S.type)));
@@ -67,6 +74,9 @@ window.SAVECODE = (function () {
     if (tail[0] !== (h >>> 24 & 255) || tail[1] !== (h >>> 16 & 255) || tail[2] !== (h >>> 8 & 255) || tail[3] !== (h & 255)) throw new Error('QRが こわれているか、書きかえられているよ');
     const r = new Rd(body); r.i = 2;
     const fmt = r.u8(); if (fmt > FMT) throw new Error('新しいバージョンのQRだよ。ゲームを新しくしてね');
+    const qv = fmt >= 2 ? r.u8() : 1;
+    if (qv > QV()) throw new Error('新しいバージョンのQRだよ。ゲームを新しくしてね');
+    const ITEMS = fmt >= 2 ? D.ITEMS.map(it => it.n) : ITEMS_FMT1;
     const o = { v: 2, pname: r.str(), cname: r.str(), st: {} };
     SUBJ.forEach(s => (o.st[s] = r.vu()));
     o.type = TYPES[r.u8()] || '全教科';
@@ -78,7 +88,7 @@ window.SAVECODE = (function () {
     BOSS.forEach((b, i) => { if (bw[i]) o.bossWin[b] = 1; if (b3[i]) o.boss3[b] = 1; });
     o.towerBest = {}; SUBJ.forEach(s => (o.towerBest[s] = r.vu()));
     const ni = r.vu(), own = r.bits(ni), fav = r.bits(ni);
-    o.owned = D.ITEMS.filter((it, i) => own[i]).map(it => it.n); o.fav = D.ITEMS.filter((it, i) => fav[i]).map(it => it.n);
+    o.owned = ITEMS.filter((n, i) => own[i] && D.ITEM[n]); o.fav = ITEMS.filter((n, i) => fav[i] && D.ITEM[n]);
     const na = r.vu(), ach = r.bits(na); o.ach = {}; D.ACH.forEach((a, i) => { if (ach[i]) o.ach[a.id] = o.day; });
     const ti = r.u8(), ai = r.u8(), bi = r.u8();
     o.sel = { title: ti && D.ACH[ti - 1] ? D.ACH[ti - 1].r.t || '' : '', aura: AURA[ai] || '', bg: BG[bi] || '部室' };
@@ -88,8 +98,9 @@ window.SAVECODE = (function () {
     for (const id in o.qs) if (o.qs[id] === 2) o.miss[id] = 1;
     const mids = Object.keys(o.qs).map(Number).filter(id => o.qs[id] === 3 || o.qs[id] === 4).sort((x, y) => x - y);
     if (r.i < body.length) r.bits(mids.length).forEach((m, i) => { if (m) o.miss[mids[i]] = 1; });
+    o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;
   }
-  return { encode, decode };
+  return { encode, decode, mapId, remapKeys, remapList, QV };
 })();

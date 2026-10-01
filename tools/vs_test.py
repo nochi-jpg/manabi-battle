@@ -31,7 +31,7 @@ with sync_playwright() as p:
     ctxB, B = player(b, 'けんた', 'ガオ', 2, 0.6)
 
     # QRの中身：作って読むと同じになる
-    rt = A.evaluate("(() => { const o = SAVECODE.decode(MB.qrBytes()); const S = MB.S; return { n: MB.qrBytes().length, st: JSON.stringify(o.st) === JSON.stringify(S.st), qs: JSON.stringify(o.qs) === JSON.stringify(Object.fromEntries(Object.entries(S.qs).sort((a,b)=>a[0]-b[0]))), owned: o.owned.length === S.owned.length, name: o.pname === S.pname && o.cname === S.cname, coins: o.coins === S.coins }; })()")
+    rt = A.evaluate("(() => { const o = SAVECODE.decode(MB.qrBytes()); const S = MB.S; return { n: MB.qrBytes().length, st: JSON.stringify(o.st) === JSON.stringify(S.st), qs: JSON.stringify(o.qs) === JSON.stringify(Object.fromEntries(Object.entries(S.qs).sort((a,b)=>a[0]-b[0]))), owned: o.owned.length === new Set(S.owned).size, name: o.pname === S.pname && o.cname === S.cname, coins: o.coins === S.coins }; })()")
     check(all(v for k, v in rt.items() if k != 'n'), f'QRの中身が元どおり {rt}')
     bad = A.evaluate("(() => { const b = MB.qrBytes(); b[10] ^= 1; try { SAVECODE.decode(b); return 'よめた'; } catch (e) { return e.message; } })()")
     check('書きかえ' in bad, f'書きかえたQRは読めない（{bad}）')
