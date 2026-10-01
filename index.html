@@ -41,6 +41,9 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .menuR button{height:110px;font-size:24px;text-align:left;padding:12px 18px;display:flex;flex-direction:column;justify-content:center;gap:4px}
 .menuR .wide{grid-column:span 2;height:150px;font-size:34px;background:linear-gradient(135deg,#ea580c,#b91c1c);border-color:#fdba74}
 .menuR small{font-size:16px;color:#e2e8f0}
+.sklist{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.skrow{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:rgba(30,41,59,.9);border:2px solid #22c55e}
+.skrow.lock{border-color:#475569;opacity:.75}
 .menuB{position:absolute;left:0;right:0;bottom:0;height:96px;display:flex;justify-content:center;gap:14px;align-items:center;background:rgba(0,0,0,.35)}
 .menuB button{width:220px;height:70px;font-size:19px;white-space:nowrap}
 /* ダンジョン */
@@ -69,15 +72,20 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 /* オーバーレイ（問題・イベント） */
 .ov{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:20}
 .ov.ovb{align-items:flex-end;padding-bottom:16px;background:rgba(0,0,0,.25)}
-.qbox{width:1080px;background:#f8fafc;color:#0f172a;border-radius:18px;padding:24px 28px;border:4px solid #334155}
+.ov.ovq{align-items:flex-end;padding-bottom:14px;background:rgba(0,0,0,.12)}
+.qbox{position:relative;width:1080px;background:rgba(248,250,252,.8);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);color:#0f172a;border-radius:18px;padding:18px 28px 14px;border:4px solid rgba(51,65,85,.85);box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .qbox .qh{font-size:20px;color:#475569;margin-bottom:6px}
-.qbox .qt{font-size:34px;line-height:1.45;min-height:100px}
-.qbox .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-.qbox .opts button{background:#e2e8f0;color:#0f172a;border-color:#94a3b8;font-size:26px;padding:16px;min-height:80px}
+.qbox .qt{font-size:32px;line-height:1.4;min-height:90px}
+.qbox .opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.qbox .opts button{background:rgba(226,232,240,.92);color:#0f172a;border-color:#94a3b8;font-size:26px;padding:12px 16px;min-height:72px}
 .qbox .opts button.ok{background:#4ade80}.qbox .opts button.ng{background:#f87171}
-.qbox .expl{margin-top:14px;font-size:24px;background:#fef9c3;border-radius:10px;padding:12px;line-height:1.5}
-.lockbar{height:6px;background:#cbd5e1;border-radius:3px;margin-top:10px;overflow:hidden}
-.lockbar i{display:block;height:100%;background:#3b82f6;width:0}
+.qbox .after{position:absolute;left:0;right:0;bottom:calc(100% + 10px)}
+.qbox .after:empty{display:none}
+.qbox .expl{font-size:24px;background:#fef9c3;color:#0f172a;border:3px solid #eab308;border-radius:14px;padding:12px 16px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.qbox .okmsg{display:inline-block;font-size:30px;background:#dcfce7;color:#15803d;border:3px solid #22c55e;border-radius:14px;padding:6px 26px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.lockrow{display:flex;align-items:center;gap:8px;height:18px;margin-top:4px;font-size:16px;color:#475569}
+.lockbar{flex:1;height:10px;background:rgba(203,213,225,.9);border-radius:5px;overflow:hidden}
+.lockbar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#fb923c);width:100%}
 .evbox{width:960px}
 .evbox .who{touch-action:manipulation;font-size:120px;text-align:center;line-height:1}
 .evbox .txt{font-size:26px;line-height:1.6;margin:14px 0;white-space:pre-line}
@@ -85,6 +93,12 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .choices button{min-width:240px}
 .itemcard{display:flex;flex-direction:column;align-items:center;gap:6px;width:200px;padding:12px;border-radius:14px;background:#1e293b;border:2px solid var(--line)}
 .itemcard .ie{font-size:56px}.itemcard .in{font-size:20px}.itemcard .id{font-size:15px;color:#cbd5e1;min-height:60px;text-align:center}
+.choices.cards{display:grid;grid-template-columns:repeat(auto-fit,168px);justify-content:center;gap:10px}
+.cards .itemcard{width:auto;padding:10px 8px;gap:4px}
+.cards .itemcard .ie{font-size:48px;line-height:1.1}
+.cards .itemcard .in{font-size:17px;line-height:1.3;min-height:44px;text-align:center;display:flex;align-items:center;justify-content:center}
+.cards .itemcard .id{font-size:13px;line-height:1.4;min-height:0;flex:1}
+.cards .itemcard button{margin-top:auto;min-width:0;width:100%}
 .r1{color:#cbd5e1}.r2{color:#86efac}.r3{color:#93c5fd}.r4{color:#d8b4fe}.r5{color:#fcd34d}
 /* バトル */
 .btl{background:linear-gradient(180deg,#312e81,#1e1b4b 60%,#0f0d2e)}

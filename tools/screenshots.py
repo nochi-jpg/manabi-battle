@@ -115,6 +115,9 @@ with sync_playwright() as p:
     pg.evaluate("void MB.go.titleScreen()"); shot('title', 'タイトル（2回目から）')
     pg.evaluate("void MB.go.debugRoom()"); shot('debug_room', 'デバッグルーム（先生用）')
     pg.evaluate("void MB.go.teacherPage()"); W(200); shot('teacher', '先生用ページ')
+    # ---- ここから下は あとから足した画面（番号がずれないように 最後に足していく）----
+    pg.evaluate("void MB.go.home()"); W(200)
+    pg.click('#grow'); shot('growth', 'せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）'); pg.evaluate(close_ov)
     b.close()
 
 lines = ['# 画面一覧（UI調整用）', '', '`python3 tools/screenshots.py` で撮りなおせます。番号（S01 など）で指示してください。', '',

@@ -39,6 +39,7 @@
 | S33 | [タイトル（2回目から）](screens/S33_title.png) |
 | S34 | [デバッグルーム（先生用）](screens/S34_debug_room.png) |
 | S35 | [先生用ページ](screens/S35_teacher.png) |
+| S36 | [せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）](screens/S36_growth.png) |
 
 ### S01 名前を決める画面（はじめて）
 ![S01](screens/S01_name.png)
@@ -144,3 +145,6 @@
 
 ### S35 先生用ページ
 ![S35](screens/S35_teacher.png)
+
+### S36 せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）
+![S36](screens/S36_growth.png)

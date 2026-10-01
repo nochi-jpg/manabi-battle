@@ -217,15 +217,16 @@
       const o = overlay(`<div class="qbox">
         <div class="qh">${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年 ${head}</div>
         <div class="qt">${esc(q.t)}</div>
-        <div class="lockbar"><i></i></div>
+        <div class="lockrow"><span>⏳ よく読もう</span><div class="lockbar"><i></i></div></div>
         <div class="opts">${opts.map((p, i) => `<button data-i="${i}" disabled>${esc(p.t)}</button>`).join('')}</div>
-        <div class="row" style="justify-content:flex-end;margin-top:10px"><span class="megane"></span></div>
-        <div class="after"></div></div>`);
+        <div class="row" style="justify-content:flex-end;margin-top:8px;min-height:44px"><span class="megane"></span></div>
+        <div class="after"></div></div>`, 'ovq');
       const btns = [...o.querySelectorAll('.opts button')];
       const bar = o.querySelector('.lockbar i');
-      bar.style.transition = `width ${T(lock)}ms linear`; requestAnimationFrame(() => (bar.style.width = '100%'));
+      // 読み飛ばし防止：のこり時間が へっていくゲージ
+      bar.style.transition = `width ${T(lock)}ms linear`; requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = '0%')));
       let openAt = 0;
-      setTimeout(() => { btns.forEach(b => (b.disabled = false)); openAt = Date.now(); o.querySelector('.lockbar').style.visibility = 'hidden'; }, T(lock));
+      setTimeout(() => { btns.forEach(b => (b.disabled = false)); openAt = Date.now(); o.querySelector('.lockrow').style.visibility = 'hidden'; }, T(lock));
       if (fighter && fighter.has('ひらめきメガネ') && fighter.megane > 0) {
         const mb = document.createElement('button'); mb.className = 'btn-blue'; mb.style.fontSize = '18px';
         mb.textContent = `👓 2択にする（のこり${fighter.megane}回）`;
@@ -250,11 +251,11 @@
         fastRun = dt < 900 ? fastRun + 1 : 0;
         const after = o.querySelector('.after');
         if (ok) {
-          after.innerHTML = `<div class="mid green" style="text-align:center;margin-top:10px">⭕ せいかい！</div>`;
+          after.innerHTML = `<div style="text-align:center"><span class="okmsg">⭕ せいかい！</span></div>`;
           await wait(900);
         } else {
-          after.innerHTML = `<div class="expl">❌ ざんねん… 答えは「${esc(q.a[0])}」<br>${esc(q.x)}</div>
-            <div style="text-align:right;margin-top:10px"><button class="btn-blue" disabled>わかった</button></div>`;
+          after.innerHTML = `<div class="expl">❌ ざんねん… 答えは「${esc(q.a[0])}」<br>${esc(q.x)}
+            <div style="text-align:right;margin-top:6px"><button class="btn-blue" disabled>わかった</button></div></div>`;
           const nb = after.querySelector('button');
           await wait(2500); nb.disabled = false;
           await new Promise(r => (nb.onclick = r));
@@ -593,6 +594,7 @@
         <button id="tow">🗼 無限の塔<small>きょうの のこり ${fmtTime(towerLeft)}</small></button>
         <button id="tri">🧪 おためしバトル<small>倒したボスと 練習試合</small></button>
         <button id="vs">🆚 対戦モード<small>2人で1台</small></button>
+        <button id="grow" style="grid-column:span 2;height:84px">📈 せいちょう・スキル<small>${growLine(t)}</small></button>
       </div>
       <div class="menuB">
         <button id="b1">🎰 ガチャ</button><button id="b2">🎒 もちもの</button><button id="b3">📋 問題リスト</button><button id="b4">🔳 QR</button><button id="b5">🏆 アチーブメント</button>
@@ -608,6 +610,7 @@
     $('#b5', el).onclick = () => achList();
     $('#vs', el).onclick = () => vsMode();
     $('#tri', el).onclick = () => trialMode();
+    $('#grow', el).onclick = () => growthPanel();
     $('#b4', el).onclick = () => qrScreen();
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
@@ -625,6 +628,34 @@
     const v = await fn();
     R.ns[key] = v === undefined ? null : v; save();
     return R.ns[key];
+  }
+
+  // ---- せいちょう（進化・スキル）----
+  const nextEvo = t => K.STAGE_LINE.find(x => t < x) || null;
+  const nextSkill = t => D.SKILLS.filter(k => K.SKILL_LINE[k.n] && t < K.SKILL_LINE[k.n]).sort((a, b) => K.SKILL_LINE[a.n] - K.SKILL_LINE[b.n])[0] || null;
+  function growLine(t) {
+    const e = nextEvo(t), k = nextSkill(t);
+    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `次のスキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('　／　');
+  }
+  function growthPanel() {
+    const t = total(S.st), stg = stageOf(t), e = nextEvo(t), sk = skillsOf(t);
+    const prev = stg === 0 ? 0 : K.STAGE_LINE[stg - 1];
+    const bar = (a, b) => `<div class="hpbar" style="width:100%;height:16px;margin:6px 0"><i style="width:${Math.min(100, (a / b) * 100)}%;background:linear-gradient(90deg,#22c55e,#a3e635)"></i></div>`;
+    const evo = e
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${lookOf(S.type, e)}</span>
+           <div style="flex:1"><div class="mid">進化まで あと <b class="gold">${e - t}</b></div>${bar(t - prev, e - prev)}<div class="xs dim">ステータスの ごうけい ${t} ／ ${e} で 進化</div></div></div>`
+      : `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><div class="mid gold">さいごの すがたまで 進化した！</div></div>`;
+    const rows = D.SKILLS.map(k => {
+      const line = K.SKILL_LINE[k.n] || 0, has = sk.includes(k.n);
+      return `<div class="skrow ${has ? '' : 'lock'}"><span class="mid">${has ? '✅' : '🔒'} ${esc(k.n)}</span>
+        <span class="sm">${has ? esc(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
+    }).join('');
+    const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;overflow-y:auto">
+      <div class="row" style="justify-content:space-between"><span class="big">📈 せいちょう・スキル</span><button class="btn-gray" id="cl">とじる</button></div>
+      <div class="panel" style="margin:8px 0">${evo}</div>
+      <div class="mid" style="margin:6px 0">スキル <span class="gold">${sk.length} / ${D.SKILLS.length}</span></div>
+      <div class="sklist">${rows}</div></div>`);
+    $('#cl', o).onclick = () => o.remove();
   }
 
   async function startDungeon() {

@@ -51,7 +51,7 @@ with sync_playwright() as p:
     # 1ターン目：プレイヤーの問題数を数える
     asked = 0; maxturn = 0
     end = "!!document.querySelector('.ov .choices') && document.querySelector('.ov').innerText.includes('おためしバトルなので')"
-    for _ in range(6000):
+    for _ in range(15000):
         if pg.evaluate(end): break
         t = pg.evaluate("MB.BT ? MB.BT.turn : 0"); maxturn = max(maxturn, t)
         a = pg.evaluate("MB.BT && MB.BT.acts.P && MB.BT.acts.P.ans ? MB.BT.acts.P.ans.length : 0"); asked = max(asked, a)
@@ -63,7 +63,7 @@ with sync_playwright() as p:
     # もう一度（同じそうび）
     pg.click('.ov .choices button >> nth=0'); pg.wait_for_timeout(200)
     check(pg.evaluate("MB.BT && [...MB.BT.P.items].length") == 2, 'もう一度：同じそうびで すぐ始まる')
-    for _ in range(6000):
+    for _ in range(15000):
         if pg.evaluate(end): break
         pg.evaluate(BOT, 0.8); pg.wait_for_timeout(20)
     # そうびをかえる
@@ -82,7 +82,7 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.bossStg = {}; MB.S.bossWin = {}; MB.S.stamina = 100")
     pg.click('#dun'); pg.wait_for_timeout(50); pg.click('.ov .choices button')
     home = "!!document.querySelector('#dun') && !document.querySelector('.ov')"
-    for _ in range(6000):
+    for _ in range(15000):
         if pg.evaluate(home): break
         pg.evaluate(BOT, 1.0); pg.wait_for_timeout(20)
     w = pg.evaluate("JSON.stringify(MB.S.bossStg)")
