@@ -102,8 +102,9 @@ with sync_playwright() as p:
     pg.click('#eq'); W(100); pg.click('#ok'); W(100)
     if bot_until(has('.roul'), n=300): shot('roulette', '先攻・後攻ルーレット')
     if bot_until("!!document.querySelector('.ov .choices') && document.querySelector('.ov').innerText.includes('決める権利をとった')", n=300): shot('first_choice', '先攻・後攻をえらぶ')
-    pg.evaluate("MB.BT.phase='end'"); pg.evaluate(close_ov)
-    pg.evaluate("void MB.go.home()"); W(100)
+    pg.evaluate("MB.BT.phase='end'")
+    for _ in range(15): pg.evaluate(close_ov); W(120)   # バトルの とちゅうの窓が 出てきても 消す
+    pg.evaluate("void MB.go.home()"); W(100); pg.evaluate(close_ov)
     pg.click('#b1'); shot('gacha', 'ガチャ')
     pg.evaluate("void MB.go.home()"); pg.click('#b2'); shot('itembook', 'もちもの（アイテム図鑑）')
     pg.click('.bk:not(.none)'); shot('item_detail', 'アイテムの説明'); pg.evaluate(close_ov)

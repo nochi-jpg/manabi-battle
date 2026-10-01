@@ -14,7 +14,7 @@ with zipfile.ZipFile(io.BytesIO(code)) as src, zipfile.ZipFile(out, 'w', zipfile
     for i in src.infolist():
         z.writestr(i, src.read(i))
     if ASSETS.exists():
-        files = [ASSETS / 'assets.local.js', ASSETS / 'CREDITS.md'] + sorted((ASSETS / 'images').rglob('*.*'))
+        files = [ASSETS / 'assets.local.js', ASSETS / 'assets.local.css', ASSETS / 'CREDITS.md'] + sorted((ASSETS / 'images').rglob('*.*'))
         for f in files:
             if f.is_file():
                 name = 'CREDITS-assets.md' if f.name == 'CREDITS.md' else str(f.relative_to(ASSETS)).replace('\\', '/')

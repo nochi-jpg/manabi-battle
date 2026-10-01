@@ -1341,7 +1341,7 @@
       el.querySelector('.hpbar i').style.width = r * 100 + '%';
       el.querySelector('.hpbar').classList.toggle('low', r < 0.3);
       el.querySelector('.hpt').textContent = `HP ${Math.max(0, R0(v.hp))} / ${f.maxhp}`;
-      el.querySelector('.stt').innerHTML = v.status.map(k => `<span title="${k}">${D.STATUS[k].e}${k}</span>`).join(' ') +
+      el.querySelector('.stt').innerHTML = v.status.map(k => `<span title="${k}">${art(g2(A, 'status', k), D.STATUS[k].e)}${k}</span>`).join(' ') +
         Object.entries(v.ct).filter(([, x]) => x > 0).map(([k, x]) => ` <span class="xs dim">${k}あと${x}</span>`).join('');
     });
   }
@@ -1385,7 +1385,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = ct > 0 || (frozen && k !== '通常攻撃');
-          return `<button data-k="${k}" ${dis ? 'disabled' : ''} style="text-align:left;font-size:22px">${esc(k)}${ct ? ` <span class="sm">（あと${ct}ターン）</span>` : ''}<br><span class="xs">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
+          return `<button data-k="${k}" ${dis ? 'disabled' : ''} style="text-align:left;font-size:22px">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}${esc(k)}${ct ? ` <span class="sm">（あと${ct}ターン）</span>` : ''}<br><span class="xs">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.k); }));
     });
