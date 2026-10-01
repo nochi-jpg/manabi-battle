@@ -35,15 +35,16 @@ with sync_playwright() as p:
     pg.click('#rev'); loop(1.0, home)
     check(pg.evaluate(f"({cnt})(2)") == 0 and pg.evaluate(f"({cnt})(3)") == wrong + right, '復習まち → あと1回')
     gain = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)") - st0
-    check(gain == wrong * 8 and pg.evaluate("MB.S.coins") - c0 == wrong * 8, f'復習まちの正解で +8・コイン+8（+{gain}）')
+    check(gain == wrong * 8 and pg.evaluate("MB.S.coins") - c0 == wrong * 40, f'復習まちの正解で +8・コイン+40（+{gain}）')
     pg.click('#rev'); pg.wait_for_timeout(100)
     check('回答できる問題はないようだ' in pg.inner_text('.ov'), '同じ問題は1日1回まで'); pg.click('.ov button')
 
     # 次の日：あと1回 → 卒業 +2・コイン+2
     pg.evaluate("for (const k in MB.S.qd) MB.S.qd[k] = '2000-01-01'")
-    st0 = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)")
+    st0, c0 = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)"), pg.evaluate("MB.S.coins")
     pg.click('#rev'); loop(1.0, home)
     n = wrong + right
+    check(pg.evaluate("MB.S.coins") - c0 == n * 10, '卒業はコイン+10')
     check(pg.evaluate(f"({cnt})(4)") == n, f'あと1回の正解で卒業 {n}問')
     check(pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)") - st0 == n * 2, '卒業は +2')
 

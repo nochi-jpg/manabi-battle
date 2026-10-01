@@ -12,14 +12,15 @@ window.DATA = (function () {
   // ---- 数字（【仮】④で調整）----
   const K = {
     START_STAT: 100,
-    // 正解の数は「ダンジョンで正解（または復習待ちを復習で正解）＋8」→「あと1回を復習で正解＋2」で合計10
+    // ステータス：ダンジョンで正解（または復習まちを復習で正解）＋8 → あと1回を復習で正解＋2（合計10）
+    // コイン　　：同じく ＋40 → ＋10（合計50）。不正解は0
     GAIN: 8, GAIN_REVIEW1: 8, GAIN_REVIEW2: 2, GAIN_OSARAI: 3,
     HPK: 0.70, EXP: 0.8, CRIT: 0.10, ALLRES: 0.85, CUTCAP: 0.25, HPCAP: 0.40,
     STAMINA_START: 100, STAMINA_DAY: 100, DUNGEON_COST: 50,
-    COIN_OK: 8, COIN_NG: 0, COIN_OSARAI: 3, COIN_RARE: 300, COIN_BOSS: 200,
+    COIN_OK: 40, COIN_NG: 0, COIN_OSARAI: 10, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4, TAKEHOME_PER_DAY: 2,
     BOSS_Q: 3, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
-    COIN_REVIEW: 8, COIN_REVIEW2: 2, TOWER_MS: 30 * 60 * 1000, TOWER_STEP: 25, TOWER_COIN_FIRST: 250, TOWER_COIN_AGAIN: 25, TOWER_HEARTS: 3,
+    COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 30 * 60 * 1000, TOWER_STEP: 25, TOWER_COIN_FIRST: 250, TOWER_COIN_AGAIN: 25, TOWER_HEARTS: 3,
     STAGE_LINE: [1500, 3500],           // ステータス合計でボス・見た目の段階が変わる
     SKILL_LINE: { 連続攻撃: 650, ガードバッシュ: 800, ドレイン: 1300, かんつう: 1800, カウンター: 2500, パワーシュート: 3200, ふういん: 4200 },
   };
