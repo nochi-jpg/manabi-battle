@@ -267,7 +267,7 @@
         if (upper.length && rnd() < mix) pool = upper.filter(q => q.g === Math.min(...upper.map(q => q.g)));
         q = pick(pool, rnd);
       } else {
-        let pool = QBY[subj].filter(q => (S.qs[q.id] === 1 || S.qs[q.id] === 4) && !taken.has(q.id));
+        let pool = QBY[subj].filter(q => (S.qs[q.id] === 3 || S.qs[q.id] === 4) && !taken.has(q.id));
         if (!pool.length) pool = QBY[subj].filter(q => !taken.has(q.id));
         q = pick(pool, rnd); osarai = true;
       }
