@@ -2103,7 +2103,9 @@
   }
 
   // ---- テスト用の入口（Playwright などから使う）----
-  window.MB = { get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), scan: b => (scanHook ? scanHook(b) : false) };
+  // テスト・画面撮影用（?test のときだけ）
+  const GO = /[?&]test/.test(location.search) ? { home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動 ----
   S = load();
