@@ -21,9 +21,17 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.owned = ['木の盾','どくキバ','おにぎり']; MB.S.stamina = 0")
     before = pg.evaluate("JSON.stringify({c:MB.S.coins,st:MB.S.st,qs:MB.S.qs,o:MB.S.owned,d:MB.S.dungeons,s:MB.S.stamina})")
 
+    # まだボスを倒していない → 入れない
     pg.click('#tri'); pg.wait_for_timeout(100)
-    check(pg.locator('#bs button').count() == 6, 'ボスが6体えらべる')
+    check('まだ ボスを倒していない' in pg.inner_text('.ov'), 'ボスを倒していないと 入れない'); pg.click('.ov button'); pg.wait_for_timeout(50)
+    # 算数★3・国語★1 だけ倒したことにする
+    pg.evaluate("MB.S.bossStg = { 算数: 4, 国語: 1 }")
+    pg.click('#tri'); pg.wait_for_timeout(100)
+    check(pg.locator('#sg button[data-g="1"]').is_disabled(), '倒していない強さ（★2）は えらべない')
+    pg.click('#sg button[data-g="0"]'); pg.wait_for_timeout(50)
+    check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '国語', '★1：倒した国語だけ')
     pg.click('#sg button[data-g="2"]'); pg.wait_for_timeout(50)
+    check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '算数', '★3：倒した算数だけ（ほかは ？？？）')
     pg.click('#bs button[data-b="算数"]'); pg.wait_for_timeout(100)
     check(pg.locator('#lt').count() == 0, 'そうびえらびに 時間制限がない')
     pg.wait_for_timeout(1500)
@@ -66,6 +74,26 @@ with sync_playwright() as p:
     check(pg.locator('#tri').count() == 1, 'ホームへもどる')
     after = pg.evaluate("JSON.stringify({c:MB.S.coins,st:MB.S.st,qs:MB.S.qs,o:MB.S.owned,d:MB.S.dungeons,s:MB.S.stamina})")
     check(before == after, 'コイン・ステータス・問題の記録・アイテム・スタミナが変わらない（ほうびなし・記録なし）')
+    # QRに 倒したボスの強さが入る
+    q = pg.evaluate("JSON.stringify(SAVECODE.decode(MB.qrBytes()).bossStg)")
+    check(json.loads(q) == {'算数': 4, '国語': 1}, f'QRで 倒したボスを引きつぐ {q}')
+    # ダンジョンでボスを倒すと記録される
+    pg.evaluate("MB.S.bossStg = {}; MB.S.bossWin = {}; MB.S.stamina = 100")
+    pg.click('#dun'); pg.wait_for_timeout(50); pg.click('.ov .choices button')
+    home = "!!document.querySelector('#dun') && !document.querySelector('.ov')"
+    for _ in range(6000):
+        if pg.evaluate(home): break
+        pg.evaluate(BOT, 1.0); pg.wait_for_timeout(20)
+    w = pg.evaluate("JSON.stringify(MB.S.bossStg)")
+    check(len(json.loads(w)) == 1 and list(json.loads(w).values())[0] == 1, f'ダンジョンでボスを倒すと記録（{w}）')
+    # デバッグ：ボス討伐 全開放
+    pg.evaluate("MB.S.bossStg = {}; MB.S.debug = { on: true, boss: true, bak: {} }")
+    pg.click('#tri'); pg.wait_for_timeout(100)
+    pg.click('#sg button[data-g="1"]'); pg.wait_for_timeout(50)
+    check(pg.locator('#bs button[data-b]').count() == 6, 'デバッグ：ボス討伐 全開放で 6体×3段階 えらべる')
+    pg.click('#bk'); pg.wait_for_timeout(50)
+    check(pg.evaluate("JSON.stringify(MB.S.bossStg)") == '{}', 'デバッグの全開放は セーブを書きかえない')
+    pg.evaluate("MB.S.debug = null")
     b.close()
 
 print('errors:', errors or 'なし'); print('NG:', fails or 'なし')

@@ -56,7 +56,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0,
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -97,9 +97,12 @@
     }
     if (s.v === 2) s.v = 3; // v2→v3：問題の番号に「問題DBの版（qv）」をつけた
     remapSave(s);
+    if (!s.bossStg) s.bossStg = bossStgFrom(s.bossWin, s.boss3);
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
+  // 倒したボスの強さ（★1〜3）を ビットで持つ（1=★1 2=★2 4=★3）。記録がないときは bossWin・boss3 から作る
+  function bossStgFrom(win = {}, b3 = {}) { const o = {}; for (const b in win) o[b] = 1; for (const b in b3) o[b] = (o[b] || 0) | 4; return o; }
   // 問題の番号をそろえなおしたとき（qmap.js）、セーブの中の古い番号を新しい番号にする
   function remapSave(s) {
     const C = window.SAVECODE, from = s.qv || 1;
@@ -395,7 +398,7 @@
       tapWho(); const c2 = await p2;
       if (!c2) return;
       if (taps >= 10) { // デバッグモード起動（セーブは消さない）
-        S.debug = { on: true, st: false, stamina: false, coins: false, items: false, allq: false, tower: false, bak: {} };
+        S.debug = { on: true, st: false, stamina: false, coins: false, items: false, allq: false, tower: false, boss: false, bak: {} };
         save(); home(); tip('🔧 デバッグモードを起動しました（せっていに デバッグの項目が出ます）', 3500); settings(); return;
       }
       resetSave(); nameScreen();
@@ -408,7 +411,7 @@
   const dbgOn = () => !!(S && S.debug && S.debug.on);
   const dbg = k => dbgOn() && !!S.debug[k];
   const towerLimit = () => (dbg('tower') ? 999 * 60 * 1000 : K.TOWER_MS);
-  const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分']];
+  const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分'], ['boss', '👑 ボス討伐 全開放（おためしバトル）']];
   // スイッチの状態をセーブに反映（オフにしたら もとの値にもどす）
   function applyDebug() {
     if (!dbgOn()) return;
@@ -588,7 +591,7 @@
         <button class="wide" id="dun">⚔️ 育成ダンジョン<small>スタミナ ${K.DUNGEON_COST} をつかう</small></button>
         <button id="rev">📕 復習ダンジョン<small>まっている問題 ${review}問</small></button>
         <button id="tow">🗼 無限の塔<small>きょうの のこり ${fmtTime(towerLeft)}</small></button>
-        <button id="tri">🧪 おためしバトル<small>そうびを ためす</small></button>
+        <button id="tri">🧪 おためしバトル<small>倒したボスと 練習試合</small></button>
         <button id="vs">🆚 対戦モード<small>2人で1台</small></button>
       </div>
       <div class="menuB">
@@ -1450,6 +1453,7 @@
       S.dungeons++; refreshType();
       if (beat) {
         S.clears++; S.bossWin[R.boss] = 1;
+        S.bossStg = S.bossStg || {}; S.bossStg[R.boss] = (S.bossStg[R.boss] || 0) | (1 << stg);
         if (stg === 2) S.boss3[R.boss] = 1;
         if (!cont) S.nocont++;
       }
@@ -1805,8 +1809,13 @@
   // =====================================================================
   const TRIAL_BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
   let TR = null; // { boss, stg, items }
+  // 倒したことのあるボス（デバッグの「ボス討伐 全開放」なら全部）
+  const beaten = (b, g) => dbg('boss') || !!(((S.bossStg || {})[b] || 0) & (1 << g));
+  const anyBeaten = g => TRIAL_BOSS.some(b => beaten(b, g));
   async function trialMode() {
-    TR = TR || { boss: null, stg: stageOf(total(S.st)), items: S.owned.filter(n => S.fav.includes(n)).slice(0, 4) };
+    if (![0, 1, 2].some(anyBeaten)) { await dialog({ who: '🧪', text: 'まだ ボスを倒していないよ。\n育成ダンジョンで ボスを倒すと、おためしバトルで 何回でも 戦えるようになるよ！' }); return; }
+    if (!TR) { const g0 = stageOf(total(S.st)); TR = { boss: null, stg: anyBeaten(g0) ? g0 : [2, 1, 0].find(anyBeaten), items: S.owned.filter(n => S.fav.includes(n)).slice(0, 4) }; }
+    if (!anyBeaten(TR.stg)) TR.stg = [2, 1, 0].find(anyBeaten);
     for (;;) {
       if (!TR.boss) { const b = await trialSelect(); if (!b) return home(); TR.boss = b; }
       if (!TR.picked) {
@@ -1829,17 +1838,18 @@
         const stg = TR.stg;
         const el = render(`<div class="scr center" style="gap:14px">
           <div class="big">🧪 おためしバトル</div>
-          <div class="sm dim">アイテムの組み合わせを ためそう！ ほうびはないけど、何回でも あそべるよ（1ターン${K.VS_Q}問×3ターン）</div>
-          <div class="row" id="sg">${[0, 1, 2].map(i => `<button data-g="${i}" class="${i === stg ? 'btn-main' : 'btn-gray'}" style="font-size:20px;padding:8px 18px">ボスの強さ ${'★'.repeat(i + 1)}</button>`).join('')}</div>
+          <div class="sm dim">倒したことのあるボスと 何回でも戦えるよ。ほうびはないよ（1ターン${K.VS_Q}問×3ターン）</div>
+          <div class="row" id="sg">${[0, 1, 2].map(i => `<button data-g="${i}" class="${i === stg ? 'btn-main' : 'btn-gray'}" ${anyBeaten(i) ? '' : 'disabled'} style="font-size:20px;padding:8px 18px">ボスの強さ ${'★'.repeat(i + 1)}</button>`).join('')}</div>
           <div style="display:grid;grid-template-columns:repeat(3,360px);gap:12px" id="bs">${TRIAL_BOSS.map(b => {
             const bd = D.BOSSES[b];
+            if (!beaten(b, stg)) return `<button disabled style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:48px;line-height:1">❓</span><span class="mid">？？？</span><span class="xs dim">まだ倒していない</span></button>`;
             return `<button data-b="${b}" style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
               <span style="font-size:48px;line-height:1">${art(g2(A, 'boss', b, stg), bd.e[stg])}</span><span class="mid">${esc(bd.n[stg])}</span>
               <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => D.ITEM[n].e).join('')}</span></button>`;
           }).join('')}</div>
           <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
         el.querySelectorAll('#sg button').forEach(b => (b.onclick = () => { TR.stg = +b.dataset.g; draw(); }));
-        el.querySelectorAll('#bs button').forEach(b => (b.onclick = () => res(b.dataset.b)));
+        el.querySelectorAll('#bs button[data-b]').forEach(b => (b.onclick = () => res(b.dataset.b)));
         $('#bk', el).onclick = () => res(null);
       };
       draw();

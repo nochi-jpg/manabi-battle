@@ -61,6 +61,8 @@ window.SAVECODE = (function () {
     // 一発で正解できなかった問題（先生用ページの正答率）。「復習まち」は必ずまちがえているので、あと1回・卒業の問題だけ書く
     const mids = []; for (let id = 1; id <= qmax; id++) if (S.qs[id] === 3 || S.qs[id] === 4) mids.push(id);
     w.bits(mids.length, i => !!(S.miss || {})[mids[i]]);
+    // 倒したボスの強さ（6体×★1〜3）
+    w.bits(18, i => !!(((S.bossStg || {})[BOSS[Math.floor(i / 3)]] || 0) & (1 << (i % 3))));
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -98,6 +100,7 @@ window.SAVECODE = (function () {
     for (const id in o.qs) if (o.qs[id] === 2) o.miss[id] = 1;
     const mids = Object.keys(o.qs).map(Number).filter(id => o.qs[id] === 3 || o.qs[id] === 4).sort((x, y) => x - y);
     if (r.i < body.length) r.bits(mids.length).forEach((m, i) => { if (m) o.miss[mids[i]] = 1; });
+    if (r.i < body.length) { o.bossStg = {}; r.bits(18).forEach((x, i) => { if (x) { const b = BOSS[Math.floor(i / 3)]; o.bossStg[b] = (o.bossStg[b] || 0) | (1 << (i % 3)); } }); }
     o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;
