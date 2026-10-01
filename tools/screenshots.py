@@ -118,6 +118,14 @@ with sync_playwright() as p:
     # ---- ここから下は あとから足した画面（番号がずれないように 最後に足していく）----
     pg.evaluate("void MB.go.home()"); W(200)
     pg.click('#grow'); shot('growth', 'せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）'); pg.evaluate(close_ov)
+    pg.evaluate("MB.S.ach['solved1']='x'; MB.S.ach['solved100']='x'; MB.S.ach['solved50']='x'")
+    pg.click('#set'); W(100); pg.click('#sT'); shot('titles', 'せってい：称号をえらぶ')
+    pg.click('.ttl.lock >> nth=0'); shot('title_howto', '称号：？？？をタップ（手に入れかた）'); pg.evaluate(close_ov)
+    pg.click('#bk'); W(100); pg.click('#sB'); shot('bgs', 'せってい：背景をえらぶ')
+    pg.click('#bk'); W(100); pg.click('#sN'); shot('rename', 'せってい：モンスターの名前をかえる'); pg.evaluate(close_ov)
+    pg.evaluate("MB.S.fedDay=''; history.replaceState(null,'',location.href+'&feed'); MB.go.home()"); W(200)
+    shot('feed', 'ごはん（1日1回）')
+    pg.click('.ov .choices button'); W(150); shot('feed_after', 'ごはん：食べたあと（せいかく）'); pg.evaluate(close_ov)
     b.close()
 
 lines = ['# 画面一覧（UI調整用）', '', '`python3 tools/screenshots.py` で撮りなおせます。番号（S01 など）で指示してください。', '',

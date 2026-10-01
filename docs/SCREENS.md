@@ -40,6 +40,12 @@
 | S34 | [デバッグルーム（先生用）](screens/S34_debug_room.png) |
 | S35 | [先生用ページ](screens/S35_teacher.png) |
 | S36 | [せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）](screens/S36_growth.png) |
+| S37 | [せってい：称号をえらぶ](screens/S37_titles.png) |
+| S38 | [称号：？？？をタップ（手に入れかた）](screens/S38_title_howto.png) |
+| S39 | [せってい：背景をえらぶ](screens/S39_bgs.png) |
+| S40 | [せってい：モンスターの名前をかえる](screens/S40_rename.png) |
+| S41 | [ごはん（1日1回）](screens/S41_feed.png) |
+| S42 | [ごはん：食べたあと（せいかく）](screens/S42_feed_after.png) |
 
 ### S01 名前を決める画面（はじめて）
 ![S01](screens/S01_name.png)
@@ -148,3 +154,21 @@
 
 ### S36 せいちょう・スキル（進化まで・次のスキル・おぼえたスキル）
 ![S36](screens/S36_growth.png)
+
+### S37 せってい：称号をえらぶ
+![S37](screens/S37_titles.png)
+
+### S38 称号：？？？をタップ（手に入れかた）
+![S38](screens/S38_title_howto.png)
+
+### S39 せってい：背景をえらぶ
+![S39](screens/S39_bgs.png)
+
+### S40 せってい：モンスターの名前をかえる
+![S40](screens/S40_rename.png)
+
+### S41 ごはん（1日1回）
+![S41](screens/S41_feed.png)
+
+### S42 ごはん：食べたあと（せいかく）
+![S42](screens/S42_feed_after.png)

@@ -21,7 +21,9 @@ window.DATA = (function () {
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4, TAKEHOME_PER_DAY: 2,
     BOSS_Q: 3, VS_Q: 5, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
     COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 30 * 60 * 1000, TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
-    STAGE_LINE: [1500, 3500],           // ステータス合計でボス・見た目の段階が変わる
+    STAGE_LINE: [1500, 3500],           // ステータス合計でボスの段階が変わる
+    LOOK_LINE: [1200, 2500, 4000],      // ステータス合計で見た目が進化する（4段階。仮の数字）
+    SEIKAKU_START: 1000, SEIKAKU_MAX: 2000,
     SKILL_LINE: { 連続攻撃: 650, ガードバッシュ: 800, ドレイン: 1300, かんつう: 1800, カウンター: 2500, パワーシュート: 3200, ふういん: 4200 },
   };
 
@@ -180,10 +182,22 @@ window.DATA = (function () {
   };
 
   // ---- プレイヤーの見た目（タイプ×3段階・絵文字）----
+  // タイプ（5教科＋全教科）× かわいい系(cute)・かっこいい系(cool) × 4段階 ＝ 48種類（③で画像に差しかえ：assets.js の player）
   const LOOK = {
-    全教科: ['🐣', '🦊', '🦄'], 国語: ['🦎', '🦖', '🐉'], 算数: ['🐟', '🐬', '🐳'],
-    理科: ['🌱', '🦋', '🦚'], 社会: ['🐤', '🦉', '🦅'], 英語: ['🐱', '🦁', '🐲'],
+    全教科: { cute: ['🐣', '🐰', '🦄', '🧚'], cool: ['🐥', '🦊', '🐺', '🦸'] },
+    国語: { cute: ['🦎', '🐹', '🐲', '🧜'], cool: ['🐊', '🦖', '🐅', '🐉'] },
+    算数: { cute: ['🐟', '🐠', '🐬', '🦭'], cool: ['🦐', '🦈', '🐙', '🐳'] },
+    理科: { cute: ['🌱', '🐛', '🦋', '🌸'], cool: ['🌿', '🐜', '🦂', '🦚'] },
+    社会: { cute: ['🐤', '🐧', '🦢', '🕊️'], cool: ['🐦', '🦜', '🦉', '🦅'] },
+    英語: { cute: ['🐱', '🐈', '🦝', '🐼'], cool: ['🐈‍⬛', '🐆', '🐯', '🦁'] },
   };
+  const STYLE_NAME = { cute: 'かわいい系', cool: 'かっこいい系' };
+
+  // ---- せいかく（ごはんだけで変わる。0〜2000。1000以下＝かわいい系、1001以上＝かっこいい系）----
+  // [この値まで, 名前]
+  const SEIKAKU = [[0, '高貴で高潔な性格'], [200, '気品のある性格'], [400, '上品な性格'], [600, 'おしとやかな性格'], [800, 'やさしい性格'], [1000, 'おだやかな性格'],
+    [1200, 'げんきな性格'], [1400, 'かちきな性格'], [1600, '勇気のある性格'], [1800, '英雄的な性格'], [2000, '英雄的で高潔な性格']];
+  const FOODS = { candy: { n: 'キャンディ', e: '🍬', d: -200 }, meat: { n: '肉', e: '🍖', d: 200 } };
 
   // ---- 仲間（応援） ----
   const FRIENDS = [
@@ -239,8 +253,8 @@ window.DATA = (function () {
     ac('無限の塔', `tower_${s}_${v || 'top'}`, v ? `無限の塔：${s}の塔で ${v}階に 到達` : `無限の塔：${s}を 全制覇`, 'tower', v, { t: `${s}の塔 ${n}` }, s)));
   // 育成・収集
   ac('育成・収集', 'type', 'タイプが はじめて変わる', 'type', 1, { t: '目覚め' });
-  ac('育成・収集', 'stage2', 'モンスターが 2段階目に 成長', 'stage', 1, { t: '成長期' });
-  ac('育成・収集', 'stage3', 'モンスターが 3段階目に 成長', 'stage', 2, { bg: '桜の校庭' });
+  ac('育成・収集', 'stage2', 'モンスターが 2段階目に 進化', 'stage', 1, { t: '成長期' });
+  ac('育成・収集', 'stage3', 'モンスターが 3段階目に 進化', 'stage', 2, { bg: '桜の校庭' });
   [[1000, 'ルーキー'], [2000, 'エース'], [3000, 'スター'], [5000, 'レジェンド']].forEach(([v, n]) => ac('育成・収集', 'total' + v, `ステータスの合計が ${v}`, 'total', v, { t: n }));
   ac('育成・収集', 'skill8', 'スキルを 8つすべて 覚える', 'skills', 8, { t: '技のデパート' });
   [[10, { t: 'コレクター' }], [30, { bg: '宝物庫' }], [50, { t: '収集家' }]].forEach(([v, r]) => ac('育成・収集', 'items' + v, `アイテムを ${v}個 集める`, 'items', v, r));
@@ -253,5 +267,5 @@ window.DATA = (function () {
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
   const GACHA_COST = 1000, GACHA_PITY = 5;
 
-  return { ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, LOOK, FRIENDS, RARITY_W };
+  return { ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
 })();

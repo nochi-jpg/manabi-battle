@@ -10,6 +10,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(has_touch=True); pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.add_init_script('window.FAST = true'); pg.goto(URL)
     pg.fill('#pn', 'せんせい'); pg.fill('#cn', 'テスト'); pg.click('#go'); pg.wait_for_timeout(100)
+    pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     def to_reset(taps):
         pg.click('#set'); pg.wait_for_timeout(100); pg.click('#rs'); pg.wait_for_timeout(100)
@@ -21,6 +22,7 @@ with sync_playwright() as p:
     to_reset(9)
     check(pg.query_selector('#pn') is not None, '9回タッチでは ふつうに「さいしょから」になる')
     pg.fill('#pn', 'せんせい'); pg.fill('#cn', 'テスト'); pg.click('#go'); pg.wait_for_timeout(100)
+    pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     to_reset(10)
     check(pg.evaluate("!!(MB.S && MB.S.debug && MB.S.debug.on)") and pg.evaluate("MB.S.coins") == 123, '10回タッチで デバッグモード（セーブは消えない）')
