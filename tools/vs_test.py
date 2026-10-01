@@ -69,6 +69,8 @@ with sync_playwright() as p:
         return False
     ok = play("MB.VS && MB.VS.phase === 'end'", reload=0.03)
     check(ok, f'対戦が最後まで進んだ（とちゅうで再読みこみ {reloads}回）')
+    vb = A.evaluate("[MB.VS.bt && MB.VS.bt.bgVs, (document.querySelector('#app > .scr').style.background.match(/images\\/[^\"')]+/)||['なし'])[0]]")
+    check(vb[0] in ('国語','算数','理科','社会','英語','無') and (vb[1] == 'なし' or 'dun_' in vb[1]), f'対戦の背景は ダンジョンの背景から ランダム {vb}')
     res = A.evaluate("MB.VS.result")
     check(res in ('P', 'B', 'draw'), f'勝敗 {res}')
     picks = A.evaluate("MB.VS.picks")

@@ -155,7 +155,8 @@
   function refreshType() { S.type = typeOf(S.st, S.type); if (S.type !== '全教科') S.typeChanged = true; }
 
   // ---- 小さな部品 ----
-  function render(html, cls) {
+  // sk：画面ごとの背景（assets の scrBg。ガチャ＝gacha、リザルト＝result、問題リスト・アチーブ・もちもの＝library）
+  function render(html, cls, sk) {
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
     const el = app.firstElementChild;
     // 画像の背景は 少し暗くして 文字を読みやすくする
@@ -166,9 +167,11 @@
       return el;
     }
     // ダンジョン・ボス戦は ボスの属性ごとの背景（画像があるとき）
-    let bg = '';
+    let bg = sk ? g2(A, 'scrBg', sk) : '';
     if (cls === 'dun' && R && R.boss) bg = g2(A, 'dunBoss', R.boss);
-    if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'btlBoss', BT.B.type);
+    // ボス戦・おためしバトルは 闘技場で固定。対戦は ダンジョンの背景から ランダム（対戦ごとに決めて しまっておく）
+    if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'scrBg', 'arena');
+    if (cls === 'btl' && BT && BT.vs) bg = g2(A, 'dunBoss', BT.bgVs) || g2(A, 'scrBg', 'arena');
     bg = bg || g2(A, 'bg', BG[cls]);
     if (bg) el.style.background = `${shade(cls === 'btl' || cls === 'dun' ? 0.2 : 0.35)}, url("${bg}") center/cover`;
     return el;
@@ -589,7 +592,7 @@
           const ok = !!S.ach[a.id];
           return `<div class="qrow" style="cursor:default;${ok ? '' : 'color:#94a3b8'}">${ok ? '✅' : '⬜'} ${esc(a.d)} → ${ok ? `<span class="gold">${rewardText(a.r)}</span>` : '？？？'}</div>`;
         }).join('')).join('')}
-      </div>`, 'res');
+      </div>`, 'res', 'library');
     $('#bk', el).onclick = () => home();
   }
 
@@ -609,7 +612,7 @@
       ${!pool.length ? '<div class="sm">いま出せるアイテムがないよ（スキルや、もとになるアイテムを手に入れると出るようになる）</div>' : ''}
       <button class="btn-main" id="pull" ${S.coins < D.GACHA_COST || !pool.length ? 'disabled' : ''}>ガチャを引く（🪙${D.GACHA_COST}）</button>`}
       <div class="row"><button class="btn-blue" id="rate" style="font-size:20px">提供割合</button><button class="btn-gray" id="bk" style="font-size:20px">🏠 ホームへ</button></div>
-      </div>`, 'res');
+      </div>`, 'res', 'gacha');
     $('#bk', el).onclick = () => home();
     $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `★1　35%\n★2　30%\n★3　20%\n★4　10%\n★5　5%\n5回目ごとに ★4以上が かならず出ます（★4 67%・★5 33%）。\nまだ持っていないアイテムだけが出ます。そのレア度のアイテムを ぜんぶ持っているときは、近いレア度のアイテムが出ます。\n「出る条件」があるアイテムは、条件を満たすまで出ません。` });
     const pb = $('#pull', el); if (pb) pb.onclick = () => pullGacha();
@@ -651,7 +654,7 @@
         <div class="mid" style="color:#f9a8d4">♡ おきにいり</div>
         <div class="bkrow">${S.fav.filter(n => S.owned.includes(n)).map(cell).join('') || '<span class="sm dim">アイテムをタップして ♡ をおすと、ここに並ぶよ</span>'}</div>
         ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
-      </div>`, 'res');
+      </div>`, 'res', 'library');
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
       const n = c.dataset.n;
@@ -1633,7 +1636,7 @@
         <div class="row" style="justify-content:space-around;font-size:24px">${SUBJ.map(s => { const d = S.st[s] - R.startSt[s]; return `<div style="text-align:center">${D.SUBJ_EMO[s]} ${s}<br><b>${S.st[s]}</b><br><span class="${d ? 'green' : 'dim'}">+${d}</span></div>`; }).join('')}</div>
         <div class="mid" style="text-align:center;margin-top:12px">ごうけい ${t0} → <b class="gold">${t1}</b>　　🪙 +${R.coins}（もっている ${S.coins}）</div>
         ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}</div>` : ''}
-      </div></div>`, 'res');
+      </div></div>`, 'res', 'result');
     await wait(1500);
     // 持ち帰り（未取得のものから1個。1日2個まで。ボス撃破報酬も候補にまぜる）
     await once('take', async () => {
@@ -1868,7 +1871,7 @@
         <div class="sm dim">${subj}：${[2, 3, 4].map(k => `${QST[k][0]}${QST[k][1]} ${cnt(k)}`).join('　')}　⬜まだ ${cnt(0)}</div>
         <div class="panel" id="ql" style="height:520px;overflow-y:auto;padding:8px">
           ${qs.map(q => { const v = S.qs[q.id] || 0; return `<div class="qrow" data-id="${q.id}">${QST[v][0]} <span class="xs dim">No.${q.id}</span> ${esc(q.t)}</div>`; }).join('')}
-        </div></div>`, 'res');
+        </div></div>`, 'res', 'library');
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('[data-s]').forEach(b => (b.onclick = () => questionList(b.dataset.s, grade)));
     el.querySelectorAll('[data-g]').forEach(b => (b.onclick = () => questionList(subj, +b.dataset.g)));
@@ -2080,7 +2083,7 @@
       }
       if (V.phase === 'intro') {
         await tapScreen('2人で 画面を見てください');
-        V.bt = { vs: true, cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
+        V.bt = { vs: true, bgVs: pick(Object.keys(D.BOSSES)), cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
         BT = hydrate(V.bt); BT.snap = dynAll(); V.phase = 'battle'; saveVs();
         battleScreen(); $('#turn').textContent = '🆚 対戦';
         await vsIntro(); continue;
