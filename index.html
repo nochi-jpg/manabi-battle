@@ -12,6 +12,10 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
 body{font-family:var(--f);color:#fff;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+/* 日本語の改行：文節（ことばのまとまり）で折り返す・1〜2文字だけ次の行に落ちないように */
+body{word-break:auto-phrase;line-break:strict;overflow-wrap:break-word}
+button,.in,.mt,.mid,.big,.nm,.ttl,.qh,.lbl{text-wrap:balance}
+.txt,.expl,.qt,.id,.msg,.blog,.qrow,.sm,.xs,.tip,.say{text-wrap:pretty}
 button{font-family:var(--f);color:#fff;cursor:pointer;border:2px solid var(--line);background:#334155;border-radius:12px;padding:10px 16px;font-size:22px;transition:transform .08s,filter .1s}
 button:hover:not(:disabled){filter:brightness(1.2)}
 button:active:not(:disabled){transform:scale(.96)}
@@ -69,6 +73,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .slot .new{position:absolute;top:-8px;right:-8px;font-size:12px;background:#ef4444;border-radius:6px;padding:1px 4px}
 .subjbar{position:absolute;bottom:24px;left:24px;right:24px;display:flex;gap:12px;justify-content:center}
 .subjbar button{width:220px;height:96px;font-size:28px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.subjbar .btn-main,.subjbar .btn-gray,.subjbar .btn-blue{width:auto;min-width:240px;white-space:nowrap;padding-left:40px;padding-right:40px}
 .subjbar small{font-size:18px}
 .msg{position:absolute;left:24px;top:390px;width:820px;font-size:24px;line-height:1.5;min-height:110px}
 .float{position:absolute;font-size:36px;font-weight:bold;pointer-events:none;animation:fl 1.2s ease-out forwards;text-shadow:0 2px 6px #000}
@@ -91,17 +96,23 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .qbox .opts button.ok{background:#4ade80}.qbox .opts button.ng{background:#f87171}
 .qbox .after{position:absolute;left:0;right:0;bottom:calc(100% + 10px)}
 .qbox .after:empty{display:none}
+.qdetail{background:rgba(255,255,255,.97)}
+.qdetail .expl{margin-top:18px}
 .qbox .expl{font-size:24px;background:#fef9c3;color:#0f172a;border:3px solid #eab308;border-radius:14px;padding:12px 16px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .qbox .okmsg{display:inline-block;font-size:30px;background:#dcfce7;color:#15803d;border:3px solid #22c55e;border-radius:14px;padding:6px 26px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 .lockrow{display:flex;align-items:center;gap:8px;height:18px;margin-top:4px;font-size:16px;color:#475569}
 .lockbar{flex:1;height:10px;background:rgba(203,213,225,.9);border-radius:5px;overflow:hidden}
 .lockbar i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#fb923c);width:100%}
 .evbox{width:960px}
-.evbox .who{touch-action:manipulation;font-size:120px;text-align:center;line-height:1}
+.newb{position:absolute;top:6px;right:6px;z-index:2;font-size:12px;font-weight:bold;letter-spacing:.05em;color:#fff;background:#ef4444;border-radius:999px;padding:1px 7px;box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.cards .itemcard .in.l{font-size:15px}.cards .itemcard .in.xl{font-size:13px}
+.itemcard .in.l{font-size:20px}.itemcard .in.xl{font-size:18px}
+.rule{color:#fde68a}
+.evbox .who{touch-action:manipulation;font-size:120px;text-align:center;line-height:1.1;margin-bottom:8px}
 .evbox .txt{font-size:26px;line-height:1.6;margin:14px 0;white-space:pre-line}
 .choices{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
 .choices button{min-width:240px}
-.itemcard{display:flex;flex-direction:column;align-items:center;gap:6px;width:200px;padding:12px;border-radius:14px;background:#1e293b;border:2px solid var(--line)}
+.itemcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;width:200px;padding:12px;border-radius:14px;background:#1e293b;border:2px solid var(--line)}
 .itemcard .ie{font-size:56px}.itemcard .ir{font-size:18px;letter-spacing:2px;line-height:1}.itemcard .in{font-size:22px;line-height:1.3;text-align:center}.itemcard .id{font-size:16px;line-height:1.5;color:#cbd5e1;min-height:60px;text-align:left;align-self:stretch}
 .panel.center>.itemcard,.center>div>.itemcard{width:400px;padding:16px 20px}
 .choices.cards{display:grid;grid-template-columns:repeat(auto-fit,168px);justify-content:center;gap:10px}

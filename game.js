@@ -187,9 +187,12 @@
     const el = document.createElement('div'); el.className = 'cutin'; el.innerHTML = text; app.appendChild(el);
     await wait(ms); el.remove();
   }
+  const NEWB = '<span class="newb">NEW</span>';
   function itemCard(n, extra = '') {
     const it = D.ITEM[n]; const isNew = !S.owned.includes(n);
-    return `<div class="itemcard"><div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}">${esc(n)}${isNew ? ' <span class="red">🆕</span>' : ''}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
+    // 名前が長いときは 文字を少し小さく。NEW は カードの右上に
+    const len = [...n].length, sz = len >= 10 ? ' xl' : len >= 8 ? ' l' : '';
+    return `<div class="itemcard">${isNew ? NEWB : ''}<div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}${sz}">${esc(n)}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
   }
   function showItem(n) {
     return new Promise(res => {
@@ -389,7 +392,7 @@
       <div class="panel col" style="gap:16px;padding:28px">
         <label class="mid">プレイヤーネーム（8文字まで）<br><input id="pn" maxlength="8" placeholder="きみの名前"></label>
         <label class="mid">モンスターの名前（8文字まで）<br><input id="cn" maxlength="8" placeholder="モンスターの名前"></label>
-        <div class="sm" style="color:#fde68a;text-align:center">${NAME_RULE}</div>
+        <div class="sm rule" style="text-align:center">${NAME_RULE}</div>
         <button class="btn-main" id="go">けってい</button>
         <div class="sm red" id="err"></div>
       </div></div>`, 'name');
@@ -487,7 +490,7 @@
     const o = overlay(`<div class="panel evbox" style="text-align:center">
       <div class="who">${artPlayer(S.type, total(S.st))}</div>
       <div class="mid">✏️ モンスターの名前をかえる</div>
-      <div class="sm" style="margin:10px 0;color:#fde68a">${NAME_RULE}</div>
+      <div class="sm rule" style="margin:10px 0">${NAME_RULE}</div>
       <input id="nn" maxlength="8" value="${esc(S.cname)}" style="width:420px"><div class="sm red" id="ne" style="min-height:24px"></div>
       <div class="choices"><button class="btn-main" id="ok">けってい</button><button class="btn-gray" id="cl">やめる</button></div></div>`);
     const inp = $('#nn', o); inp.focus(); inp.select();
@@ -631,7 +634,7 @@
     o.querySelector('.magic').classList.add('flash');
     await wait(500);
     o.querySelector('.magic').remove();
-    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${itemCard(it.n).replace(' <span class="red">🆕</span>', '')}</div><div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
+    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${itemCard(it.n).replace(NEWB, '')}</div><div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
     await new Promise(res => ($('#gr button', o).onclick = res));
     o.remove(); gacha();
   }
@@ -968,7 +971,7 @@
     setFoe(artUi('treasure', '🎁'), 'ボス前の宝箱');
     const names = await once('names', () => { const a = []; for (let k = 0; k < 3; k++) { const n = drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: a }); if (n) a.push(n); } return a; });
     if (!names.length) { await dialog({ who: '🎁', text: '宝箱はからっぽだった……\n（もうぜんぶ持っているみたい！）' }); return; }
-    if (firstRun() && !('pick' in R.ns)) tip('🆕 はまだ持っていないアイテム。リザルトで1個持ち帰れるよ');
+    if (firstRun() && !('pick' in R.ns)) tip('「NEW」は まだ持っていないアイテム。リザルトで1個持ち帰れるよ');
     await once('pick', async () => { const n = await chooseItem('🎁 宝箱が3つある！ 1つえらんで開けよう', names, { labels: names.map(() => '開ける') }); queuePick(n, '🎁 宝箱を開けた！'); return n; });
     await flushPend();
   }
@@ -1775,7 +1778,7 @@
         const line = st.kind === 'cont' ? `<span class="sm gold">▶ つづきから ${t.floor + 1}階</span><span class="xs">${hearts(t.hearts, K.TOWER_HEARTS)}</span>`
           : st.kind === 'new' ? `<span class="sm">🎫 入場できる</span><span class="xs">1階から</span>` : `<span class="sm dim">きょうは 入場ずみ</span><span class="xs dim">また あした</span>`;
         return `<button data-s="${s}" ${st.kind === 'used' ? 'disabled' : ''} style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
-          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階 ／ 頂上 ${top}階</span></button>`;
+          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階<br>頂上 ${top}階</span></button>`;
       }).join('')}</div>
       <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
     $('#bk', el).onclick = () => home();
@@ -1871,7 +1874,7 @@
     el.querySelectorAll('[data-g]').forEach(b => (b.onclick = () => questionList(subj, +b.dataset.g)));
     el.querySelectorAll('.qrow').forEach(r => (r.onclick = () => {
       const q = Q[r.dataset.id], v = S.qs[q.id] || 0;
-      const o = overlay(`<div class="qbox"><div class="qh">${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年　No.${q.id}　${QST[v][0]} ${QST[v][1]}</div>
+      const o = overlay(`<div class="qbox qdetail"><div class="qh"><span>${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年</span>　No.${q.id}　${QST[v][0]} ${QST[v][1]}</div>
         <div class="qt">${esc(q.t)}</div>
         <div class="opts">${q.a.map((t, i) => `<button disabled class="${i === 0 ? 'ok' : ''}" style="opacity:1">${i === 0 ? '⭕ ' : ''}${esc(t)}</button>`).join('')}</div>
         <div class="expl">${esc(q.x)}</div><div style="text-align:right;margin-top:10px"><button class="btn-blue">とじる</button></div></div>`);
@@ -2122,7 +2125,7 @@
           const n = c.dataset.n;
           if (!pr.owned.includes(n)) return;
           const on = sel.includes(n);
-          const o = overlay(`<div class="panel center">${itemCard(n).replace(' <span class="red">🆕</span>', '')}<div class="row">
+          const o = overlay(`<div class="panel center">${itemCard(n).replace(NEWB, '')}<div class="row">
             <button class="${on ? 'btn-gray' : 'btn-main'}" id="eq" ${!on && sel.length >= 4 ? 'disabled' : ''}>${on ? 'そうびを はずす' : 'そうびする'}</button><button class="btn-gray" id="cl">とじる</button></div></div>`);
           $('#cl', o).onclick = () => o.remove();
           $('#eq', o).onclick = () => { sel = on ? sel.filter(x => x !== n) : [...sel, n]; o.remove(); draw(); };
@@ -2185,8 +2188,8 @@
   function debugRoom() {
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">🔧 デバッグルーム（先生用）</div>
-      <button class="btn-main" id="tr" style="width:520px">📲 QR引きつぎ（このPCに セーブを移す）</button>
-      <button class="btn-blue" id="tp" style="width:520px">📊 先生用ページ（クラスの記録）</button>
+      <button class="btn-main" id="tr" style="width:560px">📲 QR引きつぎ<br><span class="sm">このPCに セーブを移す</span></button>
+      <button class="btn-blue" id="tp" style="width:560px">📊 先生用ページ<br><span class="sm">クラスの記録</span></button>
       <button class="btn-gray" id="bk">もどる（名前を決める画面へ）</button></div>`, 'btl');
     $('#tr', el).onclick = () => transferQR();
     $('#tp', el).onclick = () => teacherPage();
