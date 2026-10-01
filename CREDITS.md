@@ -20,8 +20,7 @@
 |---|---|---|
 | Monsters Pixel Pack vol.01〜10 | モケモ（mokemo-factory） | 主人公・ボス・雑魚 |
 | Witches & Wizards Backgrounds | Lornn（lornn.itch.io） | ホームの背景 |
-| MediavelFree | toffeecraft | 窓・メニューの木のわく、HPバーのわく |
 | [Verboten Arcane Stash] Basic Skills and Buffs | Atelier Pixerelia | 状態異常・スキルのアイコン |
-| Complete UI Essential Pack（Free） | Crusenho（CC BY 4.0・色ちがいを作成） | ボタン・選択のかど |
-| Cozy UI Pack（DEMO） | dobo_ui | アイテムのマス・ハート・スタミナのアイコン |
+| Fantasy RPG UI Pack（DEMO） | dobo_ui | ボタン・パネル・カード・マス・リボン |
+| Garden cozy kit | mandinhart | ハート・スタミナ・コイン・メニューのアイコン |
 | 背景パック（BG.zip：forest・cavern・mountains・ruins・waterfall） | 出典確認中 | タイトル・ダンジョン・バトル・リザルトの背景 |

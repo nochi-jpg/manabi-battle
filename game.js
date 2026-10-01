@@ -31,6 +31,8 @@
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
   const ic = (k, e) => `<span class="ic">${artUi(k, e)}</span>`; // UIのアイコン（画像がなければ絵文字）
+  const mi = (k, e) => `<span class="mi">${art(g2(A, 'menu', k), e)}</span>`; // メニューのアイコン
+  const mb = (k, e, title, sub) => `${mi(k, e)}<span class="mt">${title}${sub !== undefined ? `<small>${sub}</small>` : ''}</span>`;
   const hearts = (n, max) => ic('heart', '❤️').repeat(n) + ic('heartEmpty', '🖤').repeat(max - n);
   const BG = { home: 'home', dun: 'dungeon', btl: 'battle', res: 'result', title: 'title', name: 'name' };
 
@@ -668,8 +670,8 @@
     const review = dueList().length;
     const towerLeft = Math.max(0, towerLimit() - S.towerMs);
     const el = render(`
-      <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
-        <span id="sta" style="cursor:pointer">${ic('stamina', '⚡')} スタミナ ${S.stamina}<span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
+      <div class="topbar"><span class="pname">${mi('user', '👤')} ${esc(S.pname)}</span><span class="sp"></span>
+        <span id="sta" class="pill" style="cursor:pointer">${ic('stamina', '⚡')} スタミナ <b>${S.stamina}</b><span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold pill">${ic('coin', '🪙')} <b>${S.coins}</b></span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">${mi('set', '⚙️')} せってい</button></div>
       <div class="chara col">
         <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
@@ -683,15 +685,15 @@
         </div>
       </div>
       <div class="menuR">
-        <button class="wide" id="dun">⚔️ 育成ダンジョン<small>スタミナ ${K.DUNGEON_COST} をつかう</small></button>
-        <button id="rev">📕 復習ダンジョン<small>まっている問題 ${review}問</small></button>
-        <button id="tow">🗼 無限の塔<small>きょうの のこり ${fmtTime(towerLeft)}</small></button>
-        <button id="tri">🧪 おためしバトル<small>倒したボスと 練習試合</small></button>
-        <button id="vs">🆚 対戦モード<small>2人で1台</small></button>
-        <button id="grow" style="grid-column:span 2;height:84px">📈 せいちょう・スキル<small>${growLine(t)}</small></button>
+        <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
+        <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
+        <button id="tow">${mb('tow', '🗼', '無限の塔', `きょうの のこり ${fmtTime(towerLeft)}`)}</button>
+        <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
+        <button id="vs">${mb('vs', '🆚', '対戦モード', '2人で1台')}</button>
+        <button id="grow" style="grid-column:span 2;height:84px">${mb('grow', '📈', 'せいちょう・スキル', growLine(t))}</button>
       </div>
       <div class="menuB">
-        <button id="b1">🎰 ガチャ</button><button id="b2">🎒 もちもの</button><button id="b3">📋 問題リスト</button><button id="b4">🔳 QR</button><button id="b5">🏆 アチーブメント</button>
+        <button id="b1">${mb('b1', '🎰', 'ガチャ')}</button><button id="b2">${mb('b2', '🎒', 'もちもの')}</button><button id="b3">${mb('b3', '📋', '問題リスト')}</button><button id="b4">${mb('b4', '🔳', 'QR')}</button><button id="b5">${mb('b5', '🏆', 'アチーブメント')}</button>
       </div>`, 'home');
     $('#me', el).onclick = () => { $('#say', el).textContent = '「' + pick(LINES) + '」'; };
     $('#dun', el).onclick = () => startDungeon();

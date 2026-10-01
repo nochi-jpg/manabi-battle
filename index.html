@@ -38,7 +38,8 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .chara .say{min-height:40px;text-align:center;font-size:20px;color:#fde68a}
 .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 14px;font-size:20px}
 .menuR{position:absolute;right:40px;top:90px;width:560px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.menuR button{height:110px;font-size:24px;text-align:left;padding:12px 18px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.menuR button{height:110px;font-size:24px;text-align:left;padding:12px 18px;display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px}
+.mt{display:flex;flex-direction:column;gap:4px}.mi .art img{image-rendering:auto}
 .menuR .wide{grid-column:span 2;height:150px;font-size:34px;background:linear-gradient(135deg,#ea580c,#b91c1c);border-color:#fdba74}
 .menuR small{font-size:16px;color:#e2e8f0}
 .setbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
@@ -54,7 +55,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .skrow{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:rgba(30,41,59,.9);border:2px solid #22c55e}
 .skrow.lock{border-color:#475569;opacity:.75}
 .menuB{position:absolute;left:0;right:0;bottom:0;height:96px;display:flex;justify-content:center;gap:14px;align-items:center;background:rgba(0,0,0,.35)}
-.menuB button{width:220px;height:70px;font-size:19px;white-space:nowrap}
+.menuB button{width:220px;height:70px;font-size:19px;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:8px}
 /* ダンジョン */
 .dun{background:linear-gradient(180deg,#1c1917,#292524 50%,#0c0a09)}
 .prog{position:absolute;top:12px;left:24px;right:24px;display:flex;align-items:center;gap:6px;font-size:26px}
