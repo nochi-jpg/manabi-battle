@@ -62,7 +62,8 @@
   function dayCheck() {
     const t = today(); if (S.day === t) return;
     const days = Math.max(1, Math.round((new Date(t) - new Date(S.day)) / 864e5) || 1);
-    S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0; S.playDays = (S.playDays || 0) + 1;
+    if (S.stamina < K.STAMINA_MAX) S.stamina = Math.min(K.STAMINA_MAX, S.stamina + K.STAMINA_DAY * days); // 2000までためておける
+    S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0; S.playDays = (S.playDays || 0) + 1;
     save();
   }
   function packRun() {
@@ -660,7 +661,7 @@
     const towerLeft = Math.max(0, towerLimit() - S.towerMs);
     const el = render(`
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
-        <span>⚡ スタミナ ${S.stamina}</span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
+        <span id="sta" style="cursor:pointer">⚡ スタミナ ${S.stamina}<span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
       <div class="chara col">
         <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
@@ -687,6 +688,7 @@
     $('#me', el).onclick = () => { $('#say', el).textContent = '「' + pick(LINES) + '」'; };
     $('#dun', el).onclick = () => startDungeon();
     $('#set', el).onclick = () => settings();
+    $('#sta', el).onclick = () => staminaHelp();
     $('#rev', el).onclick = () => reviewDungeon();
     $('#tow', el).onclick = () => towerSelect();
     $('#b3', el).onclick = () => questionList();
@@ -699,6 +701,16 @@
     $('#b4', el).onclick = () => qrScreen();
     if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); }); return; }
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
+  }
+
+  // ---- スタミナの説明 ----
+  function staminaHelp() {
+    const full = S.stamina >= K.STAMINA_MAX;
+    return dialog({ who: '⚡', name: 'スタミナって なに？', text: `<div style="text-align:left;font-size:22px;line-height:1.8">・育成ダンジョンに 入るときに <b class="gold">${K.DUNGEON_COST}</b> つかうよ
+・毎朝5時に <b class="gold">${K.STAMINA_DAY}</b> たまるよ（1日2回 ダンジョンに 入れる）
+・遊ばなかった日の ぶんも たまって、<b class="gold">${K.STAMINA_MAX}</b> まで ためておけるよ
+・復習ダンジョン・無限の塔・おためしバトル・対戦は スタミナを つかわないよ</div>
+いまの スタミナ：<b class="gold">${S.stamina}</b> / ${K.STAMINA_MAX}${full ? '\n<span class="red">いっぱい！ これ以上は たまらないよ。ダンジョンで つかおう！</span>' : ''}` });
   }
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
