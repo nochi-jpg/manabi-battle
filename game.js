@@ -369,12 +369,14 @@
     if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
       o.remove();
-      const c1 = await dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      let taps = 0; // ひみつの入口：確認画面の⚠️を合わせて10回以上タッチ →「ぜんぶ消す」
+      const tapWho = () => { const w = [...app.querySelectorAll('.ov .who')].pop(); if (!w) return; w.style.cursor = 'default';
+        w.addEventListener('pointerdown', e => { e.preventDefault(); taps++; if (taps === 10) w.style.transform = 'rotate(8deg)'; }); };
+      const p1 = dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      tapWho(); const c1 = await p1;
       if (!c1) return;
-      let taps = 0;
       const p2 = dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
-      const w = [...app.querySelectorAll('.ov .who')].pop(); if (w) w.onclick = () => taps++; // ひみつの入口：⚠️を10回以上タッチ
-      const c2 = await p2;
+      tapWho(); const c2 = await p2;
       if (!c2) return;
       if (taps >= 10) { // デバッグモード起動（セーブは消さない）
         S.debug = { on: true, st: false, stamina: false, coins: false, items: false, allq: false, tower: false, bak: {} };
@@ -1918,7 +1920,7 @@
     if (!c1) return debugRoom();
     const c2 = await dialog({ who: '⚠️', text: had ? `このPCには すでに「${esc(had.pname)}」のセーブがあります。\n上書きして 消えてしまいますが、ほんとうに いいですか？` : 'もういちど確認します。ほんとうに 引きつぎますか？', choices: [{ label: 'はい、引きつぐ', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
     if (!c2) return debugRoom();
-    S = migrate(pr); R = null; BT = null; S.run = null; rawSave();
+    S = migrate(pr); S.debug = null; R = null; BT = null; S.run = null; rawSave(); // 引きついだら デバッグモードは必ずオフ
     await dialog({ who: '✅', text: `引きつぎました！\n${esc(S.pname)} さんの データで はじめられます` });
     titleScreen();
   }
