@@ -153,7 +153,8 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 /* ドット絵のモンスター：ふわふわ動く・影・主人公は相手のほうを向く */
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 .chara .emo .art img,.fighter .emo .art img,.field .me .art img,.field .foe .art img{animation:bob 1.6s ease-in-out infinite;filter:drop-shadow(0 10px 6px rgba(0,0,0,.45))}
-#fP .emo .art,.field .me .art{display:inline-block;transform:scaleX(-1)}
+/* 素材の絵は ぜんぶ右向きにそろえてある → 右側にいるもの（ボス・雑魚・対戦のプレイヤーB）は反転して 左向きに */
+#fB .emo .art,.field .foe .art{display:inline-block;transform:scaleX(-1)}
 .fighter.hit .art img{animation:none}
 /* ガチャ */
 .magic{width:260px;height:260px;border-radius:50%;border:6px dashed var(--c,#a78bfa);box-shadow:0 0 30px var(--c,#a78bfa),inset 0 0 40px var(--c,#a78bfa);opacity:.85}
