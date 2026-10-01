@@ -209,19 +209,22 @@
 
   // ---- 4択（連打対策つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
   let fastRun = 0;
-  function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null } = {}) {
+  function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null, gauge = null } = {}) {
     return new Promise(res => {
       let done = false;
       const opts = shuffle(q.a.map((t, i) => ({ t, ok: i === 0 })));
       const lock = Math.min(3000, Math.max(1000, 600 + q.t.length * 30));
       const o = overlay(`<div class="qbox">
-        <div class="qh">${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年 ${head}</div>
+        <div class="qh row" style="justify-content:space-between"><span>${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年 ${head}</span>${gauge ? '<span class="qgw">問題ゲージ <span class="gauge qg"><i></i></span> <b class="qgt"></b></span>' : ''}</div>
         <div class="qt">${esc(q.t)}</div>
         <div class="lockrow"><span>⏳ よく読もう</span><div class="lockbar"><i></i></div></div>
         <div class="opts">${opts.map((p, i) => `<button data-i="${i}" disabled>${esc(p.t)}</button>`).join('')}</div>
         <div class="row" style="justify-content:flex-end;margin-top:8px;min-height:44px"><span class="megane"></span></div>
         <div class="after"></div></div>`, 'ovq');
       const btns = [...o.querySelectorAll('.opts button')];
+      // バトル中：問題ゲージを 窓の中にも出す（後ろのゲージは窓にかくれるため）
+      const drawG = () => { if (!gauge) return; const { m, n } = gauge(); const g = o.querySelector('.qg'); g.style.setProperty('--n', n); g.querySelector('i').style.width = Math.min(100, m * 100) + '%'; g.classList.toggle('over', m > 1.001); o.querySelector('.qgt').textContent = '×' + m.toFixed(2); };
+      drawG();
       const bar = o.querySelector('.lockbar i');
       // 読み飛ばし防止：のこり時間が へっていくゲージ
       bar.style.transition = `width ${T(lock)}ms linear`; requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = '0%')));
@@ -246,6 +249,7 @@
         btns.forEach(x => (x.disabled = true)); o.querySelector('.megane').innerHTML = '';
         const ok = opts[i].ok;
         if (onAnswer) onAnswer(ok);
+        drawG();
         btns.forEach((x, j) => { if (opts[j].ok) x.classList.add('ok'); });
         if (!ok) b.classList.add('ng');
         fastRun = dt < 900 ? fastRun + 1 : 0;
@@ -1225,7 +1229,10 @@
     const el = $(f === BT.P ? '#fP' : '#fB'); if (!el) return;
     const g = el.querySelector('.gauge'); g.style.visibility = 'visible';
     const m = st ? gaugeMult(f, st, n) : 0;
-    g.querySelector('i').style.width = Math.min(100, (m / 1.6) * 100) + '%';
+    // 全問正解で ちょうど満タン。問題の数だけ くぎり線。アイテムで1倍をこえたら 金色に光る
+    g.style.setProperty('--n', n);
+    g.querySelector('i').style.width = Math.min(100, m * 100) + '%';
+    g.classList.toggle('over', m > 1.001);
     el.querySelector('.gtxt').textContent = st ? `問題ゲージ ×${m.toFixed(2)}（${st.correct}/${n}問正解）` : '';
   }
   function hideGauges() { app.querySelectorAll('.gauge').forEach(g => (g.style.visibility = 'hidden')); app.querySelectorAll('.gtxt').forEach(g => (g.textContent = '')); }
@@ -1296,7 +1303,7 @@
     while (act.ans.length < n) {
       const q = drawSolvedQ(act.subj, BT.used, P.qs || S.qs);
       await ask(q, {
-        head: `（${act.ans.length + 1}/${n}問目）`, fighter: P,
+        head: `（${act.ans.length + 1}/${n}問目）`, fighter: P, gauge: () => ({ m: gaugeMult(P, st, n), n }),
         onAnswer: ok => { gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; btSave(); },
       });
       showGauge(P, st, n);
