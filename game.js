@@ -55,7 +55,7 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0,
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {},
       playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
@@ -167,7 +167,7 @@
   }
   function itemCard(n, extra = '') {
     const it = D.ITEM[n]; const isNew = !S.owned.includes(n);
-    return `<div class="itemcard"><div class="ie">${artItem(n)}</div><div class="in r${it.r}">${'★'.repeat(it.r)} ${esc(n)}${isNew ? ' <span class="red">🆕</span>' : ''}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
+    return `<div class="itemcard"><div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}">${esc(n)}${isNew ? ' <span class="red">🆕</span>' : ''}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
   }
   function showItem(n) {
     return new Promise(res => {
@@ -209,18 +209,21 @@
 
   // ---- 4択（連打対策つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
   let fastRun = 0;
-  function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null, gauge = null } = {}) {
+  // keep：{} をわたすと 窓を閉じずに 次の問題も同じ窓に出す（無限の塔）。おわったら keep.o.remove()
+  function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null, gauge = null, keep = null } = {}) {
     return new Promise(res => {
       let done = false;
       const opts = shuffle(q.a.map((t, i) => ({ t, ok: i === 0 })));
       const lock = Math.min(3000, Math.max(1000, 600 + q.t.length * 30));
-      const o = overlay(`<div class="qbox">
+      const html = `<div class="qbox">
         <div class="qh row" style="justify-content:space-between"><span>${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年 ${head}</span>${gauge ? '<span class="qgw">問題ゲージ <span class="gauge qg"><i></i></span> <b class="qgt"></b></span>' : ''}</div>
         <div class="qt">${esc(q.t)}</div>
         <div class="lockrow"><span>⏳ よく読もう</span><div class="lockbar"><i></i></div></div>
         <div class="opts">${opts.map((p, i) => `<button data-i="${i}" disabled>${esc(p.t)}</button>`).join('')}</div>
         <div class="row" style="justify-content:flex-end;margin-top:8px;min-height:44px"><span class="megane"></span></div>
-        <div class="after"></div></div>`, 'ovq');
+        <div class="after"></div></div>`;
+      const o = keep && keep.o ? keep.o : overlay(html, 'ovq');
+      if (keep) { o.innerHTML = html; keep.o = o; }
       const btns = [...o.querySelectorAll('.opts button')];
       // バトル中：問題ゲージを 窓の中にも出す（後ろのゲージは窓にかくれるため）
       const drawG = () => { if (!gauge) return; const { m, n } = gauge(); const g = o.querySelector('.qg'); g.style.setProperty('--n', n); g.querySelector('i').style.width = Math.min(100, m * 100) + '%'; g.classList.toggle('over', m > 1.001); o.querySelector('.qgt').textContent = '×' + m.toFixed(2); };
@@ -236,7 +239,7 @@
         mb.onclick = () => { fighter.megane--; mb.remove(); let k = 0; btns.forEach((b, i) => { if (!opts[i].ok && k < 2) { b.style.visibility = 'hidden'; k++; } }); };
         o.querySelector('.megane').appendChild(mb);
       }
-      const finish = r => { if (done) return; done = true; o.remove(); res(r); };
+      const finish = r => { if (done) return; done = true; if (!keep) o.remove(); res(r); };
       if (ctl) ctl.cancel = () => finish({ cancel: true });
       if (extra) {
         const xb = document.createElement('button'); xb.className = 'btn-gray'; xb.style.fontSize = '18px'; xb.textContent = extra;
@@ -1623,44 +1626,58 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(c).padStart(2, '0')}`;
   }
   function towerOrder(subj) { if (dbg('allq')) return shuffle(QBY[subj].map(q => q.id)); return [4, 5, 6].flatMap(g => shuffle(QBY[subj].filter(q => q.g === g).map(q => q.id))); }
+  // 入場券：教科ごとに 1日1回（くりこしなし）。前の日からの つづき は 前の日の入場券なので、
+  // そのまま再開でき、ゲームオーバーになっても きょうの入場券で もう一度入れる
+  const towerTicketFree = s => dbg('tower') || (S.towerTicket || {})[s] !== today();
+  function towerState(s) {
+    const t = S.tower[s];
+    if (t && t.order && t.order.length) return { kind: 'cont', t };
+    return towerTicketFree(s) ? { kind: 'new' } : { kind: 'used' };
+  }
   async function towerSelect() {
     dayCheck();
     const left = towerLimit() - S.towerMs;
-    if (left <= 0) { await dialog({ who: '🗼', text: 'きょうは もう のぼれないよ（1日30分まで）\nまた あしたの朝5時から のぼれるよ' }); return; }
+    if (left <= 0) { await dialog({ who: '🗼', text: 'きょうは もう のぼれないよ（1日30分まで）\nまた あしたの朝5時から のぼれるよ' }); return home(); }
     const el = render(`<div class="scr center" style="gap:16px">
       <div class="big">🗼 無限の塔</div>
       <div class="mid">きょうの のこり時間 <span class="gold">${fmtTime(left)}</span></div>
-      <div class="sm dim">1問＝1階。ハート3つ。3回まちがえたら 1階からやりなおし。いつでも中断できるよ</div>
+      <div class="sm dim" style="text-align:center">1問＝1階。正解するたびに 🪙+${K.TOWER_COIN}。ハート3つ。3回まちがえたら おしまい（次は1階から）<br>どの塔も 1日1回 入れる（あしたに くりこせない）。とちゅうで やめても、つづきから 再開できるよ</div>
       <div class="row" id="ts">${SUBJ.map(s => {
-        const t = S.tower[s], top = QBY[s].length;
-        return `<button data-s="${s}" style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
-          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span><span class="sm">${t && t.floor ? `つづきから ${t.floor + 1}階` : '1階から'}</span>
-          <span class="xs">${t ? '❤️'.repeat(t.hearts) : '❤️❤️❤️'}</span><span class="xs dim">さいこう ${S.towerBest[s] || 0}階 ／ 頂上 ${top}階</span></button>`;
+        const st = towerState(s), top = QBY[s].length, t = st.t;
+        const line = st.kind === 'cont' ? `<span class="sm gold">▶ つづきから ${t.floor + 1}階</span><span class="xs">${'❤️'.repeat(t.hearts)}${'🖤'.repeat(K.TOWER_HEARTS - t.hearts)}</span>`
+          : st.kind === 'new' ? `<span class="sm">🎫 入場できる</span><span class="xs">1階から</span>` : `<span class="sm dim">きょうは 入場ずみ</span><span class="xs dim">また あした</span>`;
+        return `<button data-s="${s}" ${st.kind === 'used' ? 'disabled' : ''} style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階 ／ 頂上 ${top}階</span></button>`;
       }).join('')}</div>
       <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('#ts button').forEach(b => (b.onclick = () => towerRun(b.dataset.s)));
   }
   async function towerRun(subj) {
-    if (!S.tower[subj] || !S.tower[subj].order.length) { S.tower[subj] = { order: towerOrder(subj), floor: 0, hearts: K.TOWER_HEARTS }; save(); }
+    const st = towerState(subj);
+    if (st.kind === 'used') return towerSelect();
+    if (st.kind === 'new') { // きょうの入場券をつかう
+      S.towerTicket = { ...(S.towerTicket || {}), [subj]: today() };
+      S.tower[subj] = { order: towerOrder(subj), floor: 0, hearts: K.TOWER_HEARTS, day: today() }; save();
+    }
     const tw = S.tower[subj], top = tw.order.length;
     const el = render(`
       <div class="prog"><span class="mid">🗼 ${D.SUBJ_EMO[subj]} ${subj}の塔</span><span class="mid" style="margin-left:24px" id="hearts"></span>
-        <span class="coin">⏱️ <b class="gold" id="timer"></b></span></div>
-      <div class="field" style="flex-direction:column;justify-content:center">
-        <div style="font-size:140px;line-height:1">🗼</div><div class="big" id="floor"></div><div class="sm dim" id="best"></div>
-      </div>
-      <div class="msg panel" id="msg" style="width:1232px"></div>
-      <div class="subjbar" id="subj"></div>`, 'dun');
+        <span class="coin"><span class="gold" id="tcoin"></span>　⏱️ <b class="gold" id="timer"></b></span></div>
+      <div class="field" style="flex-direction:column;justify-content:flex-start;padding-top:20px;gap:4px">
+        <div style="font-size:120px;line-height:1">🗼</div><div class="big" id="floor"></div><div class="sm dim" id="best"></div>
+      </div>`, 'dun');
+    let got = 0;
     const upd = () => {
       $('#hearts').textContent = '❤️'.repeat(tw.hearts) + '🖤'.repeat(K.TOWER_HEARTS - tw.hearts);
       $('#floor').textContent = `${tw.floor + 1}階`;
       $('#best').textContent = `さいこう ${S.towerBest[subj] || 0}階 ／ 頂上 ${top}階`;
+      $('#tcoin').textContent = `🪙 ${S.coins}${got ? `（+${got}）` : ''}`;
     };
     upd();
     // 時計（塔にいる間だけ減る）
     let last = Date.now(), lastSave = Date.now(), timeUp = false;
-    const ctl = {};
+    const ctl = {}, keep = {};
     const tick = setInterval(() => {
       const now = Date.now(); S.towerMs += now - last; last = now;
       const t = $('#timer'); if (t) t.textContent = fmtTime(towerLimit() - S.towerMs);
@@ -1671,47 +1688,38 @@
     try {
       while (!timeUp) {
         if (tw.floor >= top) { endMsg = 'top'; break; }
-        msg(`${tw.floor + 1}階の問題！ 正解すると 上の階へ。 <span class="sm dim">（25階ごとに コインがもらえるよ）</span>`);
         const q = Q[tw.order[tw.floor]];
-        let gotCoin = 0;
+        // 問題の窓は 閉じずに 次の問題を出す（テンポよく）
         const r = await ask(q, {
-          head: `（${tw.floor + 1}階）`, extra: '⏸️ 中断してホームへ', ctl,
+          head: `（${tw.floor + 1}階）`, extra: '⏸️ 中断する', ctl, keep,
           onAnswer: ok => {
-            if (ok) {
-              tw.floor++;
-              if (tw.floor % K.TOWER_STEP === 0) { // 25階ごと（初めて＋250／2回目から＋25）
-                gotCoin = tw.floor > (S.towerBest[subj] || 0) ? K.TOWER_COIN_FIRST : K.TOWER_COIN_AGAIN;
-                S.coins += gotCoin;
-              }
-              S.towerBest[subj] = Math.max(S.towerBest[subj] || 0, tw.floor);
-            } else tw.hearts--;
-            save();
+            if (ok) { tw.floor++; S.coins += K.TOWER_COIN; got += K.TOWER_COIN; S.towerBest[subj] = Math.max(S.towerBest[subj] || 0, tw.floor); }
+            else tw.hearts--;
+            save(); upd();
           },
         });
         if (r.cancel) break;
         if (r.quit) { endMsg = 'quit'; break; }
-        upd();
-        if (r.ok) { msg(`⭕ ${tw.floor}階 クリア！${gotCoin ? ` <span class="gold">🪙+${gotCoin}</span>` : ''}`); if (gotCoin) floatAt(600, 200, `🪙+${gotCoin}`, '#ffd54a'); }
-        else msg(`💔 ハートが へった…（のこり ${tw.hearts}）`);
-        await wait(900);
+        if (r.ok) floatAt(640, 120, `🪙+${K.TOWER_COIN}`, '#ffd54a');
         if (tw.hearts <= 0) { endMsg = 'over'; break; }
       }
-    } finally { clearInterval(tick); save(); }
+    } finally { clearInterval(tick); if (keep.o) keep.o.remove(); save(); }
     if (timeUp) {
-      await dialog({ who: '⏰', text: 'きょうはここまで！\nセーブしたから大丈夫。また明日つづきから登ろう' });
+      await dialog({ who: '⏰', text: `きょうはここまで！${got ? `（🪙+${got}）` : ''}\nセーブしたから大丈夫。また明日つづきから登ろう` });
       return home();
     }
     if (endMsg === 'over') {
       const f = tw.floor; S.tower[subj] = null; save();
-      await dialog({ who: '💔', text: `ざんねん！ ${f}階まで のぼった\n（さいこう記録 ${S.towerBest[subj] || 0}階）\n次は 1階から やりなおしだよ` });
+      const again = towerTicketFree(subj);
+      await dialog({ who: '💔', text: `ざんねん！ ${f}階まで のぼった（🪙+${got}）\n（さいこう記録 ${S.towerBest[subj] || 0}階）\n${again ? 'きのうの つづきだったので、きょうの入場券で もう一度 1階から 入れるよ' : `${subj}の塔は また あした 1階から 挑戦しよう`}` });
       return towerSelect();
     }
     if (endMsg === 'top') {
       S.tower[subj] = null; save();
-      await dialog({ who: '🏆', text: `${subj}の塔の 頂上に 到達！！ ${top}階\nすごい！ ${subj}の問題を ぜんぶ 解いたよ！` });
+      await dialog({ who: '🏆', text: `${subj}の塔の 頂上に 到達！！ ${top}階（🪙+${got}）\nすごい！ ${subj}の問題を ぜんぶ 解いたよ！` });
       return towerSelect();
     }
-    home();
+    towerSelect();
   }
 
   // =====================================================================

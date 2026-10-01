@@ -64,11 +64,12 @@ with sync_playwright() as p:
     check(pg.evaluate("MB.S.towerBest['算数']") >= f, 'ハート0 → 最高記録はのこり、塔はリセット')
     pg.click('#bk')
     pg.wait_for_timeout(100)
-    # 25階でコイン
+    # 1問ごとにコイン+1
     c0 = pg.evaluate("MB.S.coins")
     pg.evaluate("MB.S.tower['国語'] = null"); pg.click('#tow'); pg.wait_for_timeout(100); pg.click('#ts button[data-s="国語"]')
     loop(1.0, "MB.S.tower['国語'] && MB.S.tower['国語'].floor >= 25", 6000)
-    check(pg.evaluate("MB.S.coins") - c0 == 250, f'25階で +250（{pg.evaluate("MB.S.coins") - c0}）')
+    pg.wait_for_timeout(100)
+    check(pg.evaluate("MB.S.coins") - c0 == pg.evaluate("MB.S.tower['国語'].floor"), f'1問ごとに +1（{pg.evaluate("MB.S.coins") - c0}）')
     # 時間切れ
     pg.evaluate("MB.S.towerMs = 30*60*1000 - 300")
     pg.wait_for_timeout(600)
