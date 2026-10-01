@@ -55,7 +55,7 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0,
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0,
       playDays: 1, clears: 0, bossWin: {}, boss3: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
@@ -324,6 +324,13 @@
       <div class="sm dim">ブラウザに 自動でセーブしています</div></div>`, 'title');
     $('#go', el).onclick = () => { dayCheck(); if (S.run) resumeRun(); else home(); };
   }
+  // デバッグルームの入口（名前そのものは書かない。変えるときは tools/make_debug_hash.py で作る）
+  const DEBUG_HASH = '952292505c231cec';
+  function nameHash(p, c) {
+    let h1 = 0x811c9dc5, h2 = (0x01000193 ^ 0x5bd1e995) >>> 0;
+    for (const x of new TextEncoder().encode('manabi-debug:' + p + '\n' + c)) { h1 = Math.imul(h1 ^ x, 0x01000193) >>> 0; h2 = Math.imul((h2 ^ x) >>> 0, 0x5bd1e995) >>> 0; h2 = (h2 ^ (h2 >>> 13)) >>> 0; }
+    return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+  }
   function nameScreen() {
     const el = render(`<div class="scr center" style="background:linear-gradient(160deg,#4c1d95,#1e3a8a)">
       <div style="font-size:64px">⚔️ まなびバトル</div>
@@ -337,7 +344,7 @@
     $('#go', el).onclick = () => {
       const pn = $('#pn', el).value.trim(), cn = $('#cn', el).value.trim();
       if (!pn || !cn) { $('#err', el).textContent = '名前を2つとも入れてね'; return; }
-      // デバッグルームの入口は ⑥ で作る
+      if (nameHash(pn, cn) === DEBUG_HASH) { debugRoom(); return; } // セーブは作らない
       S = newState(pn, cn);
       if (/[?&]test/.test(location.search)) { S.stamina = 9999; S.coins = 5000; }
       save(); home();
@@ -694,7 +701,7 @@
           if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${emo} がアイテムを落とした！`);
           out = { ok, subj, gain, c };
         } else {
-          if (!pre.osarai) S.qs[q.id] = 2; // 不正解 → 復習待ち
+          if (!pre.osarai) { S.qs[q.id] = 2; S.miss[q.id] = 1; } // 不正解 → 復習待ち（一発でまちがえた記録も残す）
           S.coins += K.COIN_NG; R.coins += K.COIN_NG;
           out = { ok, subj, c: K.COIN_NG, osarai: pre.osarai };
         }
@@ -1846,6 +1853,100 @@
     saveVs();
     await playEvents(ev);
     if (res && res !== 'draw') { const el = $(res === 'P' ? '#fB' : '#fP'); if (el) el.classList.add('bye'); await cutin(`🏆 ${esc((res === 'P' ? P : B).name)}の 勝ち！`, 1800); }
+  }
+
+  // =====================================================================
+  // デバッグルーム（先生用。名前を決める画面から入る。セーブは作らない）
+  // =====================================================================
+  const TEACH_KEY = 'manabi_battle_teacher';
+  function debugRoom() {
+    const el = render(`<div class="scr center" style="gap:18px">
+      <div class="big">🔧 デバッグルーム（先生用）</div>
+      <button class="btn-main" id="tr" style="width:520px">📲 QR引きつぎ（このPCに セーブを移す）</button>
+      <button class="btn-blue" id="tp" style="width:520px">📊 先生用ページ（クラスの記録）</button>
+      <button class="btn-gray" id="bk">もどる（名前を決める画面へ）</button></div>`, 'btl');
+    $('#tr', el).onclick = () => transferQR();
+    $('#tp', el).onclick = () => teacherPage();
+    $('#bk', el).onclick = () => { S = load(); if (S) titleScreen(); else nameScreen(); };
+  }
+  const summary = p => `${esc(p.pname)}（${esc(p.cname)}）\nステータス合計 ${total(p.st)}　解いた問題 ${Object.keys(p.qs).length}問　アイテム ${p.owned.length}個　コイン ${p.coins}`;
+  async function transferQR() {
+    const pr = await scanQR('📲 QR引きつぎ：子どもの QRコードを 読みこんでね', '故障したPCの子の「QR」画面を 読みこみます');
+    if (!pr) return debugRoom();
+    const had = load();
+    const c1 = await dialog({ who: '📲', text: `このデータを このPCに 引きつぎますか？\n${summary(pr)}`, choices: [{ label: '引きつぐ', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
+    if (!c1) return debugRoom();
+    const c2 = await dialog({ who: '⚠️', text: had ? `このPCには すでに「${esc(had.pname)}」のセーブがあります。\n上書きして 消えてしまいますが、ほんとうに いいですか？` : 'もういちど確認します。ほんとうに 引きつぎますか？', choices: [{ label: 'はい、引きつぐ', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
+    if (!c2) return debugRoom();
+    S = migrate(pr); R = null; BT = null; S.run = null; rawSave();
+    await dialog({ who: '✅', text: `引きつぎました！\n${esc(S.pname)} さんの データで はじめられます` });
+    titleScreen();
+  }
+  // ---- 先生用ページ ----
+  function teachLoad() { try { return JSON.parse(localStorage.getItem(TEACH_KEY) || '[]'); } catch (e) { return []; } }
+  function teachSave(list) { try { localStorage.setItem(TEACH_KEY, JSON.stringify(list)); } catch (e) { tip('保存できませんでした'); } }
+  function rateOf(p, subj) { // 一発で正解した割合（解いた問題のうち）
+    const ids = Object.keys(p.qs).filter(id => Q[id] && (!subj || Q[id].s === subj));
+    if (!ids.length) return null;
+    return (ids.length - ids.filter(id => p.miss && p.miss[id]).length) / ids.length;
+  }
+  const pct = r => (r === null ? '—' : R0(r * 100) + '%');
+  function weakSubj(p) {
+    const c = SUBJ.map(s => [s, rateOf(p, s), Object.keys(p.qs).filter(id => Q[id] && Q[id].s === s).length]).filter(x => x[2] >= 5);
+    if (!c.length) return '—';
+    return c.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+  }
+  function ranking(list, n = 20) {
+    const st = {};
+    list.forEach(p => Object.keys(p.qs).forEach(id => { if (!Q[id]) return; const x = st[id] || (st[id] = { n: 0, m: 0 }); x.n++; if (p.miss && p.miss[id]) x.m++; }));
+    return Object.entries(st).filter(([, x]) => x.m > 0).map(([id, x]) => ({ q: Q[id], n: x.n, m: x.m, r: 1 - x.m / x.n }))
+      .sort((a, b) => a.r - b.r || b.n - a.n).slice(0, n);
+  }
+  function downloadCSV(name, rows) {
+    const csv = '﻿' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function teacherPage() {
+    const list = teachLoad();
+    const rk = ranking(list);
+    const el = render(`
+      <div class="prog"><span class="mid">📊 先生用ページ　<span class="gold">${list.length}人</span></span>
+        <span class="coin row"><button class="btn-main" id="add" style="font-size:18px;padding:6px 12px">＋ QRを読みこむ</button>
+        <button class="btn-blue" id="c1" style="font-size:18px;padding:6px 12px">CSV（一覧）</button><button class="btn-blue" id="c2" style="font-size:18px;padding:6px 12px">CSV（ランキング）</button>
+        <button class="btn-gray" id="clr" style="font-size:18px;padding:6px 12px">ぜんぶ消す</button><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">もどる</button></span></div>
+      <div class="panel" style="position:absolute;top:66px;left:16px;right:16px;bottom:12px;overflow:auto;font-size:16px">
+        <table class="tt"><tr><th>名前</th><th>解いた問題</th>${SUBJ.map(s => `<th>${s}</th>`).join('')}<th>ぜんぶ</th><th>苦手な教科</th><th>遊んだ日数</th><th>最後に遊んだ日</th><th></th></tr>
+        ${list.map((p, i) => `<tr><td>${esc(p.pname)}<br><span class="xs dim">${esc(p.cname)}</span></td><td>${Object.keys(p.qs).length}</td>${SUBJ.map(s => `<td>${pct(rateOf(p, s))}</td>`).join('')}<td>${pct(rateOf(p))}</td><td>${weakSubj(p)}</td><td>${p.playDays}</td><td>${esc(p.day)}</td><td><button class="btn-gray del" data-i="${i}" style="font-size:14px;padding:2px 8px">消す</button></td></tr>`).join('') || `<tr><td colspan="${SUBJ.length + 7}" class="dim">「＋ QRを読みこむ」で 子どもの QRコードを 1人ずつ 読みこんでください</td></tr>`}
+        </table>
+        <div class="xs dim" style="margin:6px 0">正答率＝解いた問題のうち、育成ダンジョンで一発で正解した割合。苦手な教科＝5問以上解いた教科で、正答率がいちばん低い教科</div>
+        <div class="mid gold" style="margin-top:10px">クラスで 正答率が低い問題（上位20）</div>
+        <table class="tt"><tr><th>順位</th><th>No.</th><th>教科</th><th>学年</th><th>問題</th><th>正答率</th></tr>
+        ${rk.map((x, i) => `<tr><td>${i + 1}</td><td>${x.q.id}</td><td>${x.q.s}</td><td>${x.q.g}年</td><td style="text-align:left">${esc(x.q.t)}</td><td>${pct(x.r)}（${x.n - x.m}/${x.n}人）</td></tr>`).join('') || '<tr><td colspan="6" class="dim">まだ ありません</td></tr>'}
+        </table></div>`, 'res');
+    $('#bk', el).onclick = () => debugRoom();
+    $('#add', el).onclick = async () => {
+      const l = teachLoad();
+      for (;;) {
+        const pr = await scanQR(`📊 ${l.length + 1}人目の QRコードを 読みこんでね`, '読みこむたびに 次の人へ。おわったら「やめる」');
+        if (!pr) break;
+        const k = l.findIndex(x => x.pname === pr.pname && x.cname === pr.cname);
+        if (k >= 0) l[k] = pr; else l.push(pr);
+        teachSave(l); tip(`${pr.pname} さんを 読みこんだよ（${l.length}人）`, 1500);
+      }
+      teacherPage();
+    };
+    el.querySelectorAll('.del').forEach(b => (b.onclick = () => { const l = teachLoad(); l.splice(+b.dataset.i, 1); teachSave(l); teacherPage(); }));
+    $('#clr', el).onclick = async () => {
+      const c = await dialog({ who: '⚠️', text: '読みこんだ記録を ぜんぶ消しますか？', choices: [{ label: '消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      if (c) { teachSave([]); teacherPage(); }
+    };
+    $('#c1', el).onclick = () => downloadCSV('まなびバトル_一覧.csv', [
+      ['名前', 'キャラ', '解いた問題数', ...SUBJ.map(s => s + '正答率'), 'ぜんぶの正答率', '苦手な教科', '遊んだ日数', '最後に遊んだ日', 'ステータス合計'],
+      ...list.map(p => [p.pname, p.cname, Object.keys(p.qs).length, ...SUBJ.map(s => pct(rateOf(p, s))), pct(rateOf(p)), weakSubj(p), p.playDays, p.day, total(p.st)])]);
+    $('#c2', el).onclick = () => downloadCSV('まなびバトル_正答率が低い問題.csv', [
+      ['順位', '番号', '教科', '学年', '問題', '正解', '正答率', '正解した人数', '解いた人数'],
+      ...ranking(list, 1e9).map((x, i) => [i + 1, x.q.id, x.q.s, x.q.g, x.q.t, x.q.a[0], pct(x.r), x.n - x.m, x.n])]);
   }
 
   // ---- テスト用の入口（Playwright などから使う）----

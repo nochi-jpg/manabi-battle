@@ -51,6 +51,7 @@ window.SAVECODE = (function () {
     w.u8(D.ACH.findIndex(a => a.r.t && a.r.t === S.sel.title) + 1); w.u8(Math.max(0, AURA.indexOf(S.sel.aura))); w.u8(Math.max(0, BG.indexOf(S.sel.bg)));
     w.vu(qmax);
     for (let id = 1; id <= qmax; id += 4) { let x = 0; for (let j = 0; j < 4; j++) x |= (QCODE[S.qs[id + j]] || 0) << (j * 2); w.u8(x); }
+    w.bits(qmax, i => !!(S.miss || {})[i + 1]); // 一発で正解できなかった問題（先生用ページの正答率）
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -81,6 +82,8 @@ window.SAVECODE = (function () {
     o.sel = { title: ti && D.ACH[ti - 1] ? D.ACH[ti - 1].r.t || '' : '', aura: AURA[ai] || '', bg: BG[bi] || '部室' };
     const qmax = r.vu(); o.qs = {}; o.qd = {};
     for (let id = 1; id <= qmax; id += 4) { const x = r.u8(); for (let j = 0; j < 4; j++) { const c = (x >> (j * 2)) & 3; if (c) o.qs[id + j] = QBACK[c]; } }
+    o.miss = {};
+    if (r.i < body.length) r.bits(qmax).forEach((m, i) => { if (m) o.miss[i + 1] = 1; });
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;
   }
