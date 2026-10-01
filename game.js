@@ -154,13 +154,19 @@
   function render(html, cls) {
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
     const el = app.firstElementChild;
+    // 画像の背景は 少し暗くして 文字を読みやすくする
+    const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
     if (cls === 'home' && S) { // ホームの背景（えらんだもの。画像がなければ仮の色）
       const k = (S.sel && S.sel.bg) || '部室', img = g2(A, 'homeBg', k) || (k === '部室' ? g2(A, 'bg', 'home') : '');
-      el.style.background = img ? `url("${img}") center/cover` : D.BGS[k] || D.BGS['部室'];
+      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['部室'];
       return el;
     }
-    const bg = g2(A, 'bg', BG[cls]);
-    if (bg) el.style.background = `url("${bg}") center/cover, ${getComputedStyle(el).backgroundImage}`;
+    // ダンジョン・ボス戦は ボスの属性ごとの背景（画像があるとき）
+    let bg = '';
+    if (cls === 'dun' && R && R.boss) bg = g2(A, 'dunBoss', R.boss);
+    if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'btlBoss', BT.B.type);
+    bg = bg || g2(A, 'bg', BG[cls]);
+    if (bg) el.style.background = `${shade(cls === 'btl' || cls === 'dun' ? 0.2 : 0.35)}, url("${bg}") center/cover`;
     return el;
   }
   function overlay(html, cls = '') { const el = document.createElement('div'); el.className = 'ov ' + cls; el.innerHTML = html; app.appendChild(el); return el; }
@@ -373,7 +379,7 @@
     return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
   }
   function nameScreen() {
-    const el = render(`<div class="scr center" style="background:linear-gradient(160deg,#4c1d95,#1e3a8a)">
+    const el = render(`<div class="scr center" style="${g2(A, 'bg', 'name') ? '' : 'background:linear-gradient(160deg,#4c1d95,#1e3a8a)'}">
       <div style="font-size:64px">⚔️ まなびバトル</div>
       <div class="mid">ようこそ、まなび学園バトル部へ！</div>
       <div class="panel col" style="gap:16px;padding:28px">

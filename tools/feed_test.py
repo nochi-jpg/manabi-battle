@@ -45,11 +45,12 @@ with sync_playwright() as p:
     check(S('seikaku') == 2000, 'さいこうは 2000')
 
     # ---- すがた：1〜3段階目は 進化したときの せいかくで決まる。4段階目は すぐ変わる ----
-    look = "document.querySelector('#me').innerText.trim()"
+    # 画像があれば そのファイル名、なければ 絵文字
+    look = "(e=>{const i=e.querySelector('img');return i?i.getAttribute('src').split('/').pop():e.innerText.trim()})(document.querySelector('#me'))"
     pg.evaluate("MB.S.seikaku = 0; MB.S.style='cute'; MB.S.styleStg=0; MB.go.home()"); W(50)
     l0 = pg.evaluate(look)
     pg.evaluate("MB.S.seikaku = 2000; MB.go.home()"); W(50)
-    check(pg.evaluate(look) == l0 == '🐣', '1段階目：せいかくが かわっても すがたは そのまま')
+    check(pg.evaluate(look) == l0 and l0 in ('🐣', 'all_cute_1.png'), '1段階目：せいかくが かわっても すがたは そのまま')
     # 2段階目へ（かっこいい系で進化）：ダンジョンのあとの 進化演出で決まる
     pg.evaluate("MB.S.st = {国語:238,算数:238,理科:238,社会:238,英語:238}; MB.S.stamina=100")
     pg.click('#dun'); W(50); pg.click('.ov .choices button'); W(200)
@@ -70,7 +71,7 @@ with sync_playwright() as p:
     cute4 = pg.evaluate(look)
     t = feed('肉')
     cool4 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)
-    check(cute4 == '🧚' and cool4 == '🦸' and 'すがたが かわった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
+    check(cute4 in ('🧚', 'all_cute_4.png') and cool4 in ('🦸', 'all_cool_4.png') and 'すがたが かわった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
     # QR で せいかく・すがたを 引きつぐ
     q = pg.evaluate("(()=>{const o=SAVECODE.decode(MB.qrBytes());return [o.seikaku,o.style,o.styleStg]})()")
     check(q == [1200, 'cool', 1], f'QRに せいかく・すがた {q}')

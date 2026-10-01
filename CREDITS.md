@@ -12,4 +12,12 @@
 | DotGothic16 | SIL Open Font License 1.1 | Google Fonts（ネットから読みこみ。`fonts/` に置けばオフラインでも使える） |
 
 ## 画像
-- ①〜②は絵文字とグラデーションのみ。③で使う素材は、ここに出典とライセンスを書く
+- 画像の素材は 非公開リポジトリ `manabi-battle-assets` に置いている（二次配布NGの素材があるため、公開リポジトリには入れない）
+- 公開リポジトリ（GitHub Pages）だけで開くと、絵文字で動く。Teams用ZIP（`python3 tools/build_zip.py`）には画像が入る
+- 素材ごとの出典・ライセンスは `manabi-battle-assets/CREDITS.md`
+
+| 素材 | 作者 | 使っているところ |
+|---|---|---|
+| Monsters Pixel Pack vol.01〜10 | モケモ（mokemo-factory） | 主人公・ボス・雑魚 |
+| Witches & Wizards Backgrounds | Lornn（lornn.itch.io） | ホームの背景 |
+| 背景パック（BG.zip：forest・cavern・mountains・ruins・waterfall） | 出典確認中 | タイトル・ダンジョン・バトル・リザルトの背景 |

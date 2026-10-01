@@ -39,7 +39,7 @@
 ## 公開・配信
 - リポジトリ：nochi-jpg/manabi-battle（main）
 - GitHub Pages：まだ有効になっていない可能性あり。必要なら先生に Settings → Pages で main を公開してもらう
-- コミットしたら main にプッシュ（先生は GitHub で確認する）。Teams 配信用の ZIP（`git archive --format=zip --prefix=manabi-battle/ HEAD`）は たのまれたときだけ作って渡す
+- コミットしたら main にプッシュ（先生は GitHub で確認する）。Teams 配信用の ZIP（`python3 tools/build_zip.py`。画像入り）は たのまれたときだけ作って渡す
 
 ## テスト
 - `tools/sim/` … 対戦バランスのシミュレーター（Python）。`check_items.py`（アイテム別勝率）、`check_balance.py`（かしこさ・育て方・ルーレットの影響）
@@ -105,5 +105,12 @@
   - ごはん（1日1回 キャンディ／肉）→ せいかく（0〜2000）→ 進化したときに かわいい系／かっこいい系。見た目は 6タイプ×2系統×4段階＝48（今は絵文字。`assets.js` の player に 48枠）。くわしくは SPEC 5章
   - 見た目の進化ライン `K.LOOK_LINE` [1200, 2500, 4000] は仮（④で調整）。ボスの段階 `K.STAGE_LINE` とは別
   - テスト：`python3 tools/feed_test.py`。テストでは ごはんを出さない（`?test`。出すときは `?test&feed`）
+- **③ グラフィック 1回目（10/2）**
+  - 画像は 非公開リポジトリ `nochi-jpg/manabi-battle-assets`（二次配布NGの素材があるため）。公開リポジトリ・Pages は 絵文字のまま動く
+  - `index.html` が `assets.local.js`（素材リポジトリにある）を読む。なければ絵文字。手元では `images` と `assets.local.js` を素材リポジトリへのリンクにしている（`.gitignore` ずみ）
+  - Teams用ZIP：`python3 tools/build_zip.py`（となりのフォルダの素材リポジトリと合体）。前の `git archive` だけだと画像が入らない
+  - 主人公48・ボス18・雑魚17：モケモさんのドット絵（どの番号をどこに使うかは 素材リポジトリの `tools/make_assets.py`）。ホームの背景10：Witches & Wizards。タイトル・ダンジョン・バトルなど：BG.zip（出典確認中）。ダンジョンとボス戦は ボスの属性ごとに背景がかわる（`dunBoss` `btlBoss`）
+  - ドット絵は くっきり表示・ふわふわ動く・主人公は相手のほうを向く。画像の背景は少し暗くして文字を読みやすく
+  - ボスの名前（ほのおのリス など）は絵文字のときの仮の名前のまま。絵に合わせて決めなおす
 - 決めたこと：ボス撃破報酬のアイテムはリザルトの持ち帰り候補にまぜる（持ち帰りは全部で1個）／ボス戦で解いた問題が足りないときは新しい問題で補う（正誤は記録しない）
 - 仮で決めた数字（④で調整）：`data.js` の `K`（スキル解禁ライン、ボスの強さ BOSS_POWER・正答率 BOSS_ACC、ドロップ率など）
