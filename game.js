@@ -260,7 +260,8 @@
     for (let k = 0; k < n; k++) {
       const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id));
       let q = null, osarai = false;
-      if (fresh.length) {
+      if (fresh.length && dbg('allq')) q = pick(fresh, rnd); // デバッグ：学年の順番に関係なく出す
+      else if (fresh.length) {
         const gmin = Math.min(...fresh.map(q => q.g));
         let pool = fresh.filter(q => q.g === gmin);
         const upper = fresh.filter(q => q.g > gmin);
@@ -361,18 +362,55 @@
       ${sec('🏷️ 称号', ['', ...titles], S.sel.title, 'title', x => (x ? esc(x) : 'つけない'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${sec('🖼️ ホームの背景', bgs, S.sel.bg, 'bg', x => esc(x))}
-      <div class="sm dim" style="margin-top:10px">QRコードでの 読みこみ・引きつぎは、これから作るよ</div>
+      ${dbgOn() ? debugSection() : ''}
       <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><button class="btn-blue" id="cl">とじる</button></div></div>`);
     o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); o.remove(); home(); settings(); }));
     $('#cl', o).onclick = () => o.remove();
+    if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
       o.remove();
       const c1 = await dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
       if (!c1) return;
-      const c2 = await dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      let taps = 0;
+      const p2 = dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      const w = [...app.querySelectorAll('.ov .who')].pop(); if (w) w.onclick = () => taps++; // ひみつの入口：⚠️を10回以上タッチ
+      const c2 = await p2;
       if (!c2) return;
+      if (taps >= 10) { // デバッグモード起動（セーブは消さない）
+        S.debug = { on: true, st: false, stamina: false, coins: false, items: false, allq: false, tower: false, bak: {} };
+        save(); home(); tip('🔧 デバッグモードを起動しました（せっていに デバッグの項目が出ます）', 3500); settings(); return;
+      }
       resetSave(); nameScreen();
     };
+  }
+
+  // =====================================================================
+  // デバッグモード（先生用。せっていの「もういちど聞くよ」の⚠️を10回以上タッチ →「ぜんぶ消す」）
+  // =====================================================================
+  const dbgOn = () => !!(S && S.debug && S.debug.on);
+  const dbg = k => dbgOn() && !!S.debug[k];
+  const towerLimit = () => (dbg('tower') ? 999 * 60 * 1000 : K.TOWER_MS);
+  const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分']];
+  // スイッチの状態をセーブに反映（オフにしたら もとの値にもどす）
+  function applyDebug() {
+    if (!dbgOn()) return;
+    const d = S.debug, b = d.bak;
+    if (d.st) { if (!b.st) b.st = { ...S.st }; SUBJ.forEach(x => (S.st[x] = 9999)); } else if (b.st) { S.st = b.st; delete b.st; }
+    if (d.stamina) { if (b.stamina === undefined) b.stamina = S.stamina; S.stamina = 9999; } else if (b.stamina !== undefined) { S.stamina = b.stamina; delete b.stamina; }
+    if (d.coins) { if (b.coins === undefined) b.coins = S.coins; S.coins = 9999; } else if (b.coins !== undefined) { S.coins = b.coins; delete b.coins; }
+    if (d.items) { if (!b.owned) b.owned = [...S.owned]; S.owned = D.ITEMS.map(it => it.n); } else if (b.owned) { S.owned = b.owned; delete b.owned; }
+    refreshType(); rawSave();
+  }
+  function debugSection() {
+    return `<div class="panel" style="margin-top:12px;border-color:#f59e0b"><div class="mid gold">🔧 デバッグモード</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px">${DBG_ITEMS.map(([k, n]) => `<button data-dbg="${k}" class="${S.debug[k] ? 'btn-main' : 'btn-gray'}" style="font-size:18px;padding:6px 12px">${n}：${S.debug[k] ? 'オン' : 'オフ'}</button>`).join('')}</div>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn-blue" id="dbr" style="font-size:18px;padding:6px 12px">デバッグルーム（QR引きつぎ・先生用ページ）</button><button class="btn-gray" id="dbx" style="font-size:18px;padding:6px 12px">デバッグモードを終わる</button></div>
+      <div class="xs dim" style="margin-top:4px">オフにすると、オンにする前の値にもどります</div></div>`;
+  }
+  function bindDebug(o) {
+    o.querySelectorAll('[data-dbg]').forEach(b => (b.onclick = () => { S.debug[b.dataset.dbg] = !S.debug[b.dataset.dbg]; applyDebug(); o.remove(); home(); settings(); }));
+    $('#dbr', o).onclick = () => { o.remove(); debugRoom(); };
+    $('#dbx', o).onclick = () => { DBG_ITEMS.forEach(([k]) => (S.debug[k] = false)); applyDebug(); S.debug = null; save(); o.remove(); home(); tip('デバッグモードを終わりました', 2000); };
   }
 
   // =====================================================================
@@ -440,6 +478,7 @@
   // =====================================================================
   function gachaPool() { return D.ITEMS.filter(it => !S.owned.includes(it.n) && reqOK(it, [])); }
   function gacha() {
+    applyDebug();
     const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = S.owned.length >= D.ITEMS.length;
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">🎰 ガチャ</div>
@@ -509,10 +548,10 @@
   // =====================================================================
   const LINES = ['きょうも いっしょに がんばろう！', 'いろんな教科を解くと、運が上がるよ', '解いた問題は、復習ダンジョンで もう1回 正解すると 卒業だよ', 'ボスの弱点をつくと、大ダメージ！', 'バトル部、さいこう！'];
   function home() {
-    dayCheck(); refreshType();
+    dayCheck(); applyDebug(); refreshType();
     const t = total(S.st), luck = luckOf(S.st), sk = skillsOf(t);
     const review = dueList().length;
-    const towerLeft = Math.max(0, K.TOWER_MS - S.towerMs);
+    const towerLeft = Math.max(0, towerLimit() - S.towerMs);
     const el = render(`
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
         <span>⚡ スタミナ ${S.stamina}</span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
@@ -1511,10 +1550,10 @@
     ms = Math.max(0, ms); const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(c).padStart(2, '0')}`;
   }
-  function towerOrder(subj) { return [4, 5, 6].flatMap(g => shuffle(QBY[subj].filter(q => q.g === g).map(q => q.id))); }
+  function towerOrder(subj) { if (dbg('allq')) return shuffle(QBY[subj].map(q => q.id)); return [4, 5, 6].flatMap(g => shuffle(QBY[subj].filter(q => q.g === g).map(q => q.id))); }
   async function towerSelect() {
     dayCheck();
-    const left = K.TOWER_MS - S.towerMs;
+    const left = towerLimit() - S.towerMs;
     if (left <= 0) { await dialog({ who: '🗼', text: 'きょうは もう のぼれないよ（1日30分まで）\nまた あしたの朝5時から のぼれるよ' }); return; }
     const el = render(`<div class="scr center" style="gap:16px">
       <div class="big">🗼 無限の塔</div>
@@ -1552,9 +1591,9 @@
     const ctl = {};
     const tick = setInterval(() => {
       const now = Date.now(); S.towerMs += now - last; last = now;
-      const t = $('#timer'); if (t) t.textContent = fmtTime(K.TOWER_MS - S.towerMs);
+      const t = $('#timer'); if (t) t.textContent = fmtTime(towerLimit() - S.towerMs);
       if (now - lastSave > 3000) { lastSave = now; save(); }
-      if (S.towerMs >= K.TOWER_MS && !timeUp) { timeUp = true; if (ctl.cancel) ctl.cancel(); }
+      if (S.towerMs >= towerLimit() && !timeUp) { timeUp = true; if (ctl.cancel) ctl.cancel(); }
     }, 47);
     let endMsg = null;
     try {
@@ -1868,7 +1907,7 @@
       <button class="btn-gray" id="bk">もどる（名前を決める画面へ）</button></div>`, 'btl');
     $('#tr', el).onclick = () => transferQR();
     $('#tp', el).onclick = () => teacherPage();
-    $('#bk', el).onclick = () => { S = load(); if (S) titleScreen(); else nameScreen(); };
+    $('#bk', el).onclick = () => { S = load(); if (S) (dbgOn() ? home() : titleScreen()); else nameScreen(); };
   }
   const summary = p => `${esc(p.pname)}（${esc(p.cname)}）\nステータス合計 ${total(p.st)}　解いた問題 ${Object.keys(p.qs).length}問　アイテム ${p.owned.length}個　コイン ${p.coins}`;
   async function transferQR() {
