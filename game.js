@@ -102,7 +102,7 @@
     return Object.assign(base, s);
   }
   // 倒したボスの強さ（★1〜3）を ビットで持つ（1=★1 2=★2 4=★3）。記録がないときは bossWin・boss3 から作る
-  function bossStgFrom(win = {}, b3 = {}) { const o = {}; for (const b in win) o[b] = 1; for (const b in b3) o[b] = (o[b] || 0) | 4; return o; }
+  function bossStgFrom(win = {}, b3 = {}) { const o = {}; for (const b in win) o[b] = 1; for (const b in b3) o[b] = 7; return o; }
   // 問題の番号をそろえなおしたとき（qmap.js）、セーブの中の古い番号を新しい番号にする
   function remapSave(s) {
     const C = window.SAVECODE, from = s.qv || 1;
@@ -1453,7 +1453,7 @@
       S.dungeons++; refreshType();
       if (beat) {
         S.clears++; S.bossWin[R.boss] = 1;
-        S.bossStg = S.bossStg || {}; S.bossStg[R.boss] = (S.bossStg[R.boss] || 0) | (1 << stg);
+        S.bossStg = S.bossStg || {}; S.bossStg[R.boss] = (S.bossStg[R.boss] || 0) | ((2 << stg) - 1); // ★3を倒したら ★1・★2も倒したことにする
         if (stg === 2) S.boss3[R.boss] = 1;
         if (!cont) S.nocont++;
       }
@@ -1810,7 +1810,7 @@
   const TRIAL_BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
   let TR = null; // { boss, stg, items }
   // 倒したことのあるボス（デバッグの「ボス討伐 全開放」なら全部）
-  const beaten = (b, g) => dbg('boss') || !!(((S.bossStg || {})[b] || 0) & (1 << g));
+  const beaten = (b, g) => dbg('boss') || ((S.bossStg || {})[b] || 0) >= (1 << g); // 上の★を倒していれば 下の★もOK
   const anyBeaten = g => TRIAL_BOSS.some(b => beaten(b, g));
   async function trialMode() {
     if (![0, 1, 2].some(anyBeaten)) { await dialog({ who: '🧪', text: 'まだ ボスを倒していないよ。\n育成ダンジョンで ボスを倒すと、おためしバトルで 何回でも 戦えるようになるよ！' }); return; }

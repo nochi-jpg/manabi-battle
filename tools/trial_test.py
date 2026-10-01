@@ -25,11 +25,12 @@ with sync_playwright() as p:
     pg.click('#tri'); pg.wait_for_timeout(100)
     check('まだ ボスを倒していない' in pg.inner_text('.ov'), 'ボスを倒していないと 入れない'); pg.click('.ov button'); pg.wait_for_timeout(50)
     # 算数★3・国語★1 だけ倒したことにする
-    pg.evaluate("MB.S.bossStg = { 算数: 4, 国語: 1 }")
+    pg.evaluate("MB.S.bossStg = { 算数: 7, 国語: 1 }")
     pg.click('#tri'); pg.wait_for_timeout(100)
-    check(pg.locator('#sg button[data-g="1"]').is_disabled(), '倒していない強さ（★2）は えらべない')
+    pg.click('#sg button[data-g="1"]'); pg.wait_for_timeout(50)
+    check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '算数', '★2：★3を倒した算数は えらべる・★1だけの国語は えらべない')
     pg.click('#sg button[data-g="0"]'); pg.wait_for_timeout(50)
-    check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '国語', '★1：倒した国語だけ')
+    check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '国語,算数', '★1：国語と算数')
     pg.click('#sg button[data-g="2"]'); pg.wait_for_timeout(50)
     check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '算数', '★3：倒した算数だけ（ほかは ？？？）')
     pg.click('#bs button[data-b="算数"]'); pg.wait_for_timeout(100)
@@ -76,7 +77,7 @@ with sync_playwright() as p:
     check(before == after, 'コイン・ステータス・問題の記録・アイテム・スタミナが変わらない（ほうびなし・記録なし）')
     # QRに 倒したボスの強さが入る
     q = pg.evaluate("JSON.stringify(SAVECODE.decode(MB.qrBytes()).bossStg)")
-    check(json.loads(q) == {'算数': 4, '国語': 1}, f'QRで 倒したボスを引きつぐ {q}')
+    check(json.loads(q) == {'算数': 7, '国語': 1}, f'QRで 倒したボスを引きつぐ {q}')
     # ダンジョンでボスを倒すと記録される
     pg.evaluate("MB.S.bossStg = {}; MB.S.bossWin = {}; MB.S.stamina = 100")
     pg.click('#dun'); pg.wait_for_timeout(50); pg.click('.ov .choices button')
