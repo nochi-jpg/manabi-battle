@@ -165,5 +165,65 @@ window.DATA = (function () {
   // ---- ガチャ確率（ダンジョンのレア度にも使う） ----
   const RARITY_W = [0, 35, 30, 20, 10, 5];
 
-  return { SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, LOOK, FRIENDS, RARITY_W };
+  // ---- ホームの背景（画像は assets.js の homeBg。画像がない間は仮の色）----
+  const BGS = {
+    部室: 'linear-gradient(135deg,#3b2f63,#1f3b5a 60%,#16324a)',
+    教室: 'linear-gradient(135deg,#365314,#3f6212 50%,#1a2e05)',
+    図書室: 'linear-gradient(135deg,#78350f,#451a03 60%,#292524)',
+    放課後: 'linear-gradient(160deg,#fb923c,#c2410c 50%,#431407)',
+    夕焼けの屋上: 'linear-gradient(180deg,#f97316,#db2777 50%,#4c0519)',
+    わすれの迷宮: 'linear-gradient(180deg,#1c1917,#44403c 50%,#0c0a09)',
+    夜の校舎: 'linear-gradient(180deg,#020617,#1e1b4b 60%,#0f172a)',
+    桜の校庭: 'linear-gradient(160deg,#f9a8d4,#db2777 50%,#831843)',
+    宝物庫: 'linear-gradient(135deg,#a16207,#713f12 50%,#1c1917)',
+    星空: 'radial-gradient(circle at 30% 20%,#312e81,#0b1026 60%,#000)',
+  };
+  const AURAS = { 銀: 'silver', 金: 'gold', 虹: 'rainbow' };
+
+  // ---- アチーブメント（78個）k=種類 v=数 s=教科/属性 ----
+  // r: { t: 称号, bg: 背景, aura: オーラ }
+  const ACH = [];
+  const ac = (cat, id, d, k, v, r, s) => ACH.push({ cat, id, d, k, v, r, s });
+  // 学習
+  [[1, { t: 'バトル部員' }], [50, { t: 'がんばり屋' }], [100, { bg: '教室' }], [300, { t: '努力家' }], [500, { bg: '図書室' }], [1000, { t: 'まなびの鬼' }], [2000, { t: '生き字引' }]]
+    .forEach(([v, r]) => ac('学習', 'solved' + v, v === 1 ? 'はじめて 問題をとく' : `問題を ${v}問 とく`, 'solved', v, r));
+  ac('学習', 'grade5', '5年の問題に はじめて挑戦', 'grade', 5, { t: '5年生レベル' });
+  ac('学習', 'grade6', '6年の問題に はじめて挑戦', 'grade', 6, { t: '6年生レベル' });
+  // 教科
+  SUBJ.forEach(s => [[50, '見習い'], [150, 'の達人'], [300, 'マスター']].forEach(([v, n]) => ac('教科', `sub_${s}_${v}`, `${s}の問題に ${v}問 正解`, 'subj', v, { t: s + n }, s)));
+  ac('教科', 'all30', '5教科すべて 30問ずつ 正解', 'all', 30, { t: 'オールラウンダー' });
+  ac('教科', 'all100', '5教科すべて 100問ずつ 正解', 'all', 100, { aura: '銀' });
+  // 続ける
+  [[3, { t: '新入部員' }], [7, { bg: '放課後' }], [14, { t: 'レギュラー' }], [21, { bg: '夕焼けの屋上' }], [30, { t: '部長' }]]
+    .forEach(([v, r]) => ac('続ける', 'days' + v, `合計 ${v}日 あそぶ`, 'days', v, r));
+  // 育成ダンジョン
+  [[1, { t: '迷宮デビュー' }], [10, { bg: 'わすれの迷宮' }], [30, { t: '迷宮の常連' }], [50, { t: '迷宮マスター' }]]
+    .forEach(([v, r]) => ac('育成ダンジョン', 'clear' + v, v === 1 ? '育成ダンジョンを はじめてクリア' : `育成ダンジョンを ${v}回 クリア`, 'clear', v, r));
+  // ボス
+  [['国語', '火'], ['算数', '水'], ['理科', '草'], ['社会', '雷'], ['英語', '英語'], ['無', '無属性']]
+    .forEach(([b, n]) => ac('ボス', 'boss_' + b, `${n}${n.length === 1 ? '属性' : ''}のボスを はじめて たおす`, 'boss', 1, { t: n + 'ハンター' }, b));
+  ac('ボス', 'bossAll', '6つの属性のボスを すべて たおす', 'bossAll', 1, { t: '迷宮の覇者' });
+  ac('ボス', 'boss3', '3段階目のボスを たおす', 'boss3', 1, { bg: '夜の校舎' });
+  ac('ボス', 'boss3All', '3段階目のボスを 6つの属性すべて たおす', 'boss3', 6, { aura: '金' });
+  ac('ボス', 'nocont10', 'ノーコンティニューで ボスに10回 勝つ', 'nocont', 10, { t: '不屈' });
+  // 無限の塔
+  SUBJ.forEach(s => [[25, '見習い'], [100, '中級者'], [250, '上級者'], [0, '制覇']].forEach(([v, n]) =>
+    ac('無限の塔', `tower_${s}_${v || 'top'}`, v ? `無限の塔：${s}の塔で ${v}階に 到達` : `無限の塔：${s}を 全制覇`, 'tower', v, { t: `${s}の塔 ${n}` }, s)));
+  // 育成・収集
+  ac('育成・収集', 'type', 'タイプが はじめて変わる', 'type', 1, { t: '目覚め' });
+  ac('育成・収集', 'stage2', 'モンスターが 2段階目に 成長', 'stage', 1, { t: '成長期' });
+  ac('育成・収集', 'stage3', 'モンスターが 3段階目に 成長', 'stage', 2, { bg: '桜の校庭' });
+  [[1000, 'ルーキー'], [2000, 'エース'], [3000, 'スター'], [5000, 'レジェンド']].forEach(([v, n]) => ac('育成・収集', 'total' + v, `ステータスの合計が ${v}`, 'total', v, { t: n }));
+  ac('育成・収集', 'skill8', 'スキルを 8つすべて 覚える', 'skills', 8, { t: '技のデパート' });
+  [[10, { t: 'コレクター' }], [30, { bg: '宝物庫' }], [50, { t: '収集家' }]].forEach(([v, r]) => ac('育成・収集', 'items' + v, `アイテムを ${v}個 集める`, 'items', v, r));
+  // 特別
+  ac('特別', 'items70', 'アイテム70個 コンプリート', 'items', 70, { aura: '虹', t: '図鑑マスター' });
+  ac('特別', 'ach70', 'アチーブメントを 70個 達成', 'ach', 70, { bg: '星空', t: '伝説の部員' });
+
+  // ---- 図鑑の並び（効果別）----
+  const CAT_ORDER = ['atk', 'q', 'st', 'def', 'sk'];
+  const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
+  const GACHA_COST = 1000, GACHA_PITY = 5;
+
+  return { BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, LOOK, FRIENDS, RARITY_W };
 })();

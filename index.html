@@ -42,7 +42,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .menuR .wide{grid-column:span 2;height:150px;font-size:34px;background:linear-gradient(135deg,#ea580c,#b91c1c);border-color:#fdba74}
 .menuR small{font-size:16px;color:#e2e8f0}
 .menuB{position:absolute;left:0;right:0;bottom:0;height:96px;display:flex;justify-content:center;gap:14px;align-items:center;background:rgba(0,0,0,.35)}
-.menuB button{width:200px;height:70px;font-size:20px}
+.menuB button{width:220px;height:70px;font-size:19px;white-space:nowrap}
 /* ダンジョン */
 .dun{background:linear-gradient(180deg,#1c1917,#292524 50%,#0c0a09)}
 .prog{position:absolute;top:12px;left:24px;right:24px;display:flex;align-items:center;gap:6px;font-size:26px}
@@ -107,6 +107,24 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 /* 問題リスト */
 .qrow{font-size:20px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .qrow:hover{background:rgba(255,255,255,.08)}
+/* オーラ */
+.aura-silver{animation:au-s 2s ease-in-out infinite}
+.aura-gold{animation:au-g 2s ease-in-out infinite}
+.aura-rainbow{animation:au-r 3s linear infinite}
+@keyframes au-s{0%,100%{filter:drop-shadow(0 0 10px #e5e7eb) drop-shadow(0 0 22px #94a3b8)}50%{filter:drop-shadow(0 0 18px #fff) drop-shadow(0 0 40px #cbd5e1)}}
+@keyframes au-g{0%,100%{filter:drop-shadow(0 0 10px #fde047) drop-shadow(0 0 22px #f59e0b)}50%{filter:drop-shadow(0 0 20px #fef08a) drop-shadow(0 0 44px #f59e0b)}}
+@keyframes au-r{0%{filter:drop-shadow(0 0 14px #f87171) drop-shadow(0 0 30px #facc15)}33%{filter:drop-shadow(0 0 14px #4ade80) drop-shadow(0 0 30px #22d3ee)}66%{filter:drop-shadow(0 0 14px #818cf8) drop-shadow(0 0 30px #e879f9)}100%{filter:drop-shadow(0 0 14px #f87171) drop-shadow(0 0 30px #facc15)}}
+/* アチーブメント */
+.achtoast{position:absolute;right:20px;width:420px;background:linear-gradient(90deg,#78350f,#b45309);border:2px solid #fde68a;border-radius:12px;padding:8px 14px;font-size:20px;z-index:60;box-shadow:0 4px 14px #0009;animation:fi .4s;pointer-events:none}
+/* 図鑑 */
+.bkrow{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
+.bk{width:64px;height:64px;font-size:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(255,255,255,.08);cursor:pointer}
+.bk.none .art{filter:brightness(0) opacity(.6)}
+/* ガチャ */
+.magic{width:260px;height:260px;border-radius:50%;border:6px dashed var(--c,#a78bfa);box-shadow:0 0 30px var(--c,#a78bfa),inset 0 0 40px var(--c,#a78bfa);opacity:.85}
+.magic.spin{animation:sp 1.2s linear infinite}
+.magic.flash{animation:sp .3s linear infinite;box-shadow:0 0 120px 60px var(--c,#fff)}
+@keyframes sp{to{transform:rotate(360deg)}}
 /* リザルト */
 .res{background:linear-gradient(160deg,#422006,#1c1917)}
 .tip{position:absolute;left:50%;top:80px;transform:translateX(-50%);background:#fef3c7;color:#422006;border-radius:12px;padding:10px 18px;font-size:22px;z-index:40;box-shadow:0 4px 12px #0008;max-width:900px;text-align:center}

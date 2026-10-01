@@ -54,12 +54,13 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0 };
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, tower: {}, towerBest: {}, towerMs: 0,
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
     const days = Math.max(1, Math.round((new Date(t) - new Date(S.day)) / 864e5) || 1);
-    S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0;
+    S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0; S.playDays = (S.playDays || 0) + 1;
     save();
   }
   function packRun() {
@@ -68,6 +69,11 @@
   }
   function unpackRun(o) { const { rs, usedQ, ...rest } = o; R = { ...rest, rnd: makeRng(rs), usedQ: new Set(usedQ || []) }; }
   function save() {
+    if (!S) return;
+    if (checkAch()) rawSave();
+    rawSave();
+  }
+  function rawSave() {
     if (!S) return;
     try {
       S.run = R ? packRun() : null; S.savedAt = Date.now();
@@ -107,12 +113,18 @@
   const stageOf = t => (t < K.STAGE_LINE[0] ? 0 : t < K.STAGE_LINE[1] ? 1 : 2);
   const skillsOf = t => D.SKILLS.filter(k => !K.SKILL_LINE[k.n] || t >= K.SKILL_LINE[k.n]).map(k => k.n);
   const lookOf = (type, t) => D.LOOK[type][stageOf(t)];
-  function refreshType() { S.type = typeOf(S.st, S.type); }
+  function refreshType() { S.type = typeOf(S.st, S.type); if (S.type !== '全教科') S.typeChanged = true; }
 
   // ---- 小さな部品 ----
   function render(html, cls) {
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
-    const el = app.firstElementChild, bg = g2(A, 'bg', BG[cls]);
+    const el = app.firstElementChild;
+    if (cls === 'home' && S) { // ホームの背景（えらんだもの。画像がなければ仮の色）
+      const k = (S.sel && S.sel.bg) || '部室', img = g2(A, 'homeBg', k) || (k === '部室' ? g2(A, 'bg', 'home') : '');
+      el.style.background = img ? `url("${img}") center/cover` : D.BGS[k] || D.BGS['部室'];
+      return el;
+    }
+    const bg = g2(A, 'bg', BG[cls]);
     if (bg) el.style.background = `url("${bg}") center/cover, ${getComputedStyle(el).backgroundImage}`;
     return el;
   }
@@ -327,14 +339,157 @@
       save(); home();
     };
   }
-  async function settings() {
-    const c = await dialog({ who: '⚙️', name: 'せってい', text: 'QRコードでの 読みこみ・引きつぎは、これから作るよ', choices: [{ label: 'さいしょから やりなおす', val: 'reset', cls: 'btn-gray' }, { label: 'もどる', val: 0, cls: 'btn-blue' }] });
-    if (c !== 'reset') return;
-    const c1 = await dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
-    if (!c1) return;
-    const c2 = await dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
-    if (!c2) return;
-    resetSave(); nameScreen();
+  // せってい：称号・オーラ（持っているときだけ）・ホームの背景・やりなおし
+  function settings() {
+    const titles = myRewards('t'), auras = myRewards('aura'), bgs = ['部室', ...myRewards('bg')];
+    const sec = (name, list, cur, key, label = x => x) => `<div class="mid" style="margin-top:10px">${name}</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px">${list.map(x => `<button data-k="${key}" data-v="${esc(x)}" class="${x === cur ? 'btn-main' : ''}" style="font-size:18px;padding:6px 12px">${label(x)}</button>`).join('')}</div>`;
+    const o = overlay(`<div class="panel" style="width:1100px;max-height:680px;overflow-y:auto">
+      <div class="big">⚙️ せってい</div>
+      ${sec('🏷️ 称号', ['', ...titles], S.sel.title, 'title', x => (x ? esc(x) : 'つけない'))}
+      ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
+      ${sec('🖼️ ホームの背景', bgs, S.sel.bg, 'bg', x => esc(x))}
+      <div class="sm dim" style="margin-top:10px">QRコードでの 読みこみ・引きつぎは、これから作るよ</div>
+      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><button class="btn-blue" id="cl">とじる</button></div></div>`);
+    o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); o.remove(); home(); settings(); }));
+    $('#cl', o).onclick = () => o.remove();
+    $('#rs', o).onclick = async () => {
+      o.remove();
+      const c1 = await dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      if (!c1) return;
+      const c2 = await dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+      if (!c2) return;
+      resetSave(); nameScreen();
+    };
+  }
+
+  // =====================================================================
+  // アチーブメント
+  // =====================================================================
+  const correctN = s => QBY[s].filter(q => S.qs[q.id] === 1 || S.qs[q.id] >= 3).length;
+  function achDone(a) {
+    const t = total(S.st);
+    switch (a.k) {
+      case 'solved': return Object.keys(S.qs).length >= a.v;
+      case 'grade': return Object.keys(S.qs).some(id => Q[id] && Q[id].g >= a.v);
+      case 'subj': return correctN(a.s) >= a.v;
+      case 'all': return SUBJ.every(s => correctN(s) >= a.v);
+      case 'days': return (S.playDays || 0) >= a.v;
+      case 'clear': return (S.clears || 0) >= a.v;
+      case 'boss': return !!S.bossWin[a.s];
+      case 'bossAll': return Object.keys(S.bossWin).length >= 6;
+      case 'boss3': return Object.keys(S.boss3).length >= a.v;
+      case 'nocont': return (S.nocont || 0) >= a.v;
+      case 'tower': return (S.towerBest[a.s] || 0) >= (a.v || QBY[a.s].length);
+      case 'type': return !!S.typeChanged;
+      case 'stage': return stageOf(t) >= a.v;
+      case 'total': return t >= a.v;
+      case 'skills': return skillsOf(t).length >= a.v;
+      case 'items': return S.owned.length >= a.v;
+      case 'ach': return Object.keys(S.ach).length >= a.v;
+    }
+    return false;
+  }
+  function checkAch() {
+    if (!S.ach) return false;
+    let got = false, more = true;
+    while (more) {
+      more = false;
+      D.ACH.forEach(a => { if (!S.ach[a.id] && achDone(a)) { S.ach[a.id] = today(); got = more = true; achToast(a); } });
+    }
+    return got;
+  }
+  const rewardText = r => [r.t && `称号「${esc(r.t)}」`, r.bg && `背景「${esc(r.bg)}」`, r.aura && `${r.aura}オーラ`].filter(Boolean).join('＋');
+  const myRewards = k => D.ACH.filter(a => S.ach[a.id] && a.r[k]).map(a => a.r[k]);
+  const auraCls = () => (S.sel.aura && myRewards('aura').includes(S.sel.aura) ? 'aura-' + D.AURAS[S.sel.aura] : '');
+  let toastN = 0;
+  function achToast(a) {
+    const el = document.createElement('div'); el.className = 'achtoast';
+    el.style.top = 80 + (toastN++ % 4) * 74 + 'px';
+    el.innerHTML = `🏆 アチーブメント達成！<br><span class="sm">${esc(a.d)} → ${rewardText(a.r)}</span>`;
+    document.getElementById('stage').appendChild(el);
+    setTimeout(() => { el.remove(); toastN = Math.max(0, toastN - 1); }, T(4000));
+  }
+  function achList() {
+    const n = Object.keys(S.ach).length, cats = [...new Set(D.ACH.map(a => a.cat))];
+    const el = render(`
+      <div class="prog"><span class="mid">🏆 アチーブメント　<span class="gold">${n} / ${D.ACH.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
+      <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
+        ${cats.map(c => `<div class="mid gold" style="margin:8px 0 4px">${c}</div>` + D.ACH.filter(a => a.cat === c).map(a => {
+          const ok = !!S.ach[a.id];
+          return `<div class="qrow" style="cursor:default;${ok ? '' : 'color:#94a3b8'}">${ok ? '✅' : '⬜'} ${esc(a.d)} → ${ok ? `<span class="gold">${rewardText(a.r)}</span>` : '？？？'}</div>`;
+        }).join('')).join('')}
+      </div>`, 'res');
+    $('#bk', el).onclick = () => home();
+  }
+
+  // =====================================================================
+  // ガチャ（1回1000コイン・確率は固定・5回目ごとに★4以上・まだ持っていないものだけ）
+  // =====================================================================
+  function gachaPool() { return D.ITEMS.filter(it => !S.owned.includes(it.n) && reqOK(it, [])); }
+  function gacha() {
+    const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = S.owned.length >= D.ITEMS.length;
+    const el = render(`<div class="scr center" style="gap:18px">
+      <div class="big">🎰 ガチャ</div>
+      <div class="mid gold">🪙 ${S.coins}</div>
+      ${done ? '<div class="big gold">🎉 コンプリート！ ぜんぶ集めたよ！</div>' : `
+      <div class="magic" style="width:220px;height:220px"></div>
+      <div class="mid">${left === 1 ? '<span class="gold">つぎは ★4以上 確定！</span>' : `あと <b class="gold">${left}</b>回で ★4以上確定！`}</div>
+      ${!pool.length ? '<div class="sm">いま出せるアイテムがないよ（スキルや、もとになるアイテムを手に入れると出るようになる）</div>' : ''}
+      <button class="btn-main" id="pull" ${S.coins < D.GACHA_COST || !pool.length ? 'disabled' : ''}>ガチャを引く（🪙${D.GACHA_COST}）</button>`}
+      <div class="row"><button class="btn-blue" id="rate" style="font-size:20px">提供割合</button><button class="btn-gray" id="bk" style="font-size:20px">🏠 ホームへ</button></div>
+      </div>`, 'res');
+    $('#bk', el).onclick = () => home();
+    $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `★1　35%\n★2　30%\n★3　20%\n★4　10%\n★5　5%\n5回目ごとに ★4以上が かならず出ます（★4 67%・★5 33%）。\nまだ持っていないアイテムだけが出ます。そのレア度のアイテムを ぜんぶ持っているときは、近いレア度のアイテムが出ます。\n「出る条件」があるアイテムは、条件を満たすまで出ません。` });
+    const pb = $('#pull', el); if (pb) pb.onclick = () => pullGacha();
+  }
+  async function pullGacha() {
+    const pool = gachaPool();
+    if (S.coins < D.GACHA_COST || !pool.length) return;
+    const pity = S.gachaN % D.GACHA_PITY === D.GACHA_PITY - 1;
+    const w = pity ? [0, 0, 0, 0, 10, 5] : D.RARITY_W;
+    let t = Math.random() * w.reduce((a, b) => a + b), r = 5;
+    for (let k = 1; k <= 5; k++) { t -= w[k]; if (t < 0) { r = k; break; } }
+    const has = k => pool.some(it => it.r === k);
+    if (!has(r)) { // そのレア度がもうないときは近いレア度（確定のときは★4以上を先にさがす）
+      const order = (pity ? [4, 5, 3, 2, 1] : [1, 2, 3, 4, 5]).sort((a, b) => (pity ? 0 : Math.abs(a - r) - Math.abs(b - r)));
+      r = order.find(has);
+    }
+    const it = pick(pool.filter(x => x.r === r));
+    S.coins -= D.GACHA_COST; S.gachaN++; S.owned.push(it.n); save();
+    const col = ['', '#e5e7eb', '#4ade80', '#60a5fa', '#c084fc', '#fde047'][it.r];
+    const o = overlay(`<div class="center" style="gap:16px"><div class="magic spin" style="--c:${col}"></div><div id="gr"></div></div>`);
+    await wait(1600);
+    o.querySelector('.magic').classList.add('flash');
+    await wait(500);
+    o.querySelector('.magic').remove();
+    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${itemCard(it.n).replace(' <span class="red">🆕</span>', '')}</div><div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
+    await new Promise(res => ($('#gr button', o).onclick = res));
+    o.remove(); gacha();
+  }
+
+  // =====================================================================
+  // もちもの（図鑑）：♡おきにいり ＋ 70個を効果別に。持っていないものは黒くぬりつぶし
+  // =====================================================================
+  function itemBook() {
+    const sorted = D.CAT_ORDER.map(c => [c, D.ITEMS.filter(it => it.cat === c)]);
+    const cell = n => { const own = S.owned.includes(n); return `<div class="bk ${own ? '' : 'none'}" data-n="${esc(n)}" title="${own ? esc(n) : '？？？'}">${artItem(n)}</div>`; };
+    const el = render(`
+      <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
+      <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
+        <div class="mid" style="color:#f9a8d4">♡ おきにいり</div>
+        <div class="bkrow">${S.fav.filter(n => S.owned.includes(n)).map(cell).join('') || '<span class="sm dim">アイテムをタップして ♡ をおすと、ここに並ぶよ</span>'}</div>
+        ${sorted.map(([c, list]) => `<div class="sm gold" style="margin-top:8px">${D.CAT_NAME[c]}</div><div class="bkrow">${list.map(it => cell(it.n)).join('')}</div>`).join('')}
+      </div>`, 'res');
+    $('#bk', el).onclick = () => home();
+    el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
+      const n = c.dataset.n;
+      if (!S.owned.includes(n)) { dialog({ who: '❓', text: '？？？\nまだ 持っていない アイテム' }); return; }
+      const fav = S.fav.includes(n);
+      const o = overlay(`<div class="panel center">${itemCard(n)}<div class="row"><button class="${fav ? 'btn-main' : ''}" id="fv">${fav ? '♥ おきにいり' : '♡ おきにいり'}</button><button class="btn-gray" id="cl">とじる</button></div></div>`);
+      $('#cl', o).onclick = () => o.remove();
+      $('#fv', o).onclick = () => { S.fav = fav ? S.fav.filter(x => x !== n) : [...S.fav, n]; save(); o.remove(); itemBook(); };
+    }));
   }
 
   // =====================================================================
@@ -350,8 +505,9 @@
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
         <span>⚡ スタミナ ${S.stamina}</span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
       <div class="chara col">
-        <div class="emo" id="me">${artPlayer(S.type, t)}</div>
+        <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
+        ${S.sel.title ? `<div style="text-align:center" class="sm gold">【${esc(S.sel.title)}】</div>` : ''}
         <div style="text-align:center" class="mid">${esc(S.cname)} <span class="sm dim">（${S.type}タイプ）</span></div>
         <div class="panel stats">
           ${SUBJ.map(s => `<div>${D.SUBJ_EMO[s]} ${s} <b>${S.st[s]}</b></div>`).join('')}
@@ -374,7 +530,10 @@
     $('#rev', el).onclick = () => reviewDungeon();
     $('#tow', el).onclick = () => towerSelect();
     $('#b3', el).onclick = () => questionList();
-    ['vs', 'b1', 'b2', 'b4', 'b5'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
+    $('#b1', el).onclick = () => gacha();
+    $('#b2', el).onclick = () => itemBook();
+    $('#b5', el).onclick = () => achList();
+    ['vs', 'b4'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
 
@@ -930,7 +1089,7 @@
   function battleScreen() {
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
-      <div class="emo">${f.art}</div><div class="nm">${esc(f.name)} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
+      ${f.title ? `<div class="xs gold" style="margin-top:4px">【${esc(f.title)}】</div>` : ''}<div class="emo ${f.aura || ''}">${f.art}</div><div class="nm">${esc(f.name)} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
       <div class="hpbar"><i></i></div><div class="sm hpt"></div>
       <div class="stt"></div>
       <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
@@ -1137,7 +1296,7 @@
       const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === R.boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
       const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
       const skills = skillsOf(t);
-      const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...R.hand], prevType: S.type, hpBonus: R.flags.izumi ? 0.15 : 0, skills, power: R.flags.kurogane ? 1.2 : 1 };
+      const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...R.hand], prevType: S.type, hpBonus: R.flags.izumi ? 0.15 : 0, skills, power: R.flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
       const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', R.boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: R.boss };
       // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
       const wk = D.WEAK[R.boss];
@@ -1205,6 +1364,11 @@
         bossItem = drawItem(R.rnd, { unowned: true, hand: R.hand, minR: cont ? 1 : 3 });
       }
       S.dungeons++; refreshType();
+      if (beat) {
+        S.clears++; S.bossWin[R.boss] = 1;
+        if (stg === 2) S.boss3[R.boss] = 1;
+        if (!cont) S.nocont++;
+      }
       return { bossItem, bossCoin };
     });
     window.MB_LAST = { beat, cont };
