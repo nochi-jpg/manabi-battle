@@ -276,11 +276,11 @@
     return out;
   }
   // 解いたことのある問題（ボス戦・イベント）。足りなければ新しい問題で補う（記録はしない）
-  function drawSolvedQ(subj, used) {
+  function drawSolvedQ(subj, used, qs = S.qs) {
     const subjs = subj ? [subj] : SUBJ;
     let all = subjs.flatMap(s => QBY[s]).filter(q => !used.has(q.id));
     if (!all.length) { used.clear(); all = subjs.flatMap(s => QBY[s]); }
-    let pool = all.filter(q => S.qs[q.id]);
+    let pool = all.filter(q => qs[q.id]);
     if (!pool.length) { const g = Math.min(...all.map(q => q.g)); pool = all.filter(q => q.g === g); }
     const q = pick(pool); used.add(q.id); return q;
   }
@@ -537,7 +537,8 @@
     $('#b1', el).onclick = () => gacha();
     $('#b2', el).onclick = () => itemBook();
     $('#b5', el).onclick = () => achList();
-    ['vs', 'b4'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
+    $('#vs', el).onclick = () => vsMode();
+    $('#b4', el).onclick = () => qrScreen();
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
 
@@ -925,6 +926,7 @@
     if (pk.snap) { restoreDyn(P, pk.snap.P); restoreDyn(B, pk.snap.B); }
     return { ...pk, P, B, used: new Set(pk.used || []) };
   }
+  const btSave = () => (BT && BT.vs ? saveVs() : save());
   function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
 
   function cutRate(f) {
@@ -1093,7 +1095,7 @@
   function battleScreen() {
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
-      ${f.title ? `<div class="xs gold" style="margin-top:4px">【${esc(f.title)}】</div>` : ''}<div class="emo ${f.aura || ''}">${f.art}</div><div class="nm">${esc(f.name)} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
+      ${f.title ? `<div class="xs gold" style="margin-top:4px">【${esc(f.title)}】</div>` : ''}<div class="emo ${f.aura || ''}">${f.art}</div><div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
       <div class="hpbar"><i></i></div><div class="sm hpt"></div>
       <div class="stt"></div>
       <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
@@ -1177,23 +1179,24 @@
     if (act.sk === 'ふういん' && first) { const y = x.opp, top = topSubj(y); y.seal[top] = turn + (x.has('ふういんの鍵') ? 1 : 0); }
     if (act.meg !== undefined) x.megane = act.meg;
   }
-  async function playerAct(P, B, turn, first) {
-    let act = BT.acts.P;
+  // えらぶ人 P、あいて B（ボス戦ではプレイヤー、対戦では A・B どちらも）
+  async function playerAct(P, B, turn, first, n = K.BOSS_Q) {
+    let act = BT.acts[P.side];
     if (!act) {
       const sk = await playerSkill(P);
       const subj = await playerSubj(P, B, turn);
-      act = { sk, subj, ans: [] }; BT.acts.P = act; save();
+      act = { sk, subj, ans: [] }; BT.acts[P.side] = act; btSave();
       if (sk === 'ふういん' && first) tip(`🔒 ${B.name}の ${topSubj(B)}を ふういん！`);
     }
     applyActStart(P, act, turn, first);
-    const st = newGauge(), n = K.BOSS_Q;
+    const st = newGauge();
     act.ans.forEach(ok => gaugeStep(P, st, ok));
     showGauge(P, st, n);
     while (act.ans.length < n) {
-      const q = drawSolvedQ(act.subj, BT.used);
+      const q = drawSolvedQ(act.subj, BT.used, P.qs || S.qs);
       await ask(q, {
         head: `（${act.ans.length + 1}/${n}問目）`, fighter: P,
-        onAnswer: ok => { gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; save(); },
+        onAnswer: ok => { gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; btSave(); },
       });
       showGauge(P, st, n);
       if (st.eraserUsed) { st.eraserUsed = false; tip('🧽 やり直し消しゴム！ まちがいのマイナスなし'); }
@@ -1621,8 +1624,232 @@
     }));
   }
 
+  // =====================================================================
+  // QRコード（全部入りのセーブ。対戦・引きつぎ・先生用ページで使う）
+  // =====================================================================
+  const QMAX = Math.max(...Object.keys(Q).map(Number));
+  const qrBytes = () => window.SAVECODE.encode(S, QMAX);
+  function drawQR(canvas, bytes, size = 520) {
+    const qr = window.qrcode(0, 'L');
+    qr.addData(String.fromCharCode(...bytes), 'Byte'); qr.make();
+    const n = qr.getModuleCount(), q = 4, cell = Math.max(2, Math.floor(size / (n + q * 2)));
+    canvas.width = canvas.height = (n + q * 2) * cell;
+    const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height); c.fillStyle = '#000';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) c.fillRect((x + q) * cell, (y + q) * cell, cell, cell);
+    return n;
+  }
+  function qrScreen() {
+    const el = render(`<div class="scr center" style="gap:12px">
+      <div class="mid">🔳 ${esc(S.pname)} の QRコード</div>
+      <canvas id="qrc" style="background:#fff;border-radius:8px;width:520px;height:520px;image-rendering:pixelated"></canvas>
+      <div class="sm">対戦のときは、このQRを 相手のカメラに 見せてね</div>
+      <div class="xs dim">いまのステータス・アイテム・解いた問題が 入っているよ（あそぶたびに 変わるよ）</div>
+      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'res');
+    drawQR($('#qrc', el), qrBytes());
+    $('#bk', el).onclick = () => home();
+  }
+  // QRを読みこむ（カメラ。だめなら画像ファイルから）→ 中身をかえす（やめたら null）
+  let scanHook = null;
+  function scanQR(title, sub = '') {
+    return new Promise(res => {
+      const o = overlay(`<div class="panel center" style="width:900px;gap:10px">
+        <div class="mid">${title}</div>${sub ? `<div class="sm dim">${sub}</div>` : ''}
+        <video id="vd" playsinline muted style="width:560px;height:420px;background:#000;border-radius:10px;object-fit:cover"></video>
+        <div class="sm gold" id="stt">カメラに QRコードを 見せてね</div>
+        <div class="row"><label class="btn-blue" style="font-size:20px;padding:10px 16px;border-radius:12px;cursor:pointer">🖼️ 画像ファイルから読みこむ<input type="file" accept="image/*" id="fi" style="display:none"></label>
+        <button class="btn-gray" id="cn">やめる</button></div></div>`);
+      const vd = $('#vd', o), stt = $('#stt', o), cv = document.createElement('canvas');
+      let stream = null, stop = false;
+      const done = v => { if (stop) return; stop = true; scanHook = null; if (stream) stream.getTracks().forEach(t => t.stop()); o.remove(); res(v); };
+      const tryBytes = bin => { try { done(window.SAVECODE.decode(bin)); return true; } catch (e) { stt.textContent = '⚠️ ' + e.message; return false; } };
+      const scan = () => {
+        const c = cv.getContext('2d', { willReadFrequently: true }), img = c.getImageData(0, 0, cv.width, cv.height);
+        const r = window.jsQR(img.data, cv.width, cv.height);
+        return r && r.binaryData ? tryBytes(r.binaryData) : false;
+      };
+      scanHook = tryBytes; // テスト用
+      $('#cn', o).onclick = () => done(null);
+      $('#fi', o).onchange = e => {
+        const f = e.target.files[0]; if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+          cv.width = R0(img.width * k); cv.height = R0(img.height * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          if (!scan() && !stop) stt.textContent = '⚠️ QRコードが 見つからなかったよ';
+          URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(f);
+      };
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(st => {
+          if (stop) { st.getTracks().forEach(t => t.stop()); return; }
+          stream = st; vd.srcObject = st; vd.play();
+          const loop = () => {
+            if (stop) return;
+            if (vd.readyState >= 2 && vd.videoWidth) { cv.width = vd.videoWidth; cv.height = vd.videoHeight; cv.getContext('2d').drawImage(vd, 0, 0); if (scan()) return; }
+            setTimeout(loop, 150);
+          };
+          loop();
+        }).catch(() => { stt.textContent = 'カメラが使えないよ。「画像ファイルから読みこむ」をつかってね'; });
+      } else stt.textContent = 'カメラが使えないよ。「画像ファイルから読みこむ」をつかってね';
+    });
+  }
+
+  // =====================================================================
+  // 対戦モード（2人で1台。QR2枚を読みこむ。結果はセーブに残さない。途中から再開できる）
+  // =====================================================================
+  const VS_KEY = 'manabi_battle_vs';
+  let VSV = null;
+  function saveVs() { if (!VSV) return; if (BT && BT.vs) VSV.bt = packBT(); try { localStorage.setItem(VS_KEY, JSON.stringify(VSV)); } catch (e) { console.warn(e); } }
+  function loadVs() { try { const v = JSON.parse(localStorage.getItem(VS_KEY) || 'null'); return v && v.phase ? v : null; } catch (e) { return null; } }
+  function clearVs() { VSV = null; BT = null; try { localStorage.removeItem(VS_KEY); } catch (e) { } }
+  const AB = { a: 'A', b: 'B' };
+  function vsCfg(pr, items) {
+    const t = total(pr.st);
+    return { name: pr.cname, pname: pr.pname, emo: lookOf(pr.type, t), art: artPlayer(pr.type, t), st: { ...pr.st }, items: [...items], prevType: pr.type, skills: skillsOf(t), title: pr.sel.title, aura: pr.sel.aura ? 'aura-' + D.AURAS[pr.sel.aura] : '', qs: pr.qs };
+  }
+  function tapScreen(text, sub = '') {
+    return new Promise(res => {
+      const el = render(`<div class="scr center" style="gap:20px;cursor:pointer"><div style="font-size:90px">👀</div><div class="big">${text}</div><div class="mid dim">${sub || '画面をタップしてね'}</div></div>`, 'btl');
+      el.onclick = () => res();
+    });
+  }
+  async function vsMode() {
+    let V = loadVs();
+    if (V) {
+      const c = await dialog({ who: '🆚', text: 'とちゅうの対戦があるよ。どうする？', choices: [{ label: '▶ 続きから', val: 1, cls: 'btn-main' }, { label: '新しく はじめる', val: 0, cls: 'btn-gray' }] });
+      if (!c) { clearVs(); V = null; }
+    }
+    VSV = V || { phase: 'scanA', prof: {}, picks: { a: [], b: [] }, last: null };
+    saveVs();
+    await vsRun();
+  }
+  async function vsRun() {
+    for (;;) {
+      const V = VSV;
+      if (V.phase === 'scanA' || V.phase === 'scanB') {
+        const w = V.phase === 'scanA' ? 'a' : 'b';
+        render('<div class="scr center"><div style="font-size:120px">🆚</div></div>', 'btl');
+        const pr = await scanQR(`🆚 プレイヤー${AB[w]}の QRコードを 読みこんでね`, '「QR」ボタンで 出したQRコードを、カメラに見せてね');
+        if (!pr) { clearVs(); return home(); }
+        V.prof[w] = pr; V.phase = w === 'a' ? 'scanB' : 'confirm'; saveVs(); continue;
+      }
+      if (V.phase === 'confirm') {
+        const { a, b } = V.prof;
+        const line = (k, p) => `プレイヤー${k}：${esc(p.pname)}（${esc(p.cname)}）ステータス合計 ${total(p.st)}`;
+        const c = await dialog({ who: '🆚', text: `${line('A', a)}\n${line('B', b)}${a.pname === b.pname && a.cname === b.cname ? '\n<span class="red">⚠️ 同じQRを2回 読みこんだかも？</span>' : ''}`, choices: [{ label: 'はじめる！', val: 1, cls: 'btn-main' }, { label: 'QRを読みなおす', val: 0, cls: 'btn-gray' }] });
+        V.phase = c ? 'pickA' : 'scanA'; saveVs(); continue;
+      }
+      if (V.phase === 'pickA' || V.phase === 'pickB') {
+        const w = V.phase === 'pickA' ? 'a' : 'b', pr = V.prof[w];
+        await tapScreen(`プレイヤー${AB[w]}（${esc(pr.pname)}）だけ<br>画面を見てください`, w === 'b' ? 'プレイヤーAは 見ないでね。画面をタップしてね' : '');
+        const preset = V.picks[w].length ? V.picks[w] : V.last ? V.last[w] : [];
+        V.picks[w] = await pickItems(pr, preset.filter(n => pr.owned.includes(n)));
+        V.phase = w === 'a' ? 'pickB' : 'intro'; saveVs(); continue;
+      }
+      if (V.phase === 'intro') {
+        await tapScreen('2人で 画面を見てください');
+        V.bt = { vs: true, cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
+        BT = hydrate(V.bt); BT.snap = dynAll(); V.phase = 'battle'; saveVs();
+        battleScreen(); $('#turn').textContent = '🆚 対戦';
+        await vsIntro(); continue;
+      }
+      if (V.phase === 'battle') {
+        if (!BT) BT = hydrate(V.bt);
+        battleScreen();
+        while (BT.phase === 'turn') await vsTurn();
+        V.result = BT.result; V.phase = 'end'; saveVs(); continue;
+      }
+      if (V.phase === 'end') {
+        if (!BT) BT = hydrate(V.bt);
+        const { P, B } = BT, res = V.result;
+        const msgT = res === 'draw' ? '🤝 引き分け！' : `🏆 プレイヤー${res === 'P' ? 'A' : 'B'}（${esc((res === 'P' ? P : B).pname)}）の 勝ち！`;
+        const c = await dialog({ who: res === 'draw' ? '🤝' : (res === 'P' ? P : B).art, text: `${msgT}\n${esc(P.name)} HP ${Math.max(0, R0(P.hp))}／${P.maxhp}　　${esc(B.name)} HP ${Math.max(0, R0(B.hp))}／${B.maxhp}`, choices: [{ label: '🔁 再戦する', val: 1, cls: 'btn-main' }, { label: '🏠 タイトルにもどる', val: 0, cls: 'btn-gray' }] });
+        if (!c) { clearVs(); return home(); }
+        V.last = { a: V.picks.a, b: V.picks.b }; V.picks = { a: [], b: [] }; V.bt = null; V.result = null; BT = null; V.phase = 'pickA'; saveVs(); continue;
+      }
+      clearVs(); return home();
+    }
+  }
+  // 持ちこみアイテムをえらぶ（もちものと同じ並び・4つまで・40秒）
+  function pickItems(pr, preset) {
+    return new Promise(res => {
+      let sel = [...preset].slice(0, 4), left = 40, done = false;
+      const finish = () => { if (done) return; done = true; clearInterval(tm); app.querySelectorAll('.ov').forEach(x => x.remove()); res(sel); };
+      const draw = () => {
+        const cell = n => { const own = pr.owned.includes(n); return `<div class="bk ${own ? '' : 'none'} ${sel.includes(n) ? 'sel' : ''}" data-n="${esc(n)}">${artItem(n)}</div>`; };
+        const el = render(`
+          <div class="prog"><span class="mid">🎒 ${esc(pr.pname)}の そうび <span class="gold">${sel.length} / 4</span></span>
+            <span class="coin row"><span class="mid">⏱️ <b class="gold" id="lt">${left}</b>秒</span><button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
+          <div class="row" style="position:absolute;top:66px;left:24px;font-size:30px;gap:10px">${sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>'}</div>
+          <div class="panel" style="position:absolute;top:112px;left:24px;right:24px;bottom:16px;overflow-y:auto">
+            <div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
+            ${D.CAT_ORDER.map(c => `<div class="sm gold" style="margin-top:6px">${D.CAT_NAME[c]}</div><div class="bkrow">${D.ITEMS.filter(it => it.cat === c).map(it => cell(it.n)).join('')}</div>`).join('')}
+          </div>`, 'res');
+        $('#ok', el).onclick = finish;
+        $('#rs', el).onclick = () => { sel = []; draw(); };
+        el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
+          const n = c.dataset.n;
+          if (!pr.owned.includes(n)) return;
+          const on = sel.includes(n);
+          const o = overlay(`<div class="panel center">${itemCard(n).replace(' <span class="red">🆕</span>', '')}<div class="row">
+            <button class="${on ? 'btn-gray' : 'btn-main'}" id="eq" ${!on && sel.length >= 4 ? 'disabled' : ''}>${on ? 'そうびを はずす' : 'そうびする'}</button><button class="btn-gray" id="cl">とじる</button></div></div>`);
+          $('#cl', o).onclick = () => o.remove();
+          $('#eq', o).onclick = () => { sel = on ? sel.filter(x => x !== n) : [...sel, n]; o.remove(); draw(); };
+        }));
+      };
+      draw();
+      const tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; if (left <= 0) finish(); }, T(1000));
+    });
+  }
+  async function vsIntro() {
+    const { P, B } = BT;
+    const side = (f, k) => `<div class="col" style="width:520px"><div class="mid">プレイヤー${k}：${esc(f.pname)}</div>
+      ${f.title ? `<div class="sm gold">【${esc(f.title)}】</div>` : ''}<div class="mid">${f.art} ${esc(f.name)} <span class="sm dim">${f.type}タイプ・HP ${f.maxhp}</span></div>
+      ${[...f.items].map(n => `<div class="xs">${artItem(n)} <b>${esc(n)}</b>：${esc(D.ITEM[n].d)}</div>`).join('') || '<div class="xs dim">アイテムなし</div>'}</div>`;
+    await dialog({ who: '🆚', text: '', body: `<div class="row" style="align-items:flex-start;gap:20px">${side(P, 'A')}${side(B, 'B')}</div>`, choices: [{ label: 'バトル スタート！', val: 1, cls: 'btn-main' }] });
+  }
+  async function vsTurn() {
+    const { P, B } = BT, turn = BT.turn;
+    hideGauges();
+    $('#turn').textContent = `🆚 ターン ${turn} / 3`;
+    await cutin(`ターン ${turn}`, 900);
+    if (!BT.firstId) {
+      const right = await roulette(P, B);
+      const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: right, cls: 'btn-main' }, { label: '👀 後攻', val: right.opp, cls: 'btn-blue' }] });
+      BT.firstId = first.side; saveVs();
+    }
+    const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
+    for (let i = 0; i < 2; i++) {
+      const x = order[i], other = BT.acts[x.opp.side];
+      if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
+        x.skipNext = false;
+        if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveVs(); }
+        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await wait(1300); continue;
+      }
+      if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`🎮 ${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
+      BT.note = `<div class="sm" style="margin-bottom:6px">🎮 <b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
+      await playerAct(x, x.opp, turn, i === 0, K.VS_Q);
+    }
+    hideGauges();
+    const ev = resolveTurn(order, turn, false);
+    let res = null;
+    if (P.hp <= 0 || B.hp <= 0) {
+      if (P.hp <= 0 && B.hp <= 0) { const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp === rb ? 'draw' : rp > rb ? 'P' : 'B'; }
+      else res = B.hp <= 0 ? 'P' : 'B';
+    } else if (turn >= 3) {
+      const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = Math.abs(rp - rb) < 1e-9 ? 'draw' : rp > rb ? 'P' : 'B';
+      ev.push({ t: `⏱️ 3ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
+    }
+    BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
+    if (res) { BT.phase = 'end'; BT.result = res; }
+    saveVs();
+    await playEvents(ev);
+    if (res && res !== 'draw') { const el = $(res === 'P' ? '#fB' : '#fP'); if (el) el.classList.add('bye'); await cutin(`🏆 ${esc((res === 'P' ? P : B).name)}の 勝ち！`, 1800); }
+  }
+
   // ---- テスト用の入口（Playwright などから使う）----
-  window.MB = { get S() { return S; }, get R() { return R; }, get BT() { return BT; }, Q, D, SAVE_KEY };
+  window.MB = { get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動 ----
   S = load();

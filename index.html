@@ -119,6 +119,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 /* 図鑑 */
 .bkrow{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0}
 .bk{width:64px;height:64px;font-size:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(255,255,255,.08);cursor:pointer}
+.bk.sel{outline:4px solid #fde047;background:rgba(253,224,71,.25)}
 .bk.none .art{filter:brightness(0) opacity(.6)}
 /* ガチャ */
 .magic{width:260px;height:260px;border-radius:50%;border:6px dashed var(--c,#a78bfa);box-shadow:0 0 30px var(--c,#a78bfa),inset 0 0 40px var(--c,#a78bfa);opacity:.85}
@@ -132,9 +133,12 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 </head>
 <body>
 <div id="stage"><div id="app"></div></div>
+<script src="lib/qrcode.js"></script>
+<script src="lib/jsQR.js"></script>
 <script src="questions.js"></script>
 <script src="data.js"></script>
 <script src="assets.js"></script>
+<script src="savecode.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
