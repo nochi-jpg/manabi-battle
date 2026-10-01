@@ -588,7 +588,8 @@
         <button class="wide" id="dun">⚔️ 育成ダンジョン<small>スタミナ ${K.DUNGEON_COST} をつかう</small></button>
         <button id="rev">📕 復習ダンジョン<small>まっている問題 ${review}問</small></button>
         <button id="tow">🗼 無限の塔<small>きょうの のこり ${fmtTime(towerLeft)}</small></button>
-        <button id="vs" style="grid-column:span 2">🆚 対戦モード<small>2人で1台</small></button>
+        <button id="tri">🧪 おためしバトル<small>そうびを ためす</small></button>
+        <button id="vs">🆚 対戦モード<small>2人で1台</small></button>
       </div>
       <div class="menuB">
         <button id="b1">🎰 ガチャ</button><button id="b2">🎒 もちもの</button><button id="b3">📋 問題リスト</button><button id="b4">🔳 QR</button><button id="b5">🏆 アチーブメント</button>
@@ -603,6 +604,7 @@
     $('#b2', el).onclick = () => itemBook();
     $('#b5', el).onclick = () => achList();
     $('#vs', el).onclick = () => vsMode();
+    $('#tri', el).onclick = () => trialMode();
     $('#b4', el).onclick = () => qrScreen();
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
@@ -1270,7 +1272,7 @@
     return act;
   }
   async function bossAct(B, P, turn, first) {
-    let act = BT.acts.B; const fresh = !act, n = K.BOSS_Q;
+    let act = BT.acts.B; const fresh = !act, n = BT.qn || K.BOSS_Q;
     if (fresh) {
       const { sk, subj } = bossChoose(B, P, turn, first);
       act = { sk, subj, ans: Array.from({ length: n }, () => Math.random() < K.BOSS_ACC) };
@@ -1324,7 +1326,7 @@
     await cutin(`ターン ${turn}`, 900);
     if (!BT.firstId) {
       let right;
-      if (R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await wait(900); }
+      if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await wait(900); }
       else right = await roulette(P, B);
       let first;
       if (right === P) first = await dialog({ who: '🎡', text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: P, cls: 'btn-main' }, { label: '👀 後攻', val: B, cls: 'btn-blue' }] });
@@ -1342,7 +1344,7 @@
       if (x === P) {
         const ba = BT.acts.B;
         BT.note = i === 1 && ba && ba !== 'skip' ? `<div class="sm gold" style="margin-bottom:6px">👀 ${esc(B.name)}は「${ba.sk}」・${ba.subj} をえらんだ。どうする？</div>` : '';
-        await playerAct(P, B, turn, i === 0);
+        await playerAct(P, B, turn, i === 0, BT.qn || K.BOSS_Q);
       } else await bossAct(B, P, turn, i === 0);
     }
     hideGauges();
@@ -1360,24 +1362,36 @@
     await playEvents(ev);
   }
 
+  // ボス戦の2人（育成ダンジョンと おためしバトルで共通）
+  function bossCfg(boss, stg, hand, flags = {}) {
+    const t = total(S.st), bd = D.BOSSES[boss];
+    // ボスのステータス（プレイヤーの合計に合わせる）
+    const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
+    const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
+    const skills = skillsOf(t);
+    const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...hand], prevType: S.type, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
+    const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss };
+    // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
+    const wk = D.WEAK[boss];
+    if (wk) {
+      const tmp = makeFighter(cP);
+      const best = SUBJ.reduce((x, s) => (baseAtk(tmp, s) > baseAtk(tmp, x) ? s : x));
+      cP.weakSubj = wk; cP.weakMul = Math.max(1, baseAtk(tmp, best) / baseAtk(tmp, wk)) * (flags.sekihi ? 1.1 : 1);
+    }
+    return { P: cP, B: cB };
+  }
+  async function bossIntro() {
+    const { P, B } = BT;
+    await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
+    if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => D.ITEM[n].e + n).join('、')}`], 1600);
+    if (P.weakSubj) await blogLines([`✨ 紋章が輝く…！！ このボスには ${P.weakSubj}（弱点）の攻撃力が <b class="gold">${P.weakMul.toFixed(2)}倍</b> になる！`], 2200);
+  }
+
   async function bossNode() {
     if ('boss' in R.ns) return result_(); // ボス戦はもう終わっている
-    const t = total(S.st), stg = stageOf(t), bd = D.BOSSES[R.boss];
+    const stg = stageOf(total(S.st));
     if (!R.bt) {
-      // ボスのステータス（プレイヤーの合計に合わせる）
-      const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === R.boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
-      const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
-      const skills = skillsOf(t);
-      const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...R.hand], prevType: S.type, hpBonus: R.flags.izumi ? 0.15 : 0, skills, power: R.flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
-      const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', R.boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: R.boss };
-      // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
-      const wk = D.WEAK[R.boss];
-      if (wk) {
-        const tmp = makeFighter(cP);
-        const best = SUBJ.reduce((x, s) => (baseAtk(tmp, s) > baseAtk(tmp, x) ? s : x));
-        cP.weakSubj = wk; cP.weakMul = Math.max(1, baseAtk(tmp, best) / baseAtk(tmp, wk)) * (R.flags.sekihi ? 1.1 : 1);
-      }
-      R.bt = { cfg: { P: cP, B: cB }, snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
+      R.bt = { cfg: bossCfg(R.boss, stg, R.hand, R.flags), snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
       save();
     }
     BT = hydrate(R.bt);
@@ -1385,9 +1399,7 @@
     battleScreen();
     $('#turn').textContent = '👑 ボス戦';
     if (BT.phase === 'intro') {
-      await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
-      if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => D.ITEM[n].e + n).join('、')}`], 1600);
-      if (P.weakSubj) await blogLines([`✨ 紋章が輝く…！！ このボスには ${P.weakSubj}（弱点）の攻撃力が <b class="gold">${P.weakMul.toFixed(2)}倍</b> になる！`], 2200);
+      await bossIntro();
       if (firstRun()) tip('ボス戦は3ターン。スキルと教科をえらんで、問題に答えて攻撃しよう！', 4000);
       BT.phase = 'turn'; BT.snap = dynAll(); save();
     }
@@ -1786,6 +1798,66 @@
       el.onclick = () => res();
     });
   }
+  // =====================================================================
+  // おためしバトル（CPU戦）：アイテムの組み合わせを ためす用
+  // ・ほうびなし・回数制限なし・正誤は記録しない・とちゅうのセーブなし
+  // ・ボスは育成ダンジョンと同じ。1ターン5問×3ターン。持っているアイテムだけ。時間制限なし
+  // =====================================================================
+  const TRIAL_BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
+  let TR = null; // { boss, stg, items }
+  async function trialMode() {
+    TR = TR || { boss: null, stg: stageOf(total(S.st)), items: S.owned.filter(n => S.fav.includes(n)).slice(0, 4) };
+    for (;;) {
+      if (!TR.boss) { const b = await trialSelect(); if (!b) return home(); TR.boss = b; }
+      if (!TR.picked) {
+        const it = await pickItems(S, TR.items.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ ボスえらび' });
+        if (!it) { TR.boss = null; continue; }
+        TR.items = it; TR.picked = true;
+      }
+      const res = await trialBattle();
+      const c = await dialog({ who: res === 'win' ? '🏆' : '💫', text: `${res === 'win' ? '🏆 勝った！' : '😢 負けちゃった……'}\n${esc(BT.P.name)} HP ${Math.max(0, R0(BT.P.hp))}／${BT.P.maxhp}　　${esc(BT.B.name)} HP ${Math.max(0, R0(BT.B.hp))}／${BT.B.maxhp}\n<span class="sm dim">（おためしバトルなので、ほうびはないよ）</span>`,
+        choices: [{ label: '🔁 同じそうびで もう一度', val: 'again', cls: 'btn-main' }, { label: '🎒 そうびを かえる', val: 'items', cls: 'btn-blue' }, { label: '👑 ボスを かえる', val: 'boss', cls: 'btn-blue' }, { label: '🏠 ホームへ', val: 'home', cls: 'btn-gray' }] });
+      BT = null;
+      if (c === 'home') { TR.picked = false; return home(); }
+      if (c === 'items') TR.picked = false;
+      if (c === 'boss') { TR.boss = null; TR.picked = false; }
+    }
+  }
+  function trialSelect() {
+    return new Promise(res => {
+      const draw = () => {
+        const stg = TR.stg;
+        const el = render(`<div class="scr center" style="gap:14px">
+          <div class="big">🧪 おためしバトル</div>
+          <div class="sm dim">アイテムの組み合わせを ためそう！ ほうびはないけど、何回でも あそべるよ（1ターン${K.VS_Q}問×3ターン）</div>
+          <div class="row" id="sg">${[0, 1, 2].map(i => `<button data-g="${i}" class="${i === stg ? 'btn-main' : 'btn-gray'}" style="font-size:20px;padding:8px 18px">ボスの強さ ${'★'.repeat(i + 1)}</button>`).join('')}</div>
+          <div style="display:grid;grid-template-columns:repeat(3,360px);gap:12px" id="bs">${TRIAL_BOSS.map(b => {
+            const bd = D.BOSSES[b];
+            return `<button data-b="${b}" style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <span style="font-size:48px;line-height:1">${art(g2(A, 'boss', b, stg), bd.e[stg])}</span><span class="mid">${esc(bd.n[stg])}</span>
+              <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => D.ITEM[n].e).join('')}</span></button>`;
+          }).join('')}</div>
+          <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
+        el.querySelectorAll('#sg button').forEach(b => (b.onclick = () => { TR.stg = +b.dataset.g; draw(); }));
+        el.querySelectorAll('#bs button').forEach(b => (b.onclick = () => res(b.dataset.b)));
+        $('#bk', el).onclick = () => res(null);
+      };
+      draw();
+    });
+  }
+  async function trialBattle() {
+    BT = hydrate({ trial: true, qn: K.VS_Q, cfg: bossCfg(TR.boss, TR.stg, TR.items), snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
+    BT.snap = dynAll();
+    battleScreen();
+    $('#turn').textContent = '🧪 おためしバトル';
+    await bossIntro();
+    blog(`<span class="sm dim">${weakText(TR.boss)}</span>`); await wait(1200);
+    while (BT.phase === 'turn') await playTurn();
+    if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}を たおした！`, 1500); }
+    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await wait(1200); }
+    return BT.result;
+  }
+
   async function vsMode() {
     let V = loadVs();
     if (V) {
@@ -1844,21 +1916,23 @@
     }
   }
   // 持ちこみアイテムをえらぶ（もちものと同じ並び・4つまで・40秒）
-  function pickItems(pr, preset) {
+  // noTimer：時間制限なし（おためしバトル）。back：「もどる」ボタン（おしたら null を返す）
+  function pickItems(pr, preset, { noTimer = false, back = '' } = {}) {
     return new Promise(res => {
-      let sel = [...preset].slice(0, 4), left = 40, done = false;
-      const finish = () => { if (done) return; done = true; clearInterval(tm); app.querySelectorAll('.ov').forEach(x => x.remove()); res(sel); };
+      let sel = [...preset].slice(0, 4), left = 40, done = false, tm = null;
+      const finish = (v = sel) => { if (done) return; done = true; clearInterval(tm); app.querySelectorAll('.ov').forEach(x => x.remove()); res(v); };
       const draw = () => {
         const cell = n => { const own = pr.owned.includes(n); return `<div class="bk ${own ? '' : 'none'} ${sel.includes(n) ? 'sel' : ''}" data-n="${esc(n)}">${artItem(n)}</div>`; };
         const el = render(`
           <div class="prog"><span class="mid">🎒 ${esc(pr.pname)}の そうび <span class="gold">${sel.length} / 4</span></span>
-            <span class="coin row"><span class="mid">⏱️ <b class="gold" id="lt">${left}</b>秒</span><button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
+            <span class="coin row">${noTimer ? '' : `<span class="mid">⏱️ <b class="gold" id="lt">${left}</b>秒</span>`}${back ? `<button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">${back}</button>` : ''}<button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
           <div class="row" style="position:absolute;top:66px;left:24px;font-size:30px;gap:10px">${sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>'}</div>
           <div class="panel" style="position:absolute;top:112px;left:24px;right:24px;bottom:16px;overflow-y:auto">
             <div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
             ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
           </div>`, 'res');
-        $('#ok', el).onclick = finish;
+        $('#ok', el).onclick = () => finish();
+        if (back) $('#bk', el).onclick = () => finish(null);
         $('#rs', el).onclick = () => { sel = []; draw(); };
         el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
           const n = c.dataset.n;
@@ -1871,7 +1945,7 @@
         }));
       };
       draw();
-      const tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; if (left <= 0) finish(); }, T(1000));
+      if (!noTimer) tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; if (left <= 0) finish(); }, T(1000));
     });
   }
   async function vsIntro() {
