@@ -26,23 +26,26 @@ with sync_playwright() as p:
     # まちがいを作る（正答率0.3でダンジョン2回）
     for _ in range(2):
         pg.click('#dun'); pg.wait_for_timeout(50); pg.click('.ov .choices button'); loop(0.3, home)
-    wrong = pg.evaluate("Object.values(MB.S.qs).filter(v=>v===2).length")
-    check(wrong > 0, f'まちがい {wrong}問')
+    cnt = "(k)=>Object.values(MB.S.qs).filter(v=>v===k).length"
+    wrong, right = pg.evaluate(f"({cnt})(2)"), pg.evaluate(f"({cnt})(3)")
+    check(wrong > 0 and right > 0, f'ダンジョン：不正解→復習まち {wrong}問／正解→あと1回 {right}問')
 
-    # 復習：全部正解 → 3（0.2待ち）になり、きょうはもう出ない
-    st0 = pg.evaluate("JSON.stringify(MB.S.st)")
+    # きょう：復習まちだけが出る（あと1回は きょう上がったばかりなので出ない）。正解 → あと1回、+8・コイン+8
+    st0, c0 = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)"), pg.evaluate("MB.S.coins")
     pg.click('#rev'); loop(1.0, home)
-    s = pg.evaluate("({w:Object.values(MB.S.qs).filter(v=>v===2).length, w3:Object.values(MB.S.qs).filter(v=>v===3).length})")
-    check(s['w'] == 0 and s['w3'] == wrong, f'復習1回目 → 2回目まち {s}')
-    gain = pg.evaluate(f"Object.values(MB.S.st).reduce((a,b)=>a+b) - Object.values({st0}).reduce((a,b)=>a+b)")
-    check(gain == wrong * 8, f'復習で +8 ずつ（合計+{gain}）')
+    check(pg.evaluate(f"({cnt})(2)") == 0 and pg.evaluate(f"({cnt})(3)") == wrong + right, '復習まち → あと1回')
+    gain = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)") - st0
+    check(gain == wrong * 8 and pg.evaluate("MB.S.coins") - c0 == wrong * 8, f'復習まちの正解で +8・コイン+8（+{gain}）')
     pg.click('#rev'); pg.wait_for_timeout(100)
-    check('回答できる問題はないようだ' in pg.inner_text('.ov'), '同じ日は2回目が出ない'); pg.click('.ov button')
+    check('回答できる問題はないようだ' in pg.inner_text('.ov'), '同じ問題は1日1回まで'); pg.click('.ov button')
 
-    # 次の日にする → 卒業
+    # 次の日：あと1回 → 卒業 +2・コイン+2
     pg.evaluate("for (const k in MB.S.qd) MB.S.qd[k] = '2000-01-01'")
+    st0 = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)")
     pg.click('#rev'); loop(1.0, home)
-    check(pg.evaluate("Object.values(MB.S.qs).filter(v=>v===4).length") == wrong, '別の日に正解で卒業')
+    n = wrong + right
+    check(pg.evaluate(f"({cnt})(4)") == n, f'あと1回の正解で卒業 {n}問')
+    check(pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)") - st0 == n * 2, '卒業は +2')
 
     nq0 = pg.evaluate("Object.keys(MB.S.qs).length")
     # 無限の塔：3階のぼって中断 → 再読みこみ → つづきから

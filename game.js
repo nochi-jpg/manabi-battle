@@ -45,8 +45,9 @@
   // =====================================================================
   // 状態とセーブ
   // =====================================================================
-  // qs[id]: 1=正解 2=まちがい(0.8待ち) 3=0.8ずみ(0.2待ち) 4=卒業
-  const SAVE_KEY = 'manabi_battle_save', SAVE_V = 1;
+  // qs[id]: 2=復習待ち 3=あと1回 4=卒業（qd[id] = 最後に1段階上がった日。1日1回まで）
+  // 全問 最低2回 正解して卒業：ダンジョンで正解→あと1回／不正解→復習待ち → 復習ダンジョンで1段階ずつ上がる
+  const SAVE_KEY = 'manabi_battle_save', SAVE_V = 2;
   let S = null;   // セーブデータ本体
   let R = null;   // いまのダンジョン（S.run にしまう）
   let BT = null;  // いまのボス戦（R.bt にしまう）
@@ -90,7 +91,10 @@
   // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
   function migrate(s) {
     if (!s || typeof s !== 'object' || !s.v) return null;
-    // 例： if (s.v === 1) { ...v2 への変換...; s.v = 2; }
+    if (s.v === 1) { // v1→v2：「正解(1)」は「あと1回(3)」に
+      for (const k in s.qs || {}) if (s.qs[k] === 1) s.qs[k] = 3;
+      s.v = 2;
+    }
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
@@ -495,7 +499,7 @@
   // =====================================================================
   // ホーム（部室）
   // =====================================================================
-  const LINES = ['きょうも いっしょに がんばろう！', 'いろんな教科を解くと、運が上がるよ', 'まちがえた問題は、復習ダンジョンで取りもどせるよ', 'ボスの弱点をつくと、大ダメージ！', 'バトル部、さいこう！'];
+  const LINES = ['きょうも いっしょに がんばろう！', 'いろんな教科を解くと、運が上がるよ', '解いた問題は、復習ダンジョンで もう1回 正解すると 卒業だよ', 'ボスの弱点をつくと、大ダメージ！', 'バトル部、さいこう！'];
   function home() {
     dayCheck(); refreshType();
     const t = total(S.st), luck = luckOf(S.st), sk = skillsOf(t);
@@ -684,12 +688,12 @@
         R.qptr[subj]++;
         if (ok) {
           const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
-          S.st[subj] += gain; if (!pre.osarai) S.qs[q.id] = 1;
-          const c = K.COIN_OK + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
+          S.st[subj] += gain; if (!pre.osarai) { S.qs[q.id] = 3; S.qd[q.id] = today(); } // 正解 → あと1回
+          const c = (pre.osarai ? K.COIN_OSARAI : K.COIN_OK) + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
           if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${emo} がアイテムを落とした！`);
           out = { ok, subj, gain, c };
         } else {
-          if (!pre.osarai) S.qs[q.id] = 2;
+          if (!pre.osarai) S.qs[q.id] = 2; // 不正解 → 復習待ち
           S.coins += K.COIN_NG; R.coins += K.COIN_NG;
           out = { ok, subj, c: K.COIN_NG, osarai: pre.osarai };
         }
@@ -701,12 +705,12 @@
       foeEl.classList.add('bye');
       floatAt(820, 180, `${subj} +${out.gain}`, D.SUBJ_COLOR[subj]);
       setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
-      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！`);
+      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${out.osarai ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ</span>'}`);
     } else {
       foeEl.style.transition = 'transform .6s,opacity .6s'; foeEl.style.transform = 'translateX(300px)'; foeEl.style.opacity = 0;
-      floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
+      if (out.c) floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
       msg(out.osarai ? '💨 にげられた…' : '💨 にげられた… この問題は <b>復習ダンジョン</b> に入ったよ');
-      if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで正解すれば取りもどせるよ'); }
+      if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで もう一度 挑戦できるよ'); }
     }
     drawHand();
     await wait(1200);
@@ -1425,11 +1429,11 @@
   // =====================================================================
   function dueList() {
     const t = today();
-    return Object.entries(S.qs).filter(([id, v]) => v === 2 || (v === 3 && (S.qd[id] || '') < t)).map(([id]) => +id).filter(id => Q[id]);
+    return Object.entries(S.qs).filter(([id, v]) => (v === 2 || v === 3) && S.qd[id] !== t).map(([id]) => +id).filter(id => Q[id]);
   }
   async function reviewDungeon() {
     const due = dueList();
-    if (!due.length) { await dialog({ who: '📕', text: '回答できる問題はないようだ。\n（まちがえた問題は、ここで取りもどせるよ）' }); return; }
+    if (!due.length) { await dialog({ who: '📕', text: '回答できる問題はないようだ。\n（まちがえた問題は すぐ、正解した問題は 次の日から ここに出るよ）' }); return; }
     const st0 = { ...S.st }, type0 = S.type;
     let queue = shuffle(due), retry = [], okN = 0, ngN = 0;
     const el = render(`
@@ -1449,16 +1453,18 @@
       else break;
       const q = Q[id], stage = S.qs[id];
       $('#foe').innerHTML = artZako(stage === 3 ? '🦉' : '👻'); $('#foe').className = 'foe fadein';
-      $('#foelbl').textContent = stage === 3 ? 'ふくしゅう 2回目（卒業）' : 'ふくしゅう 1回目';
-      msg(`のこり <b>${left() + 1}</b> 問。まちがえた問題に もう一度 挑戦！`);
+      $('#foelbl').textContent = stage === 3 ? 'あと1回（正解で卒業）' : '復習まち';
+      msg(`のこり <b>${left() + 1}</b> 問。解いた問題に もう一度 挑戦して、しっかり おぼえよう！`);
       let out = null;
       const r = await ask(q, {
-        head: stage === 3 ? '（ふくしゅう2回目）' : '（ふくしゅう1回目）', extra: '🏠 ホームへ',
+        head: stage === 3 ? '（あと1回）' : '（復習まち）', extra: '🏠 ホームへ',
         onAnswer: ok => {
           retry.forEach(x => x.wait--);
           if (ok) {
-            if (S.qs[id] === 2) { S.qs[id] = 3; S.qd[id] = today(); S.st[q.s] += K.GAIN_REVIEW1; S.coins += K.COIN_REVIEW; out = { gain: K.GAIN_REVIEW1, c: K.COIN_REVIEW }; }
-            else { S.qs[id] = 4; delete S.qd[id]; S.st[q.s] += K.GAIN_REVIEW2; out = { gain: K.GAIN_REVIEW2, c: 0, grad: true }; }
+            // 1段階上がるのは 1日1回まで（qd に日付を書く）
+            if (S.qs[id] === 2) { S.qs[id] = 3; S.st[q.s] += K.GAIN_REVIEW1; S.coins += K.COIN_REVIEW; out = { gain: K.GAIN_REVIEW1, c: K.COIN_REVIEW }; }
+            else { S.qs[id] = 4; S.st[q.s] += K.GAIN_REVIEW2; S.coins += K.COIN_REVIEW2; out = { gain: K.GAIN_REVIEW2, c: K.COIN_REVIEW2, grad: true }; }
+            S.qd[id] = today();
             okN++;
           } else { retry.push({ id, wait: 2 }); ngN++; }
           refreshType(); save();
@@ -1470,7 +1476,7 @@
         $('#foe').classList.add('bye');
         floatAt(820, 180, `${q.s} +${out.gain}`, D.SUBJ_COLOR[q.s]);
         if (out.c) setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
-        msg(out.grad ? `🎓 卒業！ この問題は もう だいじょうぶ！ ${q.s} +${out.gain}` : `⭕ 取りもどした！ ${q.s} +${out.gain}<br><span class="sm">別の日に もう一度正解すると 卒業だよ</span>`);
+        msg(out.grad ? `🎓 卒業！ この問題は もう だいじょうぶ！ ${q.s} +${out.gain}` : `⭕ 正解！ ${q.s} +${out.gain}<br><span class="sm">あと1回 正解すると 卒業だよ（あした以降に また出るよ）</span>`);
       } else msg(`💨 にげられた… ${queue.length + retry.length > 1 ? 'ほかの問題のあとで、もう一度出るよ' : 'また あとで 挑戦しよう'}`);
       await wait(900);
       if (!left()) break;
@@ -1589,7 +1595,7 @@
   // =====================================================================
   // 問題リスト（教科ごとに問題と解説を読める。まだの学年も見られる）
   // =====================================================================
-  const QST = { 0: ['⬜', 'まだ'], 1: ['⭕', '正解'], 2: ['❌', '復習まち'], 3: ['🔁', 'あと1回'], 4: ['🎓', '卒業'] };
+  const QST = { 0: ['⬜', 'まだ'], 2: ['❌', '復習まち'], 3: ['🔁', 'あと1回'], 4: ['🎓', '卒業'] };
   function questionList(subj = '国語', grade = 4) {
     const qs = QBY[subj].filter(q => q.g === grade);
     const cnt = k => QBY[subj].filter(q => (S.qs[q.id] || 0) === k).length;
@@ -1598,7 +1604,7 @@
       <div style="position:absolute;top:70px;left:24px;right:24px" class="col">
         <div class="row">${SUBJ.map(s => `<button data-s="${s}" class="${s === subj ? 'btn-main' : ''}" style="font-size:20px;padding:8px 16px;border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}</button>`).join('')}
           <span style="width:24px"></span>${[4, 5, 6].map(g => `<button data-g="${g}" class="${g === grade ? 'btn-blue' : ''}" style="font-size:20px;padding:8px 16px">${g}年</button>`).join('')}</div>
-        <div class="sm dim">${subj}：${[1, 2, 3, 4].map(k => `${QST[k][0]}${QST[k][1]} ${cnt(k)}`).join('　')}　⬜まだ ${cnt(0)}</div>
+        <div class="sm dim">${subj}：${[2, 3, 4].map(k => `${QST[k][0]}${QST[k][1]} ${cnt(k)}`).join('　')}　⬜まだ ${cnt(0)}</div>
         <div class="panel" id="ql" style="height:520px;overflow-y:auto;padding:8px">
           ${qs.map(q => { const v = S.qs[q.id] || 0; return `<div class="qrow" data-id="${q.id}">${QST[v][0]} <span class="xs dim">No.${q.id}</span> ${esc(q.t)}</div>`; }).join('')}
         </div></div>`, 'res');
