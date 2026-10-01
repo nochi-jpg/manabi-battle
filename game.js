@@ -30,6 +30,8 @@
   const artZako = e => art(g2(A, 'zako', e), e);
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
+  const ic = (k, e) => `<span class="ic">${artUi(k, e)}</span>`; // UIのアイコン（画像がなければ絵文字）
+  const hearts = (n, max) => ic('heart', '❤️').repeat(n) + ic('heartEmpty', '🖤').repeat(max - n);
   const BG = { home: 'home', dun: 'dungeon', btl: 'battle', res: 'result', title: 'title', name: 'name' };
 
   // ---- 乱数（ダンジョンは入ったときに種を決める。状態をセーブできる）----
@@ -667,7 +669,7 @@
     const towerLeft = Math.max(0, towerLimit() - S.towerMs);
     const el = render(`
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
-        <span id="sta" style="cursor:pointer">⚡ スタミナ ${S.stamina}<span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
+        <span id="sta" style="cursor:pointer">${ic('stamina', '⚡')} スタミナ ${S.stamina}<span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
       <div class="chara col">
         <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
@@ -1768,7 +1770,7 @@
       <div class="sm dim" style="text-align:center">1問＝1階。正解するたびに 🪙+${K.TOWER_COIN}。ハート3つ。3回まちがえたら おしまい（次は1階から）<br>どの塔も 1日1回 入れる（あしたに くりこせない）。とちゅうで やめても、つづきから 再開できるよ</div>
       <div class="row" id="ts">${SUBJ.map(s => {
         const st = towerState(s), top = QBY[s].length, t = st.t;
-        const line = st.kind === 'cont' ? `<span class="sm gold">▶ つづきから ${t.floor + 1}階</span><span class="xs">${'❤️'.repeat(t.hearts)}${'🖤'.repeat(K.TOWER_HEARTS - t.hearts)}</span>`
+        const line = st.kind === 'cont' ? `<span class="sm gold">▶ つづきから ${t.floor + 1}階</span><span class="xs">${hearts(t.hearts, K.TOWER_HEARTS)}</span>`
           : st.kind === 'new' ? `<span class="sm">🎫 入場できる</span><span class="xs">1階から</span>` : `<span class="sm dim">きょうは 入場ずみ</span><span class="xs dim">また あした</span>`;
         return `<button data-s="${s}" ${st.kind === 'used' ? 'disabled' : ''} style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
           <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階 ／ 頂上 ${top}階</span></button>`;
@@ -1793,7 +1795,7 @@
       </div>`, 'dun');
     let got = 0;
     const upd = () => {
-      $('#hearts').textContent = '❤️'.repeat(tw.hearts) + '🖤'.repeat(K.TOWER_HEARTS - tw.hearts);
+      $('#hearts').innerHTML = hearts(tw.hearts, K.TOWER_HEARTS);
       $('#floor').textContent = `${tw.floor + 1}階`;
       $('#best').textContent = `さいこう ${S.towerBest[subj] || 0}階 ／ 頂上 ${top}階`;
       $('#tcoin').textContent = `🪙 ${S.coins}${got ? `（+${got}）` : ''}`;

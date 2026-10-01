@@ -78,7 +78,7 @@ with sync_playwright() as p:
     sel = A.evaluate("[...document.querySelectorAll('.bk.sel')].map(e=>e.dataset.n)")
     check(len(picks['a']) == 2 and sorted(set(sel)) == sorted(set(picks['a'])), f'再戦は前のそうびが入っている {picks["a"]}')
     play("MB.VS && MB.VS.phase === 'end'")
-    A.wait_for_timeout(300)
+    A.wait_for_selector('.ov .choices button >> nth=1')   # 勝敗の窓が出るまで待つ
     btns = A.query_selector_all('.ov .choices button'); btns[1].click(); A.wait_for_timeout(200)
     check(A.evaluate("localStorage.getItem('manabi_battle_vs') === null") and A.query_selector('#dun') is not None, 'タイトルにもどる → 対戦のデータは消える')
     b.close()
