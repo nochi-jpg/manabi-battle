@@ -1,7 +1,9 @@
-// ===== まなびバトル 本体（①-1：ホーム → 育成ダンジョン → CPUボス戦 → リザルト）=====
+// ===== まなびバトル 本体 =====
+// ①-1 ホーム → 育成ダンジョン → CPUボス戦 → リザルト
+// ①-2 セーブ（1問ごとに自動保存・続きから）＋ 画像の差しかえ（assets.js）
 (function () {
   'use strict';
-  const D = window.DATA, K = D.K, SUBJ = D.SUBJ;
+  const D = window.DATA, K = D.K, SUBJ = D.SUBJ, A = window.ASSETS || {};
   const $ = (s, r = document) => r.querySelector(s);
   const app = $('#app');
   const T = ms => (window.FAST ? ms / 50 : ms);
@@ -10,12 +12,26 @@
   const shuffle = (a, rnd = Math.random) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const R0 = n => Math.round(n);
+  const clone = o => JSON.parse(JSON.stringify(o));
 
   // ---- 画面の拡大縮小 ----
   function fit() { const s = Math.min(innerWidth / 1280, innerHeight / 720); $('#stage').style.transform = `translate(-50%,-50%) scale(${s})`; }
   addEventListener('resize', fit); fit();
 
-  // ---- 乱数（ダンジョンは入ったときに種を決める）----
+  // ---- 画像（assets.js にパスがあれば画像、なければ絵文字）----
+  function art(path, emoji) {
+    if (!path) return `<span class="art">${emoji}</span>`;
+    return `<span class="art"><img src="${esc(path)}" alt="" style="height:1em;width:auto;vertical-align:middle" onerror="this.parentNode.textContent='${emoji}'"></span>`;
+  }
+  const g2 = (o, ...k) => k.reduce((x, y) => (x && x[y] !== undefined ? x[y] : ''), o);
+  const artPlayer = (type, t) => art(g2(A, 'player', type, stageOf(t)), lookOf(type, t));
+  const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e);
+  const artZako = e => art(g2(A, 'zako', e), e);
+  const artNpc = (n, e) => art(g2(A, 'npc', n), e);
+  const artUi = (k, e) => art(g2(A, 'ui', k), e);
+  const BG = { home: 'home', dun: 'dungeon', btl: 'battle', res: 'result', title: 'title', name: 'name' };
+
+  // ---- 乱数（ダンジョンは入ったときに種を決める。状態をセーブできる）----
   function makeRng(seed) {
     let a = seed >>> 0;
     const f = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -26,19 +42,53 @@
   const Q = {}, QBY = {}; SUBJ.forEach(s => (QBY[s] = []));
   window.QUESTION_DB.forEach(r => { const q = { id: r[0], s: r[1], g: r[2], t: r[3], a: r[4], x: r[5] }; Q[q.id] = q; if (QBY[q.s]) QBY[q.s].push(q); });
 
-  // ---- 状態 ----
+  // =====================================================================
+  // 状態とセーブ
+  // =====================================================================
   // qs[id]: 1=正解 2=まちがい(0.8待ち) 3=0.8ずみ(0.2待ち) 4=卒業
-  let S = null;
-  function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
+  const SAVE_KEY = 'manabi_battle_save', SAVE_V = 1;
+  let S = null;   // セーブデータ本体
+  let R = null;   // いまのダンジョン（S.run にしまう）
+  let BT = null;  // いまのボス戦（R.bt にしまう）
+
+  function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: 1, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, takeHome: 0, lastBoss: null, dungeons: 0 };
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
     const days = Math.max(1, Math.round((new Date(t) - new Date(S.day)) / 864e5) || 1);
     S.stamina += K.STAMINA_DAY * days; S.day = t; S.takeHome = 0; S.lastBoss = null;
+    save();
   }
+  function packRun() {
+    const { rnd, usedQ, ...rest } = R;
+    return { ...rest, rs: rnd.state(), usedQ: [...usedQ], bt: BT ? packBT() : rest.bt || null };
+  }
+  function unpackRun(o) { const { rs, usedQ, ...rest } = o; R = { ...rest, rnd: makeRng(rs), usedQ: new Set(usedQ || []) }; }
+  function save() {
+    if (!S) return;
+    try {
+      S.run = R ? packRun() : null; S.savedAt = Date.now();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+    } catch (e) { console.warn('セーブできませんでした', e); }
+  }
+  function load() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    try { return migrate(JSON.parse(raw)); }
+    catch (e) { try { localStorage.setItem(SAVE_KEY + '_broken', raw); } catch (_) { } return null; }
+  }
+  // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
+  function migrate(s) {
+    if (!s || typeof s !== 'object' || !s.v) return null;
+    // 例： if (s.v === 1) { ...v2 への変換...; s.v = 2; }
+    const base = newState(s.pname || '', s.cname || '');
+    return Object.assign(base, s);
+  }
+  function resetSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } S = null; R = null; BT = null; }
 
   // ---- ステータスの計算 ----
   const total = st => SUBJ.reduce((a, s) => a + st[s], 0);
@@ -60,7 +110,12 @@
   function refreshType() { S.type = typeOf(S.st, S.type); }
 
   // ---- 小さな部品 ----
-  function render(html, cls) { app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`; return app.firstElementChild; }
+  function render(html, cls) {
+    app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
+    const el = app.firstElementChild, bg = g2(A, 'bg', BG[cls]);
+    if (bg) el.style.background = `url("${bg}") center/cover, ${getComputedStyle(el).backgroundImage}`;
+    return el;
+  }
   function overlay(html, cls = '') { const el = document.createElement('div'); el.className = 'ov ' + cls; el.innerHTML = html; app.appendChild(el); return el; }
   function floatAt(x, y, text, color = '#fff', cls = 'float') {
     const el = document.createElement('div'); el.className = cls; el.textContent = text;
@@ -77,7 +132,7 @@
   }
   function itemCard(n, extra = '') {
     const it = D.ITEM[n]; const isNew = !S.owned.includes(n);
-    return `<div class="itemcard"><div class="ie">${it.e}</div><div class="in r${it.r}">${'★'.repeat(it.r)} ${esc(n)}${isNew ? ' <span class="red">🆕</span>' : ''}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
+    return `<div class="itemcard"><div class="ie">${artItem(n)}</div><div class="in r${it.r}">${'★'.repeat(it.r)} ${esc(n)}${isNew ? ' <span class="red">🆕</span>' : ''}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
   }
   function showItem(n) {
     return new Promise(res => {
@@ -117,9 +172,9 @@
     });
   }
 
-  // ---- 4択（連打対策つき）----
+  // ---- 4択（連打対策つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
   let fastRun = 0;
-  function ask(q, { head = '', fighter = null } = {}) {
+  function ask(q, { head = '', fighter = null, onAnswer = null } = {}) {
     return new Promise(res => {
       const opts = shuffle(q.a.map((t, i) => ({ t, ok: i === 0 })));
       const lock = Math.min(3000, Math.max(1000, 600 + q.t.length * 30));
@@ -135,7 +190,6 @@
       bar.style.transition = `width ${T(lock)}ms linear`; requestAnimationFrame(() => (bar.style.width = '100%'));
       let openAt = 0;
       setTimeout(() => { btns.forEach(b => (b.disabled = false)); openAt = Date.now(); o.querySelector('.lockbar').style.visibility = 'hidden'; }, T(lock));
-      // 👓 ひらめきメガネ
       if (fighter && fighter.has('ひらめきメガネ') && fighter.megane > 0) {
         const mb = document.createElement('button'); mb.className = 'btn-blue'; mb.style.fontSize = '18px';
         mb.textContent = `👓 2択にする（のこり${fighter.megane}回）`;
@@ -146,6 +200,7 @@
         const dt = Date.now() - openAt;
         btns.forEach(x => (x.disabled = true)); o.querySelector('.megane').innerHTML = '';
         const ok = opts[i].ok;
+        if (onAnswer) onAnswer(ok);
         btns.forEach((x, j) => { if (opts[j].ok) x.classList.add('ok'); });
         if (!ok) b.classList.add('ng');
         fastRun = dt < 900 ? fastRun + 1 : 0;
@@ -223,7 +278,7 @@
   }
   function drawItem(rnd, { cat = null, unowned = false, exclude = [], hand = [], minR = 1, rarity = 0 } = {}) {
     const luck = luckOf(S.st);
-    let pool = D.ITEMS.filter(it => reqOK(it, hand) && !hand.includes(it.n) && !exclude.includes(it.n) && (!unowned || !S.owned.includes(it.n)));
+    const pool = D.ITEMS.filter(it => reqOK(it, hand) && !hand.includes(it.n) && !exclude.includes(it.n) && (!unowned || !S.owned.includes(it.n)));
     if (!pool.length) return null;
     const r = rarity || rollRarity(rnd, luck, minR);
     let p = pool.filter(it => it.r === r);
@@ -234,8 +289,16 @@
   }
 
   // =====================================================================
-  // 名前を決める
+  // タイトル・名前を決める・せってい
   // =====================================================================
+  function titleScreen() {
+    const el = render(`<div class="scr center">
+      <div style="font-size:72px">⚔️ まなびバトル</div>
+      <div class="mid">${esc(S.pname)} の データ</div>
+      <button class="btn-main" id="go">${S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
+      <div class="sm dim">ブラウザに 自動でセーブしています</div></div>`, 'title');
+    $('#go', el).onclick = () => { dayCheck(); if (S.run) resumeRun(); else home(); };
+  }
   function nameScreen() {
     const el = render(`<div class="scr center" style="background:linear-gradient(160deg,#4c1d95,#1e3a8a)">
       <div style="font-size:64px">⚔️ まなびバトル</div>
@@ -245,15 +308,24 @@
         <label class="mid">モンスターの名前（8文字まで）<br><input id="cn" maxlength="8" placeholder="モンスターの名前"></label>
         <button class="btn-main" id="go">けってい</button>
         <div class="sm red" id="err"></div>
-      </div></div>`);
+      </div></div>`, 'name');
     $('#go', el).onclick = () => {
       const pn = $('#pn', el).value.trim(), cn = $('#cn', el).value.trim();
       if (!pn || !cn) { $('#err', el).textContent = '名前を2つとも入れてね'; return; }
       // デバッグルームの入口は ⑥ で作る
       S = newState(pn, cn);
       if (/[?&]test/.test(location.search)) { S.stamina = 9999; S.coins = 5000; }
-      home();
+      save(); home();
     };
+  }
+  async function settings() {
+    const c = await dialog({ who: '⚙️', name: 'せってい', text: 'QRコードでの 読みこみ・引きつぎは、これから作るよ', choices: [{ label: 'さいしょから やりなおす', val: 'reset', cls: 'btn-gray' }, { label: 'もどる', val: 0, cls: 'btn-blue' }] });
+    if (c !== 'reset') return;
+    const c1 = await dialog({ who: '⚠️', text: 'ほんとうに さいしょから やりなおす？\nステータス・アイテム・コインが ぜんぶ消えるよ', choices: [{ label: 'やりなおす', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+    if (!c1) return;
+    const c2 = await dialog({ who: '⚠️', text: 'もういちど聞くよ。\nほんとうに ぜんぶ消して いいんだね？（もとにもどせないよ）', choices: [{ label: 'ぜんぶ消す', val: 1, cls: 'btn-gray' }, { label: 'やめる', val: 0, cls: 'btn-main' }] });
+    if (!c2) return;
+    resetSave(); nameScreen();
   }
 
   // =====================================================================
@@ -268,7 +340,7 @@
       <div class="topbar"><span>👤 ${esc(S.pname)}</span><span class="sp"></span>
         <span>⚡ スタミナ ${S.stamina}</span><span class="gold">🪙 ${S.coins}</span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">⚙️ せってい</button></div>
       <div class="chara col">
-        <div class="emo" id="me">${lookOf(S.type, t)}</div>
+        <div class="emo" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
         <div style="text-align:center" class="mid">${esc(S.cname)} <span class="sm dim">（${S.type}タイプ）</span></div>
         <div class="panel stats">
@@ -288,15 +360,25 @@
       </div>`, 'home');
     $('#me', el).onclick = () => { $('#say', el).textContent = '「' + pick(LINES) + '」'; };
     $('#dun', el).onclick = () => startDungeon();
-    ['set', 'rev', 'tow', 'vs', 'b1', 'b2', 'b3', 'b4', 'b5'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
+    $('#set', el).onclick = () => settings();
+    ['rev', 'tow', 'vs', 'b1', 'b2', 'b3', 'b4', 'b5'].forEach(id => ($('#' + id, el).onclick = () => tip('この画面は、これから作るよ（じゅんびちゅう）', 2000)));
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
 
   // =====================================================================
   // 育成ダンジョン
+  // ・入ったときに 道のり・雑魚・問題・イベントを先に決める
+  // ・R.ns（いまの場所の進み具合）に 結果を書いてから セーブ → 開きなおしても同じ結果
   // =====================================================================
   const EVENTS = ['shop', 'coin', 'izumi', 'uranai', 'hayate', 'kurogane', 'sekihi', 'mimic', 'obake', 'omikuji', 'valz', 'mirror'];
-  let R = null; // いまのダンジョン
+
+  // 一度だけ実行して結果をセーブ（開きなおしたら、とっておいた結果を使う）
+  async function once(key, fn) {
+    if (key in R.ns) return R.ns[key];
+    const v = await fn();
+    R.ns[key] = v === undefined ? null : v; save();
+    return R.ns[key];
+  }
 
   async function startDungeon() {
     if (S.stamina < K.DUNGEON_COST) { tip('スタミナが足りないよ。あしたの朝5時に100回復するよ'); return; }
@@ -304,33 +386,32 @@
     if (!go) return;
     S.stamina -= K.DUNGEON_COST;
     const seed = (Math.random() * 2 ** 32) >>> 0, rnd = makeRng(seed);
-    // ボスの属性（同じ日に2回連続では出ない）
     const boss = pick(['国語', '算数', '理科', '社会', '英語', '無'].filter(b => b !== S.lastBoss), rnd);
     S.lastBoss = boss;
-    // 道のり
     const ev = shuffle(EVENTS, rnd);
     const forks = shuffle(['coin', 'item', 'event'], rnd).slice(0, 2);
     const plan = ['z', 'z', 'z', 'e1', 'z', 'z', 'f', 'z', 'z', 'z', 'e2', 'z', 'z', 't', 'b'];
-    const zako = plan.filter(p => p === 'z').map(() => { const k = Math.floor(rnd() * D.ZAKO.length); return { k, e: pick(D.ZAKO[k].e, rnd), rare: rnd() < K.RARE_RATE * luckOf(S.st) / 1000 * 1.2, drop: rnd() < K.DROP_RATE }; });
+    const luck = luckOf(S.st);
+    const zako = plan.filter(p => p === 'z').map(() => { const k = Math.floor(rnd() * D.ZAKO.length); return { k, e: pick(D.ZAKO[k].e, rnd), re: pick(D.RARE_ZAKO.e, rnd), rare: rnd() < K.RARE_RATE * luck / 1000 * 1.2, drop: rnd() < K.DROP_RATE }; });
     const qpre = {}; SUBJ.forEach(s => (qpre[s] = drawNewQs(s, 10, rnd)));
     R = {
       seed, rnd, boss, plan, i: 0, zi: 0, zako, ev1: ev[0], ev2: ev[1], ev2on: rnd() < 0.5, forks,
       qpre, qptr: Object.fromEntries(SUBJ.map(s => [s, 0])), hand: [], coins: 0,
-      startSt: { ...S.st }, startType: S.type, flags: {}, usedQ: new Set(), log: [],
+      startSt: { ...S.st }, startType: S.type, flags: {}, usedQ: new Set(), ns: {}, pend: [], bt: null,
     };
-    await bossPreview();
+    save();
+    runDungeon();
+  }
+  function resumeRun() {
+    unpackRun(S.run);
+    tip('つづきから はじめるよ', 2000);
     runDungeon();
   }
 
   function weakText(b) {
-    if (b === '英語') return 'このボスには、弱点も、効きづらい教科もないようだ。';
-    if (b === '無') return 'このボスには、弱点も、効きづらい教科もないようだ。';
+    if (b === '英語' || b === '無') return 'このボスには、弱点も、効きづらい教科もないようだ。';
     const w = D.WEAK[b], r = D.RESIST[b];
     return `このステージのボスは ${D.ELEM[b]}（${b}）属性。${D.ELEM[w]}（${w}）が有効で、${D.ELEM[r]}（${r}）は効きづらいようだ。`;
-  }
-  async function bossPreview() {
-    render(`<div class="scr center dun"><div style="font-size:120px">🕳️</div></div>`, 'dun');
-    await dialog({ who: '🌫️', text: `${D.BOSSES[R.boss].hint}\n<span class="sm">${weakText(R.boss)}</span>`, choices: [{ label: '進む', val: 1, cls: 'btn-main' }] });
   }
 
   const NODE_ICON = { z: '🟢', e1: '❓', e2: '❓', f: '🔀', t: '🎁', b: '👑' };
@@ -338,9 +419,9 @@
     const t = total(S.st);
     const el = render(`
       <div class="prog">${R.plan.map((p, i) => `<span class="n ${i < R.i ? 'done' : ''} ${i === R.i ? 'cur' : ''}">${NODE_ICON[p]}</span>`).join('')}
-        <span class="coin gold">🪙 ${S.coins}</span></div>
+        <span class="coin gold" id="coin">🪙 ${S.coins}</span></div>
       <div class="field">
-        <div><div class="me" id="me">${lookOf(S.type, t)}</div><div class="lbl">${esc(S.cname)}</div></div>
+        <div><div class="me" id="me">${artPlayer(S.type, t)}</div><div class="lbl">${esc(S.cname)}</div></div>
         <div><div class="foe" id="foe"></div><div class="lbl" id="foelbl"></div></div>
       </div>
       <div class="msg panel" id="msg"></div>
@@ -349,237 +430,292 @@
     drawHand(); return el;
   }
   function drawHand() {
+    const c = $('#coin'); if (c) c.textContent = '🪙 ' + S.coins;
     const h = $('#hand'); if (!h) return;
     h.innerHTML = '<div class="sm dim" style="align-self:center">もちもの</div>' + [0, 1, 2, 3].map(i => {
       const n = R.hand[i]; if (!n) return '<div class="slot"></div>';
-      return `<div class="slot" data-n="${esc(n)}">${D.ITEM[n].e}${S.owned.includes(n) ? '' : '<span class="new">NEW</span>'}</div>`;
+      return `<div class="slot" data-n="${esc(n)}">${artItem(n)}${S.owned.includes(n) ? '' : '<span class="new">NEW</span>'}</div>`;
     }).join('');
     h.querySelectorAll('.slot[data-n]').forEach(s => (s.onclick = () => showItem(s.dataset.n)));
   }
   const msg = h => { const m = $('#msg'); if (m) m.innerHTML = h; };
+  const setFoe = (html, lbl) => { const f = $('#foe'); if (f) f.innerHTML = html; const l = $('#foelbl'); if (l) l.innerHTML = lbl; };
   const firstRun = () => S.dungeons === 0;
 
   async function runDungeon() {
-    while (R.i < R.plan.length) {
+    while (R && R.i < R.plan.length) {
       const p = R.plan[R.i];
       dunScreen();
+      await flushPend();
       if (p === 'z') await zakoNode();
       else if (p === 'e1') await eventNode(R.ev1);
       else if (p === 'e2') { if (R.ev2on || R.flags.forkEvent) await eventNode(R.ev2); }
       else if (p === 'f') await forkNode();
       else if (p === 't') await treasureNode();
       else if (p === 'b') { await bossNode(); return; }
-      R.i++;
+      if (p === 'z') R.zi++;
+      R.i++; R.ns = {}; save();
     }
   }
 
-  // 雑魚
+  // 拾うアイテムは R.pend にためてからセーブ → 画面で拾う（開きなおしても消えない）
+  function queuePick(n, text = '') { if (n) R.pend.push({ n, text }); }
+  async function flushPend() {
+    while (R.pend.length) {
+      const { n, text } = R.pend[0];
+      if (R.hand.length < K.ITEM_MAX) {
+        await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を拾った！`, [n], { labels: ['拾う'] });
+        R.hand.push(n);
+        if (firstRun() && !R.flags.tipItem) { R.flags.tipItem = 1; tip('拾ったアイテムは、この回のボス戦で効くよ。持てるのは4個まで'); }
+      } else {
+        const all = [...R.hand, n];
+        const out = await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を見つけた！ 持てるのは4個まで。\n<span class="gold">どれを すてる？</span>`, all, { labels: all.map(() => 'すてる') });
+        R.hand = all.filter(x => x !== out);
+      }
+      R.pend.shift(); save(); drawHand();
+    }
+  }
+
+  // ---- ボスの予告（最初の雑魚の前に1回）----
+  async function bossPreview() {
+    await dialog({ who: '🌫️', text: `${D.BOSSES[R.boss].hint}\n<span class="sm">${weakText(R.boss)}</span>`, choices: [{ label: '進む', val: 1, cls: 'btn-main' }] });
+  }
+
+  // ---- 雑魚 ----
   async function zakoNode() {
-    const z = R.zako[R.zi++];
-    let rare = z.rare;
-    if (R.flags.nextRare) { rare = true; R.flags.nextRare = false; }
-    if (R.flags.rareIn && R.flags.rareIn.includes(R.zi)) rare = true;
-    const drop = z.drop || (R.flags.dropIn && R.flags.dropIn.includes(R.zi));
+    if (R.i === 0 && !R.ns.preview) { await bossPreview(); R.ns.preview = 1; save(); }
+    const zi = R.zi, z = R.zako[zi];
+    const rare = await once('rare', () => {
+      let r = z.rare;
+      if (R.flags.nextRare) { r = true; R.flags.nextRare = false; }
+      if (R.flags.rareIn && R.flags.rareIn.includes(zi)) r = true;
+      return r;
+    });
+    const drop = z.drop || (R.flags.dropIn && R.flags.dropIn.includes(zi));
     const foe = rare ? D.RARE_ZAKO : D.ZAKO[z.k];
-    const emo = rare ? pick(D.RARE_ZAKO.e, R.rnd) : z.e;
-    $('#foe').textContent = emo; $('#foelbl').innerHTML = rare ? '<span class="gold">✨ 金色のレア雑魚！</span>' : esc(foe.n);
+    const emo = rare ? z.re : z.e;
+    setFoe(artZako(emo), rare ? '<span class="gold">✨ 金色のレア雑魚！</span>' : esc(foe.n));
+    if (R.ns.ans) { await flushPend(); return; } // 答えたあとに閉じた → 結果はもう出ている
     msg(`${rare ? '✨ <span class="gold">金色のレア雑魚</span>' : esc(foe.n)}があらわれた！ <span class="gold">教科をえらんで問題に答えよう</span>`);
-    if (firstRun() && R.zi === 1) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
+    if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
     const subj = await new Promise(res => {
       $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}<small>${S.st[s]}</small></button>`).join('');
       $('#subj').querySelectorAll('button').forEach(b => (b.onclick = () => res(b.dataset.s)));
     });
     $('#subj').innerHTML = '';
-    const pre = R.qpre[subj][R.qptr[subj]++] || drawNewQs(subj, 1, R.rnd)[0];
+    const pre = R.qpre[subj][R.qptr[subj]] || drawNewQs(subj, 1, R.rnd)[0];
     const q = Q[pre.id];
-    const { ok } = await ask(q, { head: pre.osarai ? '（おさらい）' : '' });
+    let out = null;
+    await ask(q, {
+      head: pre.osarai ? '（おさらい）' : '',
+      onAnswer: ok => { // 押した瞬間に結果を決めてセーブ
+        R.qptr[subj]++;
+        if (ok) {
+          const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
+          S.st[subj] += gain; if (!pre.osarai) S.qs[q.id] = 1;
+          const c = K.COIN_OK + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
+          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${emo} がアイテムを落とした！`);
+          out = { ok, subj, gain, c };
+        } else {
+          if (!pre.osarai) S.qs[q.id] = 2;
+          S.coins += K.COIN_NG; R.coins += K.COIN_NG;
+          out = { ok, subj, c: K.COIN_NG, osarai: pre.osarai };
+        }
+        refreshType(); R.ns.ans = out; save();
+      },
+    });
     const foeEl = $('#foe');
-    if (ok) {
-      const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
-      S.st[subj] += gain;
-      if (!pre.osarai) S.qs[q.id] = 1;
-      const c = K.COIN_OK + (rare ? K.COIN_RARE : 0);
-      S.coins += c; R.coins += c;
+    if (out.ok) {
       foeEl.classList.add('bye');
-      floatAt(820, 180, `${subj} +${gain}`, D.SUBJ_COLOR[subj]);
-      setTimeout(() => floatAt(860, 240, `🪙+${c}`, '#ffd54a'), T(300));
-      msg(`⭕ たおした！ ${subj}が <b>${gain}</b> 上がった！`);
-      await wait(1100);
-      if (drop) {
-        const n = drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand });
-        if (n) await pickUp(n, `${emo} がアイテムを落とした！`);
-      }
+      floatAt(820, 180, `${subj} +${out.gain}`, D.SUBJ_COLOR[subj]);
+      setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
+      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！`);
     } else {
-      if (!pre.osarai) S.qs[q.id] = 2;
-      S.coins += K.COIN_NG; R.coins += K.COIN_NG;
       foeEl.style.transition = 'transform .6s,opacity .6s'; foeEl.style.transform = 'translateX(300px)'; foeEl.style.opacity = 0;
-      floatAt(860, 240, `🪙+${K.COIN_NG}`, '#ffd54a');
-      msg(pre.osarai ? '💨 にげられた…' : '💨 にげられた… この問題は <b>復習ダンジョン</b> に入ったよ');
+      floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
+      msg(out.osarai ? '💨 にげられた…' : '💨 にげられた… この問題は <b>復習ダンジョン</b> に入ったよ');
       if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで正解すれば取りもどせるよ'); }
-      await wait(1400);
     }
-    refreshType();
+    drawHand();
+    await wait(1200);
+    await flushPend();
   }
 
-  // アイテムを拾う（5個目なら1つ捨てる）
-  async function pickUp(n, text = '') {
-    if (R.hand.length < K.ITEM_MAX) {
-      await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を拾った！`, [n], { labels: ['拾う'] });
-      R.hand.push(n); drawHand();
-      if (firstRun() && !R.flags.tipItem) { R.flags.tipItem = 1; tip('拾ったアイテムは、この回のボス戦で効くよ。持てるのは4個まで'); }
-      return;
-    }
-    const all = [...R.hand, n];
-    const out = await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を見つけた！ 持てるのは4個まで。\n<span class="gold">どれを すてる？</span>`, all, { labels: all.map(() => 'すてる') });
-    R.hand = all.filter(x => x !== out); drawHand();
-  }
-
-  // 分かれ道
+  // ---- 分かれ道 ----
   async function forkNode() {
-    $('#foe').textContent = '🔀'; $('#foelbl').textContent = '分かれ道';
+    setFoe(artUi('fork', '🔀'), '分かれ道');
     const L = { coin: '🪙 コインが多そうな道', item: '🎁 アイテムがありそうな道', event: '❓ イベントがありそうな道' };
-    const c = await dialog({ who: '🔀', text: '道が2つに分かれている……\nどっちに進む？', choices: R.forks.map(f => ({ label: L[f], val: f })) });
-    const base = R.zi; // 次の雑魚3体は zi = base+1..base+3
-    if (c === 'coin') R.flags.rareIn = [base + 1 + Math.floor(R.rnd() * 3)];
-    if (c === 'item') R.flags.dropIn = shuffle([base + 1, base + 2, base + 3], R.rnd).slice(0, 2);
-    if (c === 'event') R.flags.forkEvent = true;
+    await once('fork', async () => {
+      const c = await dialog({ who: '🔀', text: '道が2つに分かれている……\nどっちに進む？', choices: R.forks.map(f => ({ label: L[f], val: f })) });
+      const base = R.zi; // 次の雑魚3体は base, base+1, base+2
+      if (c === 'coin') R.flags.rareIn = [base + Math.floor(R.rnd() * 3)];
+      if (c === 'item') R.flags.dropIn = shuffle([base, base + 1, base + 2], R.rnd).slice(0, 2);
+      if (c === 'event') R.flags.forkEvent = true;
+      return c;
+    });
   }
 
-  // ボス前の宝箱（3つとも未取得）
+  // ---- ボス前の宝箱（3つとも未取得）----
   async function treasureNode() {
-    $('#foe').textContent = '🎁'; $('#foelbl').textContent = 'ボス前の宝箱';
-    const names = [];
-    for (let k = 0; k < 3; k++) { const n = drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: names }); if (n) names.push(n); }
+    setFoe(artUi('treasure', '🎁'), 'ボス前の宝箱');
+    const names = await once('names', () => { const a = []; for (let k = 0; k < 3; k++) { const n = drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: a }); if (n) a.push(n); } return a; });
     if (!names.length) { await dialog({ who: '🎁', text: '宝箱はからっぽだった……\n（もうぜんぶ持っているみたい！）' }); return; }
-    if (firstRun()) tip('🆕 はまだ持っていないアイテム。リザルトで1個持ち帰れるよ');
-    const n = await chooseItem('🎁 宝箱が3つある！ 1つえらんで開けよう', names, { labels: names.map(() => '開ける') });
-    await pickUp(n, '');
+    if (firstRun() && !('pick' in R.ns)) tip('🆕 はまだ持っていないアイテム。リザルトで1個持ち帰れるよ');
+    await once('pick', async () => { const n = await chooseItem('🎁 宝箱が3つある！ 1つえらんで開けよう', names, { labels: names.map(() => '開ける') }); queuePick(n, '🎁 宝箱を開けた！'); return n; });
+    await flushPend();
   }
 
   // ---- イベント ----
   async function eventQuiz(k, head) {
-    let okAll = true;
     for (let i = 0; i < k; i++) {
-      const q = drawSolvedQ(null, R.usedQ);
-      const { ok } = await ask(q, { head: head + (k > 1 ? `（${i + 1}/${k}）` : '') });
-      if (!ok) { okAll = false; break; }
+      const key = 'quiz' + i;
+      if (!(key in R.ns)) {
+        const q = drawSolvedQ(null, R.usedQ);
+        await ask(q, { head: head + (k > 1 ? `（${i + 1}/${k}）` : ''), onAnswer: ok => { R.ns[key] = ok; save(); } });
+      }
+      if (!R.ns[key]) return false;
     }
-    return okAll;
+    return true;
   }
   async function eventNode(id) {
     const luck = luckOf(S.st);
-    const set = (e, n) => { $('#foe').textContent = e; $('#foelbl').textContent = n; };
-    const coin = c => { S.coins += c; R.coins += c; floatAt(860, 240, `🪙+${c}`, '#ffd54a'); };
+    const coin = c => { S.coins += c; R.coins += c; floatAt(860, 240, `🪙+${c}`, '#ffd54a'); drawHand(); };
     if (firstRun() && !R.flags.tipEv) { R.flags.tipEv = 1; tip('イベントでは、いいことが起きたり、問題で挑戦できたりするよ'); }
+    const npc = artNpc;
     switch (id) {
       case 'shop': {
-        set('🛒', '商人ルリ');
-        const names = [], price = [0, 50, 100, 200];
-        for (let r = 1; r <= 4; r++) {
-          const n = drawItem(R.rnd, { unowned: true, rarity: r, hand: R.hand, exclude: names }) || drawItem(R.rnd, { rarity: r, hand: R.hand, exclude: names });
-          names.push(n);
-        }
+        setFoe(npc('ルリ', '👧'), '商人ルリ');
+        const price = [0, 50, 100, 200];
+        const names = await once('names', () => {
+          const a = [];
+          for (let r = 1; r <= 4; r++) a.push(drawItem(R.rnd, { unowned: true, rarity: r, hand: R.hand, exclude: a }) || drawItem(R.rnd, { rarity: r, hand: R.hand, exclude: a }));
+          return a;
+        });
         const list = names.map((n, i) => [n, price[i]]).filter(x => x[0]);
-        const n = await chooseItem(`🛒 ルリ「いらっしゃい！ 1つだけ買えるよ」\n（もっているコイン 🪙${S.coins}）`, list.map(x => x[0]),
-          { who: '👧', labels: list.map(x => (S.coins >= x[1] ? (x[1] ? `🪙${x[1]}で買う` : 'タダでもらう') : null)), skip: '買わない' });
-        if (n) { const p = list.find(x => x[0] === n)[1]; S.coins -= p; await pickUp(n, ''); }
-        break;
+        await once('buy', async () => {
+          const n = await chooseItem(`🛒 ルリ「いらっしゃい！ 1つだけ買えるよ」\n（もっているコイン 🪙${S.coins}）`, list.map(x => x[0]),
+            { who: npc('ルリ', '👧'), labels: list.map(x => (S.coins >= x[1] ? (x[1] ? `🪙${x[1]}で買う` : 'タダでもらう') : null)), skip: '買わない' });
+          if (n) { S.coins -= list.find(x => x[0] === n)[1]; queuePick(n, ''); }
+          return n;
+        });
+        await flushPend(); break;
       }
       case 'coin': {
-        set('💰', 'こぼれたコイン');
-        const c = Math.round((100 + 200 * Math.min(1, R.rnd() * 0.6 + luck / 1000 * 0.5)) / 10) * 10;
-        await dialog({ who: '🍃', name: 'ミドリ', text: `「あっ、コインがこぼれちゃった！ 拾うの手伝ってくれたお礼に、あげる！」\n🪙 ${c} コイン手に入れた！` });
-        coin(c); break;
+        setFoe(npc('ミドリ', '🍃'), 'こぼれたコイン');
+        const c = await once('got', () => { const c = Math.round((100 + 200 * Math.min(1, R.rnd() * 0.6 + luck / 1000 * 0.5)) / 10) * 10; coin(c); return c; });
+        await dialog({ who: npc('ミドリ', '🍃'), name: 'ミドリ', text: `「あっ、コインがこぼれちゃった！ 拾うの手伝ってくれたお礼に、あげる！」\n🪙 ${c} コイン手に入れた！` });
+        break;
       }
       case 'izumi': {
-        set('⛲', 'いやしの泉');
-        await dialog({ who: '💧', name: 'カズマ', text: '「この泉の水を飲むといい。体がじょうぶになるぞ」\nこのダンジョンのボス戦で、最大HPが +15%！' });
-        R.flags.izumi = true; break;
+        setFoe(artUi('fountain', '⛲'), 'いやしの泉');
+        await once('got', () => { R.flags.izumi = true; });
+        await dialog({ who: npc('カズマ', '💧'), name: 'カズマ', text: '「この泉の水を飲むといい。体がじょうぶになるぞ」\nこのダンジョンのボス戦で、最大HPが +15%！' });
+        break;
       }
       case 'uranai': {
-        set('🔮', 'なぞの占い師');
-        await dialog({ who: '⚡', name: 'ライト', text: '「……見えるぞ。次に出会うのは、金色にかがやくモンスターだ」\n次の雑魚が、かならずレア雑魚になる！' });
-        R.flags.nextRare = true; break;
+        setFoe(npc('ライト', '🔮'), 'なぞの占い師');
+        await once('got', () => { R.flags.nextRare = true; });
+        await dialog({ who: npc('ライト', '⚡'), name: 'ライト', text: '「……見えるぞ。次に出会うのは、金色にかがやくモンスターだ」\n次の雑魚が、かならずレア雑魚になる！' });
+        break;
       }
       case 'hayate': {
-        set('🏃', 'スカウトのハヤテ');
-        await dialog({ who: '🏃', name: 'ハヤテ', text: '「ボスのくせを知ってるぜ。こっそり教えてやるよ」\nこのダンジョンのボス戦では、ルーレットなしで毎ターン先攻・後攻をえらべる！' });
-        R.flags.hayate = true; break;
+        setFoe(npc('ハヤテ', '🏃'), 'スカウトのハヤテ');
+        await once('got', () => { R.flags.hayate = true; });
+        await dialog({ who: npc('ハヤテ', '🏃'), name: 'ハヤテ', text: '「ボスのくせを知ってるぜ。こっそり教えてやるよ」\nこのダンジョンのボス戦では、ルーレットなしで毎ターン先攻・後攻をえらべる！' });
+        break;
       }
       case 'kurogane': {
-        set('🗡️', '師匠クロガネ');
-        const go = await dialog({ who: '🗡️', name: 'クロガネ', text: '「修行をつけてやろう。3問つづけて正解できたら、ボス戦の威力が +20% だ」', choices: [{ label: '挑戦する', val: 1, cls: 'btn-main' }, { label: 'やめておく', val: 0, cls: 'btn-gray' }] });
+        setFoe(npc('クロガネ', '🗡️'), '師匠クロガネ');
+        const go = await once('go', () => dialog({ who: npc('クロガネ', '🗡️'), name: 'クロガネ', text: '「修行をつけてやろう。3問つづけて正解できたら、ボス戦の威力が +20% だ」', choices: [{ label: '挑戦する', val: 1, cls: 'btn-main' }, { label: 'やめておく', val: 0, cls: 'btn-gray' }] }));
         if (!go) break;
         const ok = await eventQuiz(3, '修行');
-        if (ok) R.flags.kurogane = true;
-        await dialog({ who: '🗡️', name: 'クロガネ', text: ok ? '「みごとだ！ その力、ボスにぶつけてこい」\nボス戦の威力 +20%！' : '「まだまだだな。またいつでも来い」' });
+        await once('res', () => { if (ok) R.flags.kurogane = true; });
+        await dialog({ who: npc('クロガネ', '🗡️'), name: 'クロガネ', text: ok ? '「みごとだ！ その力、ボスにぶつけてこい」\nボス戦の威力 +20%！' : '「まだまだだな。またいつでも来い」' });
         break;
       }
       case 'sekihi': {
-        set('🗿', '古い石碑');
-        await dialog({ who: '🔥', name: 'コトハ', text: '「石碑に問題が書いてあるわ。解けたら、なにか起きるかも」' });
+        setFoe(artUi('stone', '🗿'), '古い石碑');
+        if (!('quiz0' in R.ns)) await dialog({ who: npc('コトハ', '🔥'), name: 'コトハ', text: '「石碑に問題が書いてあるわ。解けたら、なにか起きるかも」' });
         const ok = await eventQuiz(1, '石碑');
-        if (ok) { coin(200); R.flags.sekihi = true; }
-        await dialog({ who: '🗿', text: ok ? '石碑が光った！\n🪙200コイン手に入れた！ ボスの弱点が さらに効くようになった（+10%）' : '石碑は しずかなままだ……' });
+        await once('res', () => { if (ok) { coin(200); R.flags.sekihi = true; } });
+        await dialog({ who: artUi('stone', '🗿'), text: ok ? '石碑が光った！\n🪙200コイン手に入れた！ ボスの弱点が さらに効くようになった（+10%）' : '石碑は しずかなままだ……' });
         break;
       }
       case 'mimic': {
-        set('📦', 'あやしい宝箱');
-        await dialog({ who: '📦', text: '宝箱だ！……と思ったら、ミミックだった！\n問題に正解すれば、たおしてアイテムを拾えるぞ！' });
+        setFoe(artUi('mimic', '📦'), 'あやしい宝箱');
+        if (!('quiz0' in R.ns)) await dialog({ who: artUi('mimic', '📦'), text: '宝箱だ！……と思ったら、ミミックだった！\n問題に正解すれば、たおしてアイテムを拾えるぞ！' });
         const ok = await eventQuiz(1, 'ミミック');
-        if (ok) { $('#foe').classList.add('bye'); const n = drawItem(R.rnd, { hand: R.hand }); if (n) await pickUp(n, 'ミミックをたおした！'); }
-        else await dialog({ who: '📦', text: 'ミミックは どこかへ にげていった……' });
+        await once('res', () => { if (ok) queuePick(drawItem(R.rnd, { hand: R.hand }), 'ミミックをたおした！'); });
+        if (ok) { $('#foe').classList.add('bye'); await flushPend(); }
+        else await dialog({ who: artUi('mimic', '📦'), text: 'ミミックは どこかへ にげていった……' });
         break;
       }
       case 'obake': {
-        set('👻', 'いたずらおばけ');
-        await dialog({ who: '👻', text: '「ケケケ、アイテムを1つ もらっちゃうぞ〜」\n問題に正解すれば、追いはらえる！' });
+        setFoe(artUi('obake', '👻'), 'いたずらおばけ');
+        if (!('quiz0' in R.ns)) await dialog({ who: artUi('obake', '👻'), text: '「ケケケ、アイテムを1つ もらっちゃうぞ〜」\n問題に正解すれば、追いはらえる！' });
         const ok = await eventQuiz(1, 'おばけ');
-        if (ok) { $('#foe').classList.add('bye'); await dialog({ who: '✨', text: 'おばけを追いはらった！' }); }
-        else {
+        const lost = await once('res', () => {
+          if (ok) return null;
           const can = R.hand.filter(n => S.owned.includes(n)); // 🆕 は取られない
-          if (can.length) { const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); drawHand(); await dialog({ who: '👻', text: `${D.ITEM[n].e} ${n} を取られてしまった……` }); }
-          else await dialog({ who: '👻', text: '「ちぇっ、取れるものがないや」\nおばけは帰っていった' });
-        }
+          if (!can.length) return '';
+          const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); return n;
+        });
+        drawHand();
+        if (ok) { $('#foe').classList.add('bye'); await dialog({ who: '✨', text: 'おばけを追いはらった！' }); }
+        else if (lost) await dialog({ who: artUi('obake', '👻'), text: `${D.ITEM[lost].e} ${lost} を取られてしまった……` });
+        else await dialog({ who: artUi('obake', '👻'), text: '「ちぇっ、取れるものがないや」\nおばけは帰っていった' });
         break;
       }
       case 'omikuji': {
-        set('⛩️', 'おみくじ');
-        const go = await dialog({ who: '⛩️', name: 'ミコト', text: `「おみくじ、引いていきませんか？ 1回 50コインです」\n（もっているコイン 🪙${S.coins}）`, choices: [{ label: '🪙50で引く', val: 1, cls: 'btn-main', disabled: S.coins < 50 }, { label: '引かない', val: 0, cls: 'btn-gray' }] });
+        setFoe(npc('ミコト', '⛩️'), 'おみくじ');
+        const go = await once('go', async () => {
+          const v = await dialog({ who: npc('ミコト', '⛩️'), name: 'ミコト', text: `「おみくじ、引いていきませんか？ 1回 50コインです」\n（もっているコイン 🪙${S.coins}）`, choices: [{ label: '🪙50で引く', val: 1, cls: 'btn-main', disabled: S.coins < 50 }, { label: '引かない', val: 0, cls: 'btn-gray' }] });
+          if (v) S.coins -= 50;
+          return v;
+        });
         if (!go) break;
-        S.coins -= 50;
-        const l = luck / 1000, r = R.rnd();
-        const kuji = r < 0.15 + 0.2 * l ? '大吉' : r < 0.55 + 0.1 * l ? '吉' : r < 0.92 ? '凶' : '大凶';
-        let t = `「${kuji}」！\n`;
-        if (kuji === '大吉') { coin(200); t += '🪙200コイン手に入れた！'; }
-        else if (kuji === '吉') { coin(100); t += '🪙100コイン手に入れた！'; }
-        else if (kuji === '凶') t += 'なにも起きなかった……';
-        else {
-          const can = R.hand.filter(n => S.owned.includes(n));
-          if (can.length) { const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); drawHand(); t += `${D.ITEM[n].e} ${n} がこわれてしまった……`; }
-          else t += 'でも、こわれるアイテムがなかった。セーフ！';
-        }
-        await dialog({ who: '⛩️', name: 'ミコト', text: t }); break;
+        const t = await once('kuji', () => {
+          const l = luck / 1000, r = R.rnd();
+          const kuji = r < 0.15 + 0.2 * l ? '大吉' : r < 0.55 + 0.1 * l ? '吉' : r < 0.92 ? '凶' : '大凶';
+          let t = `「${kuji}」！\n`;
+          if (kuji === '大吉') { coin(200); t += '🪙200コイン手に入れた！'; }
+          else if (kuji === '吉') { coin(100); t += '🪙100コイン手に入れた！'; }
+          else if (kuji === '凶') t += 'なにも起きなかった……';
+          else {
+            const can = R.hand.filter(n => S.owned.includes(n));
+            if (can.length) { const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); t += `${D.ITEM[n].e} ${n} がこわれてしまった……`; }
+            else t += 'でも、こわれるアイテムがなかった。セーフ！';
+          }
+          return t;
+        });
+        drawHand();
+        await dialog({ who: npc('ミコト', '⛩️'), name: 'ミコト', text: t }); break;
       }
       case 'valz': {
-        set('😈', '悪魔公ヴァルツ');
-        const go = await dialog({ who: '😈', name: 'ヴァルツ', text: '「今のアイテムを全部わたせば、★4以上を2つくれてやろう…」\n（わたしたアイテムは、この回は使えなくなる）', choices: [{ label: '取引する', val: 1, cls: 'btn-main', disabled: !R.hand.length }, { label: 'ことわる', val: 0, cls: 'btn-gray' }] });
+        setFoe(npc('ヴァルツ', '😈'), '悪魔公ヴァルツ');
+        const go = await once('go', () => dialog({ who: npc('ヴァルツ', '😈'), name: 'ヴァルツ', text: '「今のアイテムを全部わたせば、★4以上を2つくれてやろう…」\n（わたしたアイテムは、この回は使えなくなる）', choices: [{ label: '取引する', val: 1, cls: 'btn-main', disabled: !R.hand.length }, { label: 'ことわる', val: 0, cls: 'btn-gray' }] }));
         if (!go) break;
-        const old = R.hand; R.hand = []; drawHand();
-        const got = [];
-        for (let k = 0; k < 2; k++) { const n = drawItem(R.rnd, { minR: 4, hand: got, exclude: old }); if (n) got.push(n); }
-        R.hand = got; drawHand();
-        await dialog({ who: '😈', name: 'ヴァルツ', text: `「フフフ…取引成立だ」\n${got.map(n => D.ITEM[n].e + ' ' + n).join('、')} を手に入れた！` });
+        const got = await once('got', () => {
+          const old = R.hand, got = [];
+          for (let k = 0; k < 2; k++) { const n = drawItem(R.rnd, { minR: 4, hand: got, exclude: old }); if (n) got.push(n); }
+          R.hand = got; return got;
+        });
+        drawHand();
+        await dialog({ who: npc('ヴァルツ', '😈'), name: 'ヴァルツ', text: `「フフフ…取引成立だ」\n${got.map(n => D.ITEM[n].e + ' ' + n).join('、')} を手に入れた！` });
         break;
       }
       case 'mirror': {
-        set('🪞', 'ふしぎな鏡');
-        if (!R.hand.length) { await dialog({ who: '🪞', text: 'ふしぎな鏡がある。\nアイテムを持っていれば、交換できたかもしれない……' }); break; }
-        const n = await chooseItem('🪞 ふしぎな鏡に、アイテムがうつっている。\n1つを、同じレア度のべつのアイテムに交換できる', R.hand, { labels: R.hand.map(() => '交換する'), skip: '交換しない' });
-        if (n) {
+        setFoe(artUi('mirror', '🪞'), 'ふしぎな鏡');
+        if (!R.hand.length && !('swap' in R.ns)) { await dialog({ who: artUi('mirror', '🪞'), text: 'ふしぎな鏡がある。\nアイテムを持っていれば、交換できたかもしれない……' }); break; }
+        const sw = await once('swap', async () => {
+          const n = await chooseItem('🪞 ふしぎな鏡に、アイテムがうつっている。\n1つを、同じレア度のべつのアイテムに交換できる', R.hand, { labels: R.hand.map(() => '交換する'), skip: '交換しない' });
+          if (!n) return null;
           const m = drawItem(R.rnd, { rarity: D.ITEM[n].r, hand: R.hand, exclude: [n] });
-          if (m) { R.hand = R.hand.map(x => (x === n ? m : x)); drawHand(); await dialog({ who: '🪞', text: `${D.ITEM[n].e} ${n} が\n${D.ITEM[m].e} ${m} に変わった！` }); }
-        }
+          if (!m) return null;
+          R.hand = R.hand.map(x => (x === n ? m : x)); return [n, m];
+        });
+        drawHand();
+        if (sw) await dialog({ who: artUi('mirror', '🪞'), text: `${D.ITEM[sw[0]].e} ${sw[0]} が\n${D.ITEM[sw[1]].e} ${sw[1]} に変わった！` });
         break;
       }
     }
@@ -587,6 +723,8 @@
 
   // =====================================================================
   // 戦闘（CPUボス戦。対戦モードでも同じしくみを使う）
+  // ・ターンのはじめの状態（snap）と、えらんだもの・答え（acts）をセーブ
+  // ・開きなおしたら snap にもどして acts を当てなおす → 答えたぶんは取り消せない
   // =====================================================================
   function makeFighter(o) {
     const f = { ...o, items: new Set(o.items || []) };
@@ -601,6 +739,18 @@
     Object.assign(f, { ct: {}, status: {}, used: new Set(), guard: 0, lastrecv: 0, lastdealt: 0, skipNext: false, seal: {}, lastsubj: null, cursubj: null, streak: 0, fail: 0, megane: 2, eraser: 1 });
     return f;
   }
+  const DYN = ['hp', 'ct', 'status', 'guard', 'lastrecv', 'lastdealt', 'skipNext', 'seal', 'lastsubj', 'cursubj', 'streak', 'fail', 'megane', 'eraser'];
+  function dyn(f) { const o = {}; DYN.forEach(k => (o[k] = clone(f[k] === undefined ? null : f[k]))); o.used = [...f.used]; return o; }
+  function restoreDyn(f, o) { DYN.forEach(k => (f[k] = clone(o[k]))); f.used = new Set(o.used || []); }
+  const dynAll = () => ({ P: dyn(BT.P), B: dyn(BT.B) });
+  function hydrate(pk) {
+    const P = makeFighter(pk.cfg.P), B = makeFighter(pk.cfg.B);
+    P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
+    if (pk.snap) { restoreDyn(P, pk.snap.P); restoreDyn(B, pk.snap.B); }
+    return { ...pk, P, B, used: new Set(pk.used || []) };
+  }
+  function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
+
   function cutRate(f) {
     let c = 0.10 * f.has('木の盾') + 0.35 * f.has('城の大盾') + 0.03 * f.has('ランドセル');
     if (f.has('くまのぬいぐるみ') && f.hp <= 0.3 * f.maxhp) c += 0.20;
@@ -622,6 +772,7 @@
   const sealed = (f, turn) => SUBJ.filter(s => (f.seal[s] || 0) >= turn);
 
   // 問題ゲージなどの計算（1問ごと）
+  const newGauge = () => ({ g: 0, correct: 0, run: 0, bonus: 0, s3: false });
   function gaugeStep(a, st, ok) {
     if (ok) { st.g += 1; st.correct++; st.run++; if (a.has('失敗は成功のもと') && a.fail) { st.bonus += 0.15 * a.fail; a.fail = 0; } a.streak++; }
     else {
@@ -643,14 +794,17 @@
     if (dst.has('おまもり') && !dst.used.has('おまもり')) { dst.used.add('おまもり'); log(`🧿 ${dst.name}のおまもりが ${stt}をふせいだ！`); return; }
     const was = stt in dst.status;
     dst.status[stt] = true;
-    if (!was) log(`${D.STATUS[stt].e} ${dst.name}は ${stt}になった！`);
     if (dst.has('教室のベル') || dst.has('ユニコーンの角')) dst.hp = Math.min(dst.maxhp, dst.hp + 0.05 * dst.maxhp);
+    if (!was) log(`${D.STATUS[stt].e} ${dst.name}は ${stt}になった！`);
   }
   const procRate = (a, d, r) => Math.min(1, r * (a.has('悪魔の契約書') ? 2.5 : 1) * (d.has('重力の石') ? 0.5 : 1));
 
-  // 攻撃1回ぶんを計算して、ログとダメージ列を返す
+  // 表示用の状態（演出中のHPなど）
+  const vsnap = () => { const o = {}; [['P', BT.P], ['B', BT.B]].forEach(([k, f]) => (o[k] = { hp: f.hp, status: Object.keys(f.status), ct: { ...f.ct } })); return o; };
+
+  // 攻撃1回ぶんを計算して、表示する出来事の列を返す
   function resolveAttack(a, d, act, turn, first, ctx) {
-    const out = []; const log = t => out.push({ t });
+    const out = []; const log = t => out.push({ t, snap: vsnap() });
     const sk = act.sk, subj = act.subj; const skill = D.SKILLS.find(k => k.n === sk);
     let m = 1;
     if (a.has('あばれ斧')) m *= 1.3;
@@ -706,8 +860,10 @@
       if (ctx.cheer) dmg *= 3;
       dmg = Math.max(1, R0(dmg));
       const before = d.hp; d.hp -= dmg; totalD += dmg;
-      out.push({ hit: dmg, crit, eff, target: d });
-      if (d.hp <= 0 && d.has('がんじょう石') && !d.used.has('がんじょう') && before >= 0.5 * d.maxhp) { d.used.add('がんじょう'); d.hp = 1; log(`🪨 ${d.name}は がんじょう石で HP1でふみとどまった！`); }
+      const ganjo = d.hp <= 0 && d.has('がんじょう石') && !d.used.has('がんじょう') && before >= 0.5 * d.maxhp;
+      if (ganjo) { d.used.add('がんじょう'); d.hp = 1; }
+      out.push({ hit: dmg, crit, eff, side: d.side, snap: vsnap() });
+      if (ganjo) log(`🪨 ${d.name}は がんじょう石で HP1でふみとどまった！`);
       if (d.has('トゲよろい')) { const r = R0(0.15 * dmg); a.hp -= r; log(`🌵 トゲよろいで ${a.name}も ${r} ダメージ`); }
       if (a.has('両刃の剣')) { const r = R0(0.25 * dmg); a.hp -= r; log(`⚔️ 両刃の剣で ${a.name}も ${r} ダメージ`); }
       Object.entries(D.INFLICT).forEach(([it, [stt, r]]) => { if (a.has(it) && ctx.rnd() < procRate(a, d, r)) giveStatus(d, stt, log); });
@@ -758,34 +914,34 @@
   }
 
   // ---- ボス戦の画面 ----
-  let BT = null;
   function battleScreen() {
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
-      <div class="emo">${f.emo}</div><div class="nm">${esc(f.name)} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
+      <div class="emo">${f.art}</div><div class="nm">${esc(f.name)} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
       <div class="hpbar"><i></i></div><div class="sm hpt"></div>
       <div class="stt"></div>
-      <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${D.ITEM[n].e}</span>`).join('')}</div>
+      <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
       <div class="gauge" style="visibility:hidden"><i></i></div><div class="sm gtxt"></div></div>`;
     const el = render(`<div class="turnlbl" id="turn"></div>${side(P, true)}${side(B, false)}
       <div class="blog panel" id="blog"></div>`, 'btl');
     el.querySelectorAll('.it').forEach(s => (s.onclick = () => showItem(s.dataset.n)));
     updBars();
   }
-  function updBars() {
+  function updBars(snap) {
     if (!BT) return;
-    [['fP', BT.P], ['fB', BT.B]].forEach(([id, f]) => {
+    snap = snap || vsnap();
+    [['fP', BT.P, snap.P], ['fB', BT.B, snap.B]].forEach(([id, f, v]) => {
       const el = $('#' + id); if (!el) return;
-      const r = Math.max(0, f.hp) / f.maxhp;
+      const r = Math.max(0, v.hp) / f.maxhp;
       el.querySelector('.hpbar i').style.width = r * 100 + '%';
       el.querySelector('.hpbar').classList.toggle('low', r < 0.3);
-      el.querySelector('.hpt').textContent = `HP ${Math.max(0, R0(f.hp))} / ${f.maxhp}`;
-      el.querySelector('.stt').innerHTML = Object.keys(f.status).map(k => `<span title="${k}">${D.STATUS[k].e}${k}</span>`).join(' ') +
-        Object.entries(f.ct).filter(([, v]) => v > 0).map(([k, v]) => ` <span class="xs dim">${k}あと${v}</span>`).join('');
+      el.querySelector('.hpt').textContent = `HP ${Math.max(0, R0(v.hp))} / ${f.maxhp}`;
+      el.querySelector('.stt').innerHTML = v.status.map(k => `<span title="${k}">${D.STATUS[k].e}${k}</span>`).join(' ') +
+        Object.entries(v.ct).filter(([, x]) => x > 0).map(([k, x]) => ` <span class="xs dim">${k}あと${x}</span>`).join('');
     });
   }
   const blog = h => { const b = $('#blog'); if (b) b.innerHTML = h; };
-  async function blogLines(lines, ms = 1100) { for (const l of lines) { blog(l); updBars(); await wait(ms); } }
+  async function blogLines(lines, ms = 1100) { for (const l of lines) { blog(l); await wait(ms); } }
   function showGauge(f, st, n) {
     const el = $(f === BT.P ? '#fP' : '#fB'); if (!el) return;
     const g = el.querySelector('.gauge'); g.style.visibility = 'visible';
@@ -797,7 +953,7 @@
 
   // ルーレット（運が高いほど幅が広い）
   async function roulette(P, B) {
-    if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`🎰 運命の指輪！ ${w.name}が 先攻・後攻をえらぶ`); await wait(1200); return w; }
+    if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`🎰 運命の指輪！ ${esc(w.name)}が 先攻・後攻をえらぶ`); await wait(1200); return w; }
     const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
     const pa = 360 * wp / (wp + wb);
     const win = Math.random() < wp / (wp + wb) ? P : B;
@@ -814,7 +970,7 @@
   }
 
   // プレイヤーのスキル・教科えらび
-  function playerSkill(P, turn) {
+  function playerSkill(P) {
     return new Promise(res => {
       const frozen = 'こおり' in P.status;
       const o = overlay(`<div class="panel" style="width:1100px">${BT.note || ''}<div class="mid" style="margin-bottom:10px">スキルをえらぼう ${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}</div>
@@ -839,165 +995,226 @@
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
     });
   }
+  // えらんだときに起きること（先攻のふういん など）。開きなおしたときも同じように当てなおす
+  function applyActStart(x, act, turn, first) {
+    x.cursubj = act.subj;
+    if (act.sk === 'ふういん' && first) { const y = x.opp, top = topSubj(y); y.seal[top] = turn + (x.has('ふういんの鍵') ? 1 : 0); }
+    if (act.meg !== undefined) x.megane = act.meg;
+  }
   async function playerAct(P, B, turn, first) {
-    const sk = await playerSkill(P, turn);
-    if (sk === 'ふういん' && first) { const top = topSubj(B); B.seal[top] = turn + (P.has('ふういんの鍵') ? 1 : 0); tip(`🔒 ${B.name}の ${top}を ふういん！`); }
-    const subj = await playerSubj(P, B, turn);
-    P.cursubj = subj;
-    const st = { g: 0, correct: 0, run: 0, bonus: 0, s3: false }, n = K.BOSS_Q;
+    let act = BT.acts.P;
+    if (!act) {
+      const sk = await playerSkill(P);
+      const subj = await playerSubj(P, B, turn);
+      act = { sk, subj, ans: [] }; BT.acts.P = act; save();
+      if (sk === 'ふういん' && first) tip(`🔒 ${B.name}の ${topSubj(B)}を ふういん！`);
+    }
+    applyActStart(P, act, turn, first);
+    const st = newGauge(), n = K.BOSS_Q;
+    act.ans.forEach(ok => gaugeStep(P, st, ok));
     showGauge(P, st, n);
-    for (let i = 0; i < n; i++) {
-      const q = drawSolvedQ(subj, BT.used);
-      const { ok } = await ask(q, { head: `（${i + 1}/${n}問目）`, fighter: P });
-      gaugeStep(P, st, ok); showGauge(P, st, n);
+    while (act.ans.length < n) {
+      const q = drawSolvedQ(act.subj, BT.used);
+      await ask(q, {
+        head: `（${act.ans.length + 1}/${n}問目）`, fighter: P,
+        onAnswer: ok => { gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; save(); },
+      });
+      showGauge(P, st, n);
       if (st.eraserUsed) { st.eraserUsed = false; tip('🧽 やり直し消しゴム！ まちがいのマイナスなし'); }
     }
-    return { sk, subj, mult: gaugeMult(P, st, n), s3: st.s3 };
+    act.mult = gaugeMult(P, st, n); act.s3 = st.s3;
+    return act;
   }
   async function bossAct(B, P, turn, first) {
-    const { sk, subj } = bossChoose(B, P, turn, first);
-    if (sk === 'ふういん' && first) { const top = topSubj(P); P.seal[top] = turn + (B.has('ふういんの鍵') ? 1 : 0); }
-    B.cursubj = subj;
-    blog(`${B.emo} ${esc(B.name)}は「${sk}」で、${subj}の問題に挑戦！${sk === 'ふういん' && first ? `<br>🔒 ${esc(P.name)}の ${topSubj(P)}が ふういんされた！` : ''}`);
-    const st = { g: 0, correct: 0, run: 0, bonus: 0, s3: false }, n = K.BOSS_Q;
-    showGauge(B, st, n);
-    for (let i = 0; i < n; i++) { await wait(600); gaugeStep(B, st, Math.random() < K.BOSS_ACC); showGauge(B, st, n); }
-    await wait(800);
-    return { sk, subj, mult: gaugeMult(B, st, n), s3: st.s3 };
+    let act = BT.acts.B; const fresh = !act, n = K.BOSS_Q;
+    if (fresh) {
+      const { sk, subj } = bossChoose(B, P, turn, first);
+      act = { sk, subj, ans: Array.from({ length: n }, () => Math.random() < K.BOSS_ACC) };
+      BT.acts.B = act; save();
+    }
+    applyActStart(B, act, turn, first);
+    const st = newGauge();
+    if (fresh) {
+      blog(`${B.emo} ${esc(B.name)}は「${act.sk}」で、${act.subj}の問題に挑戦！${act.sk === 'ふういん' && first ? `<br>🔒 ${esc(P.name)}の ${topSubj(P)}が ふういんされた！` : ''}`);
+      showGauge(B, st, n);
+      for (const ok of act.ans) { await wait(600); gaugeStep(B, st, ok); showGauge(B, st, n); }
+      await wait(800);
+    } else { act.ans.forEach(ok => gaugeStep(B, st, ok)); showGauge(B, st, n); }
+    act.mult = gaugeMult(B, st, n); act.s3 = st.s3;
+    return act;
   }
 
-  async function animateAttack(a, d, act, turn, first, cheer = false) {
-    const sk = act.sk, s = D.SKILLS.find(k => k.n === sk);
-    a.ct[sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(sk) && a.has('すなどけい') ? 1 : s.ct) + 1;
-    await cutin(`${a.emo} ${esc(a.name)}の <span class="gold">${sk}</span>！ <span class="sm">（${act.subj}）</span>`, 1100);
-    const res = resolveAttack(a, d, act, turn, first, { rnd: Math.random, cheer });
-    if (cheer && d.hp > 0) { const extra = d.hp; d.hp = 0; res.push({ hit: extra, crit: false, eff: 1, target: d }); }
-    const tEl = $(d === BT.P ? '#fP' : '#fB');
-    for (const r of res) {
-      if (r.hit) {
-        tEl.classList.remove('hit'); void tEl.offsetWidth; tEl.classList.add('hit');
-        floatAt(d === BT.P ? 260 : 960, 150, (r.crit ? '会心！ ' : '') + r.hit, r.crit ? '#f472b6' : '#fde047', 'dmg');
-        blog(`${r.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${r.hit}</b> ダメージ！ ${r.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : r.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
-        updBars(); await wait(900);
-      } else { blog(r.t); updBars(); await wait(1000); }
+  // ターンの結果をまとめて計算（ここでセーブ）→ そのあと演出
+  function resolveTurn(order, turn, cheer) {
+    const ev = [];
+    order.forEach((x, i) => {
+      const y = x.opp, act = BT.acts[x.side];
+      if (!act || act === 'skip' || x.hp <= 0 || y.hp <= 0) return;
+      const s = D.SKILLS.find(k => k.n === act.sk);
+      x.ct[act.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(act.sk) && x.has('すなどけい') ? 1 : s.ct) + 1;
+      ev.push({ cut: `${x.emo} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
+      ev.push(...resolveAttack(x, y, act, turn, i === 0, { rnd: Math.random, cheer }));
+      if (cheer && y.hp > 0) { const extra = Math.max(1, R0(y.hp)); y.hp = 0; ev.push({ hit: extra, crit: false, eff: 1, side: y.side, snap: vsnap() }); }
+    });
+    if (!cheer) [BT.P, BT.B].forEach(f => endTurn(f, t => ev.push({ t, snap: vsnap() })));
+    return ev;
+  }
+  async function playEvents(ev) {
+    for (const e of ev) {
+      if (e.cut) { await cutin(e.cut, 1100); continue; }
+      if (e.hit) {
+        const tEl = $(e.side === 'P' ? '#fP' : '#fB'), d = e.side === 'P' ? BT.P : BT.B;
+        if (tEl) { tEl.classList.remove('hit'); void tEl.offsetWidth; tEl.classList.add('hit'); }
+        floatAt(e.side === 'P' ? 260 : 960, 150, (e.crit ? '会心！ ' : '') + e.hit, e.crit ? '#f472b6' : '#fde047', 'dmg');
+        blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
+        updBars(e.snap); await wait(900);
+      } else { blog(e.t); updBars(e.snap); await wait(1000); }
     }
     updBars();
   }
 
-  async function bossNode() {
-    const t = total(S.st), stg = stageOf(t), bd = D.BOSSES[R.boss];
-    // ボスのステータス（プレイヤーの合計に合わせる）
-    const bt = t * K.BOSS_POWER, w = SUBJ.map(s => (s === R.boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
-    const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(bt * w[i] / ws)));
-    const skills = skillsOf(t);
-    const P = makeFighter({ name: S.cname, emo: lookOf(S.type, t), st: { ...S.st }, items: R.hand, prevType: S.type, hpBonus: R.flags.izumi ? 0.15 : 0, skills, power: R.flags.kurogane ? 1.2 : 1 });
-    const B = makeFighter({ name: bd.n[stg], emo: bd.e[stg], st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: R.boss === '無' ? '無' : R.boss === '英語' ? '英語' : R.boss });
-    P.opp = B; B.opp = P;
-    // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
-    const wk = D.WEAK[R.boss];
-    if (wk) {
-      const best = SUBJ.reduce((x, s) => (baseAtk(P, s) > baseAtk(P, x) ? s : x));
-      P.weakSubj = wk; P.weakMul = Math.max(1, baseAtk(P, best) / baseAtk(P, wk)) * (R.flags.sekihi ? 1.1 : 1);
-    }
-    BT = { P, B, used: new Set(), cont: false };
-    battleScreen();
-    $('#turn').textContent = '👑 ボス戦';
-    await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
-    if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => D.ITEM[n].e + n).join('、')}`], 1600);
-    if (wk) await blogLines([`✨ 紋章が輝く…！！ このボスには ${wk}（弱点）の攻撃力が <b class="gold">${P.weakMul.toFixed(2)}倍</b> になる！`], 2200);
-    if (firstRun()) tip('ボス戦は3ターン。スキルと教科をえらんで、問題に答えて攻撃しよう！', 4000);
-
-    let result = null;
-    for (let turn = 1; turn <= 3 && !result; turn++) {
-      hideGauges();
-      $('#turn').textContent = `ターン ${turn} / 3`;
-      await cutin(`ターン ${turn}`, 900);
+  async function playTurn() {
+    const { P, B } = BT, turn = BT.turn;
+    hideGauges();
+    $('#turn').textContent = `ターン ${turn} / 3`;
+    await cutin(`ターン ${turn}`, 900);
+    if (!BT.firstId) {
       let right;
       if (R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await wait(900); }
       else right = await roulette(P, B);
       let first;
-      if (right === P) {
-        first = await dialog({ who: '🎡', text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: P, cls: 'btn-main' }, { label: '👀 後攻', val: B, cls: 'btn-blue' }] });
-      } else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await wait(1300); }
-      const order = [first, first.opp], acts = new Map();
-      P.cursubj = B.cursubj = null;
-      for (let i = 0; i < 2; i++) {
-        const x = order[i];
-        if (x.skipNext) { x.skipNext = false; acts.set(x, null); blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await wait(1300); continue; }
-        if (x === P) { BT.note = i === 1 && acts.get(B) ? `<div class="sm gold" style="margin-bottom:6px">👀 ${esc(B.name)}は「${acts.get(B).sk}」・${acts.get(B).subj} をえらんだ。どうする？</div>` : ''; acts.set(P, await playerAct(P, B, turn, i === 0)); }
-        else acts.set(B, await bossAct(B, P, turn, i === 0));
+      if (right === P) first = await dialog({ who: '🎡', text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: P, cls: 'btn-main' }, { label: '👀 後攻', val: B, cls: 'btn-blue' }] });
+      else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await wait(1300); }
+      BT.firstId = first.side; save();
+    }
+    const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
+    for (let i = 0; i < 2; i++) {
+      const x = order[i];
+      if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
+        x.skipNext = false;
+        if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; save(); }
+        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await wait(1300); continue;
       }
-      for (let i = 0; i < 2; i++) {
-        const x = order[i], y = x.opp, act = acts.get(x);
-        if (act && x.hp > 0 && y.hp > 0) await animateAttack(x, y, act, turn, i === 0);
-      }
-      const lines = []; [P, B].forEach(f => endTurn(f, l => lines.push(l)));
-      await blogLines(lines, 1000);
-      if (P.hp <= 0 || B.hp <= 0) result = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
+      if (x === P) {
+        const ba = BT.acts.B;
+        BT.note = i === 1 && ba && ba !== 'skip' ? `<div class="sm gold" style="margin-bottom:6px">👀 ${esc(B.name)}は「${ba.sk}」・${ba.subj} をえらんだ。どうする？</div>` : '';
+        await playerAct(P, B, turn, i === 0);
+      } else await bossAct(B, P, turn, i === 0);
     }
     hideGauges();
-    if (!result) {
-      const rp = Math.max(0, P.hp) / P.maxhp, rb = Math.max(0, B.hp) / B.maxhp;
-      result = rp >= rb ? 'win' : 'lose';
-      await blogLines([`⏱️ 3ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`], 2200);
+    // 計算 → セーブ → 演出（演出中に閉じても、結果は変わらない）
+    const ev = resolveTurn(order, turn, false);
+    let res = null;
+    if (P.hp <= 0 || B.hp <= 0) res = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
+    else if (turn >= 3) {
+      const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp >= rb ? 'win' : 'lose';
+      ev.push({ t: `⏱️ 3ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
     }
-    if (result === 'win') { await winBoss(); return; }
-    // 負けた
-    await blogLines([`${esc(P.name)}は たおれてしまった……`], 1500);
-    const cont = await dialog({ who: '💫', text: 'コンティニューする？\n（仲間が応援にかけつけて、ボスを かならずたおせるよ）', choices: [{ label: '🔥 コンティニュー', val: true, cls: 'btn-main' }, { label: 'リザルトへ', val: false, cls: 'btn-gray' }] });
-    if (!cont) { await result_(false); return; }
-    BT.cont = true;
-    P.hp = P.maxhp; P.status = {}; P.skipNext = false; Object.keys(P.ct).forEach(k => (P.ct[k] = 0)); updBars();
-    await cutin('📣 みんなの応援！', 1200);
-    for (const f of D.FRIENDS) { await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800); }
-    $('#turn').textContent = '📣 応援ターン';
-    const act = await playerAct(P, B, 4, true);
-    const st = R0(act.mult * 100);
-    await cutin(st >= 100 ? '🌈 みんなの力がひとつに！！' : st >= 80 ? '✨ 応援の力が集まる！' : '💪 いけーっ！', 1200);
-    await animateAttack(P, B, act, 4, true, true);
-    await winBoss();
+    BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
+    if (res) { BT.phase = 'end'; BT.result = res; }
+    save();
+    await playEvents(ev);
   }
 
-  async function winBoss() {
-    const { B } = BT;
-    $('#fB') && $('#fB').classList.add('bye');
-    await cutin(`🏆 ${esc(B.name)}を たおした！`, 1800);
-    await result_(true);
+  async function bossNode() {
+    if ('boss' in R.ns) return result_(); // ボス戦はもう終わっている
+    const t = total(S.st), stg = stageOf(t), bd = D.BOSSES[R.boss];
+    if (!R.bt) {
+      // ボスのステータス（プレイヤーの合計に合わせる）
+      const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === R.boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
+      const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
+      const skills = skillsOf(t);
+      const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...R.hand], prevType: S.type, hpBonus: R.flags.izumi ? 0.15 : 0, skills, power: R.flags.kurogane ? 1.2 : 1 };
+      const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', R.boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: R.boss };
+      // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
+      const wk = D.WEAK[R.boss];
+      if (wk) {
+        const tmp = makeFighter(cP);
+        const best = SUBJ.reduce((x, s) => (baseAtk(tmp, s) > baseAtk(tmp, x) ? s : x));
+        cP.weakSubj = wk; cP.weakMul = Math.max(1, baseAtk(tmp, best) / baseAtk(tmp, wk)) * (R.flags.sekihi ? 1.1 : 1);
+      }
+      R.bt = { cfg: { P: cP, B: cB }, snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
+      save();
+    }
+    BT = hydrate(R.bt);
+    const { P, B } = BT;
+    battleScreen();
+    $('#turn').textContent = '👑 ボス戦';
+    if (BT.phase === 'intro') {
+      await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
+      if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => D.ITEM[n].e + n).join('、')}`], 1600);
+      if (P.weakSubj) await blogLines([`✨ 紋章が輝く…！！ このボスには ${P.weakSubj}（弱点）の攻撃力が <b class="gold">${P.weakMul.toFixed(2)}倍</b> になる！`], 2200);
+      if (firstRun()) tip('ボス戦は3ターン。スキルと教科をえらんで、問題に答えて攻撃しよう！', 4000);
+      BT.phase = 'turn'; BT.snap = dynAll(); save();
+    }
+    while (BT.phase === 'turn') await playTurn();
+    if (BT.phase === 'end' && BT.result === 'lose') {
+      blog(`${esc(P.name)}は たおれてしまった……`); await wait(1500);
+      const cont = await dialog({ who: '💫', text: 'コンティニューする？\n（仲間が応援にかけつけて、ボスを かならずたおせるよ）', choices: [{ label: '🔥 コンティニュー', val: true, cls: 'btn-main' }, { label: 'リザルトへ', val: false, cls: 'btn-gray' }] });
+      if (!cont) return finishBoss('lose');
+      BT.cont = true; P.hp = P.maxhp; P.status = {}; P.skipNext = false; P.seal = {}; Object.keys(P.ct).forEach(k => (P.ct[k] = 0));
+      BT.phase = 'cheer'; BT.acts = {}; BT.snap = dynAll(); save();
+    }
+    if (BT.phase === 'cheer') {
+      updBars();
+      await cutin('📣 みんなの応援！', 1200);
+      for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800);
+      $('#turn').textContent = '📣 応援ターン';
+      BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの力で、かならず たおせる！ 正解するほど 演出がはでになるよ</div>';
+      const act = await playerAct(P, B, 4, true);
+      const good = act.mult;
+      const ev = resolveTurn([P], 4, true);
+      BT.phase = 'end'; BT.result = 'win'; BT.snap = dynAll(); save();
+      await cutin(good >= 1 ? '🌈 みんなの力がひとつに！！' : good >= 0.8 ? '✨ 応援の力が集まる！' : '💪 いけーっ！', 1200);
+      await playEvents(ev);
+    }
+    if (BT.result === 'win') {
+      const fb = $('#fB'); if (fb) fb.classList.add('bye');
+      await cutin(`🏆 ${esc(B.name)}を たおした！`, 1800);
+      return finishBoss('win');
+    }
+  }
+  function finishBoss(res) {
+    R.ns.boss = res; R.ns.cont = !!BT.cont; R.bt = null; BT = null; save();
+    return result_();
   }
 
   // =====================================================================
   // リザルト
   // =====================================================================
-  async function result_(beat) {
+  async function result_() {
+    const beat = R.ns.boss === 'win', cont = R.ns.cont;
     const t0 = total(R.startSt), t1 = total(S.st), stg = stageOf(t1);
-    let bossItem = null, bossCoin = 0;
-    if (beat) {
-      bossCoin = K.COIN_BOSS * (stg + 1); S.coins += bossCoin; R.coins += bossCoin;
-      bossItem = drawItem(Math.random, { unowned: true, hand: R.hand, minR: BT.cont ? 1 : 3 });
-    }
-    S.dungeons++;
-    window.MB_LAST = { beat, cont: !!(BT && BT.cont) };
-    refreshType();
-    const el = render(`<div class="scr center" style="gap:14px">
+    const rw = await once('reward', () => {
+      let bossItem = null, bossCoin = 0;
+      if (beat) {
+        bossCoin = K.COIN_BOSS * (stg + 1); S.coins += bossCoin; R.coins += bossCoin;
+        bossItem = drawItem(R.rnd, { unowned: true, hand: R.hand, minR: cont ? 1 : 3 });
+      }
+      S.dungeons++; refreshType();
+      return { bossItem, bossCoin };
+    });
+    window.MB_LAST = { beat, cont };
+    render(`<div class="scr center" style="gap:14px">
       <div class="big gold">${beat ? '🏆 ダンジョン クリア！' : '🌙 ダンジョン おわり'}</div>
       <div class="panel" style="width:900px">
         <div class="row" style="justify-content:space-around;font-size:24px">${SUBJ.map(s => { const d = S.st[s] - R.startSt[s]; return `<div style="text-align:center">${D.SUBJ_EMO[s]} ${s}<br><b>${S.st[s]}</b><br><span class="${d ? 'green' : 'dim'}">+${d}</span></div>`; }).join('')}</div>
         <div class="mid" style="text-align:center;margin-top:12px">ごうけい ${t0} → <b class="gold">${t1}</b>　　🪙 +${R.coins}（もっている ${S.coins}）</div>
-        ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${BT.cont ? 'ボス撃破ボーナス 🪙' + bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + bossCoin}</div>` : ''}
-      </div><div id="take"></div></div>`, 'res');
+        ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}</div>` : ''}
+      </div></div>`, 'res');
     await wait(1500);
-    // 持ち帰り（未取得のものから1個。1日2個まで）
-    const cands = [...new Set([...R.hand, ...(bossItem ? [bossItem] : [])])].filter(n => !S.owned.includes(n));
-    let took = null;
-    if (bossItem) await chooseItem('👑 ボス撃破のごほうび！', [bossItem], { labels: ['見た！'] });
-    if (S.takeHome >= K.TAKEHOME_PER_DAY) await dialog({ who: '🎒', text: `きょうは もう アイテムを持ち帰れないよ（ダンジョンからは1日${K.TAKEHOME_PER_DAY}個まで）\nまた あした！` });
-    else if (!cands.length) await dialog({ who: '🎒', text: '持ち帰れる 新しいアイテムはなかった……\n（ぜんぶ もう持っているアイテムだった）' });
-    else {
-      took = await chooseItem(`🎒 1つだけ 持ち帰れるよ！（きょう あと${K.TAKEHOME_PER_DAY - S.takeHome}個）`, cands, { labels: cands.map(() => '持ち帰る') });
+    // 持ち帰り（未取得のものから1個。1日2個まで。ボス撃破報酬も候補にまぜる）
+    await once('take', async () => {
+      const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])].filter(n => !S.owned.includes(n));
+      if (rw.bossItem) await chooseItem('👑 ボス撃破のごほうび！ 持ち帰りの候補に入ったよ', [rw.bossItem], { labels: ['見た！'] });
+      if (S.takeHome >= K.TAKEHOME_PER_DAY) { await dialog({ who: '🎒', text: `きょうは もう アイテムを持ち帰れないよ（ダンジョンからは1日${K.TAKEHOME_PER_DAY}個まで）\nまた あした！` }); return null; }
+      if (!cands.length) { await dialog({ who: '🎒', text: '持ち帰れる 新しいアイテムはなかった……\n（ぜんぶ もう持っているアイテムだった）' }); return null; }
+      const took = await chooseItem(`🎒 1つだけ 持ち帰れるよ！（きょう あと${K.TAKEHOME_PER_DAY - S.takeHome}個）`, cands, { labels: cands.map(() => '持ち帰る') });
       S.owned.push(took); S.takeHome++;
-    }
+      return took;
+    });
     await evolution(R.startSt, R.startType);
-    R = null; BT = null;
+    R = null; BT = null; save();
     home();
   }
 
@@ -1007,11 +1224,11 @@
     const newSk = skillsOf(t1).filter(k => !skillsOf(t0).includes(k));
     const look0 = lookOf(type0, t0), look1 = lookOf(S.type, t1);
     if (!newSk.length && type0 === S.type && look0 === look1) return;
-    const o = overlay(`<div class="center" style="gap:20px"><div style="font-size:200px;line-height:1" id="evo">${look0}</div><div class="big" id="evt"></div><div id="evb"></div></div>`);
+    const o = overlay(`<div class="center" style="gap:20px"><div style="font-size:200px;line-height:1" id="evo">${artPlayer(type0, t0)}</div><div class="big" id="evt"></div><div id="evb"></div></div>`);
     if (look0 !== look1 || type0 !== S.type) {
       const e = $('#evo', o);
       for (let i = 0; i < 8; i++) { e.style.filter = i % 2 ? 'brightness(3)' : 'none'; await wait(180 - i * 15); }
-      e.textContent = look1; e.style.filter = 'drop-shadow(0 0 40px #fde047)';
+      e.innerHTML = artPlayer(S.type, t1); e.style.filter = 'drop-shadow(0 0 40px #fde047)';
       $('#evt', o).innerHTML = `<span class="gold">${esc(S.cname)}</span>が 進化した！${type0 !== S.type ? `<div class="mid">${S.type}タイプになった！</div>` : ''}`;
       await wait(2200);
     }
@@ -1025,7 +1242,9 @@
   }
 
   // ---- テスト用の入口（Playwright などから使う）----
-  window.MB = { get S() { return S; }, get R() { return R; }, get BT() { return BT; }, Q, D };
+  window.MB = { get S() { return S; }, get R() { return R; }, get BT() { return BT; }, Q, D, SAVE_KEY };
 
-  nameScreen();
+  // ---- 起動 ----
+  S = load();
+  if (S) titleScreen(); else nameScreen();
 })();
