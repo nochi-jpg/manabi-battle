@@ -326,6 +326,7 @@
   }
   // デバッグルームの入口（名前そのものは書かない。変えるときは tools/make_debug_hash.py で作る）
   const DEBUG_HASH = '952292505c231cec';
+  const dbgNorm = s => s.normalize('NFKC').toLowerCase().replace(/\s+/g, ''); // 全角・大文字・空白のちがいは気にしない
   function nameHash(p, c) {
     let h1 = 0x811c9dc5, h2 = (0x01000193 ^ 0x5bd1e995) >>> 0;
     for (const x of new TextEncoder().encode('manabi-debug:' + p + '\n' + c)) { h1 = Math.imul(h1 ^ x, 0x01000193) >>> 0; h2 = Math.imul((h2 ^ x) >>> 0, 0x5bd1e995) >>> 0; h2 = (h2 ^ (h2 >>> 13)) >>> 0; }
@@ -344,7 +345,7 @@
     $('#go', el).onclick = () => {
       const pn = $('#pn', el).value.trim(), cn = $('#cn', el).value.trim();
       if (!pn || !cn) { $('#err', el).textContent = '名前を2つとも入れてね'; return; }
-      if (nameHash(pn, cn) === DEBUG_HASH) { debugRoom(); return; } // セーブは作らない
+      if (nameHash(dbgNorm(pn), dbgNorm(cn)) === DEBUG_HASH) { debugRoom(); return; } // セーブは作らない
       S = newState(pn, cn);
       if (/[?&]test/.test(location.search)) { S.stamina = 9999; S.coins = 5000; }
       save(); home();
