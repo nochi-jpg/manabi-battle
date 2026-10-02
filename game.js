@@ -83,7 +83,7 @@
   function rawSave() {
     if (!S) return;
     try {
-      S.run = R ? packRun() : null; S.savedAt = Date.now();
+      if (R) S.run = packRun(); S.savedAt = Date.now(); // 中断中（R なし）も S.run は のこす
       localStorage.setItem(SAVE_KEY, JSON.stringify(S));
     } catch (e) { console.warn('セーブできませんでした', e); }
   }
@@ -186,9 +186,26 @@
     const el = document.createElement('div'); el.className = 'tip'; el.innerHTML = '💡 ' + text; app.appendChild(el);
     setTimeout(() => el.remove(), T(ms));
   }
-  async function cutin(text, ms = 1300) {
+  // ---- ゲームのテンポ（せってい）：はやい＝時間で進む ／ ふつう＝メッセージを 1クリック（タップ）で送る ----
+  const slow = () => !!(S && S.sel && S.sel.tempo !== 'fast') && !window.FAST; // さいしょは ふつう
+  function clickWait() {
+    return new Promise(res => {
+      const t0 = Date.now(), mk = document.createElement('div'); mk.className = 'nextmark'; mk.textContent = '▼'; app.appendChild(mk);
+      const done = e => {
+        if (Date.now() - t0 < 250) return; // れんだで とばさないように
+        if (e.type === 'keydown' && !['Enter', ' '].includes(e.key)) return;
+        document.removeEventListener('pointerdown', done, true); document.removeEventListener('keydown', done, true); mk.remove(); res();
+      };
+      document.addEventListener('pointerdown', done, true); document.addEventListener('keydown', done, true);
+    });
+  }
+  // メッセージのあとの 待ち（ふつう のときは クリックまで待つ）
+  const msgWait = ms => (slow() ? clickWait() : wait(ms));
+  // click=false：「ターン1」のような 見ればわかる短いものは、ふつう でも時間で進む
+  async function cutin(text, ms = 1300, click = true) {
     const el = document.createElement('div'); el.className = 'cutin'; el.innerHTML = text; app.appendChild(el);
-    await wait(ms); el.remove();
+    if (click && slow()) { el.classList.add('stay'); await clickWait(); } else await wait(ms);
+    el.remove();
   }
   const NEWB = '<span class="newb">NEW</span>';
   function itemCard(n, extra = '') {
@@ -235,8 +252,7 @@
     });
   }
 
-  // ---- 4択（連打対策つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
-  let fastRun = 0;
+  // ---- 4択（読み飛ばし防止の待ち時間つき）。答えを押した瞬間に onAnswer が呼ばれる（そこでセーブする）----
   // keep：{} をわたすと 窓を閉じずに 次の問題も同じ窓に出す（無限の塔）。おわったら keep.o.remove()
   function ask(q, { head = '', fighter = null, onAnswer = null, extra = null, ctl = null, gauge = null, keep = null } = {}) {
     return new Promise(res => {
@@ -259,8 +275,7 @@
       const bar = o.querySelector('.lockbar i');
       // 読み飛ばし防止：のこり時間が へっていくゲージ
       bar.style.transition = `width ${T(lock)}ms linear`; requestAnimationFrame(() => requestAnimationFrame(() => (bar.style.width = '0%')));
-      let openAt = 0;
-      setTimeout(() => { btns.forEach(b => (b.disabled = false)); openAt = Date.now(); o.querySelector('.lockrow').style.visibility = 'hidden'; }, T(lock));
+      setTimeout(() => { btns.forEach(b => (b.disabled = false)); o.querySelector('.lockrow').style.visibility = 'hidden'; }, T(lock));
       if (fighter && fighter.has('ひらめきメガネ') && fighter.megane > 0) {
         const mb = document.createElement('button'); mb.className = 'btn-blue'; mb.style.fontSize = '18px';
         mb.textContent = `👓 2択にする（のこり${fighter.megane}回）`;
@@ -275,7 +290,6 @@
         o.querySelector('.megane').appendChild(xb);
       }
       btns.forEach((b, i) => (b.onclick = async () => {
-        const dt = Date.now() - openAt;
         if (done) return;
         btns.forEach(x => (x.disabled = true)); o.querySelector('.megane').innerHTML = '';
         const ok = opts[i].ok;
@@ -283,7 +297,6 @@
         drawG();
         btns.forEach((x, j) => { if (opts[j].ok) x.classList.add('ok'); });
         if (!ok) b.classList.add('ng');
-        fastRun = dt < 900 ? fastRun + 1 : 0;
         const after = o.querySelector('.after');
         if (ok) {
           after.innerHTML = `<div style="text-align:center"><span class="okmsg">⭕ せいかい！</span></div>`;
@@ -294,11 +307,6 @@
           const nb = after.querySelector('button');
           await wait(2500); nb.disabled = false;
           await new Promise(r => (nb.onclick = r));
-        }
-        if (fastRun >= 3) {
-          fastRun = 0;
-          after.innerHTML = `<div class="expl" style="text-align:center">🐢 はやすぎるよ！ 問題をよく読もうね</div>`;
-          await wait(3000);
         }
         finish({ ok });
       }));
@@ -420,6 +428,7 @@
         <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '部室')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
       </div>
+      ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
       <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
@@ -733,7 +742,7 @@
         </div>
       </div>
       <div class="menuR">
-        <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
+        <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', S.run ? `つづきから（${S.run.i + 1} / ${S.run.plan.length}）` : `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
         <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
         <button id="tow">${mb('tow', '🗼', '無限の塔', `きょうの のこり ${fmtTime(towerLeft)}`)}</button>
         <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
@@ -837,6 +846,7 @@
   }
 
   async function startDungeon() {
+    if (S.run) { resumeRun(); return; } // 中断した ダンジョンの つづき（スタミナは つかわない）
     if (S.stamina < K.DUNGEON_COST) { tip('スタミナが足りないよ。あしたの朝5時に100回復するよ'); return; }
     const go = await dialog({ who: '⚔️', text: `スタミナを ${K.DUNGEON_COST} つかって 育成ダンジョンに入る？\n（いまのスタミナ ${S.stamina}）`, choices: [{ label: '入る！', val: true, cls: 'btn-main' }, { label: 'やめる', val: false, cls: 'btn-gray' }] });
     if (!go) return;
@@ -870,14 +880,16 @@
     return `このステージのボスは ${D.ELEM[b]}（${b}）属性。${D.ELEM[w]}（${w}）が有効で、${D.ELEM[r]}（${r}）は効きづらいようだ。`;
   }
 
-  const NODE_ICON = { z: '🟢', e1: '❓', e2: '❓', f: '🔀', t: '🎁', b: '👑' };
+  // 進行バーのマス：[画像のキー（assets の ui）, 画像がないときの絵文字, 種類]
+  const NODE = { z: ['nodeZ', '⚔️', 'z'], e1: ['nodeE', '❓', 'e'], e2: ['nodeE', '❓', 'e'], f: ['nodeF', '🔀', 'f'], t: ['nodeT', '🎁', 't'], b: ['nodeB', '👑', 'b'] };
   function dunScreen() {
-    const t = total(S.st);
+    const me = artPlayer(R.startType, total(R.startSt));
     const el = render(`
-      <div class="prog">${R.plan.map((p, i) => `<span class="n ${i < R.i ? 'done' : ''} ${i === R.i ? 'cur' : ''}">${NODE_ICON[p]}</span>`).join('')}
-        <span class="coin gold" id="coin">🪙 ${S.coins}</span></div>
+      <div class="prog dprog"><div class="track">${R.plan.map((p, i) => { const [k, e, c] = NODE[p];
+          return `<span class="n n${c} ${i < R.i ? 'done' : ''} ${i === R.i ? 'cur' : ''}">${i === R.i ? `<span class="nme">${me}</span><span class="nsub">${artUi(k, e)}</span>` : artUi(k, e)}</span>`; }).join('')}</div>
+        <span class="coin gold" id="coin">🪙 ${S.coins}</span><button class="btn-gray" id="dhome" disabled>🏠 ホーム</button></div>
       <div class="field">
-        <div><div class="me" id="me">${artPlayer(S.type, t)}</div><div class="lbl">${esc(S.cname)}</div></div>
+        <div><div class="me" id="me">${artPlayer(R.startType, total(R.startSt))}</div><div class="lbl">${esc(S.cname)}</div></div>
         <div><div class="foe" id="foe"></div><div class="lbl" id="foelbl"></div></div>
       </div>
       <div class="msg panel" id="msg"></div>
@@ -893,6 +905,17 @@
       return `<div class="slot" data-n="${esc(n)}">${artItem(n)}${S.owned.includes(n) ? '' : '<span class="new">NEW</span>'}</div>`;
     }).join('');
     h.querySelectorAll('.slot[data-n]').forEach(s => (s.onclick = () => showItem(s.dataset.n)));
+  }
+  // ダンジョンを 中断して ホームへ（教科をえらぶときだけ。つづきは ホームの育成ダンジョンから）
+  // 拾ったアイテムは そのまま「仮」で、リザルトまで 自分のものには ならない
+  function homeBtn(on) {
+    const b = $('#dhome'); if (!b) return;
+    b.disabled = !on;
+    b.onclick = async () => {
+      const go = await dialog({ who: '🏠', text: 'ダンジョンを 中断して ホームに もどる？\n（いまの ところから つづきが できるよ。ホームの「育成ダンジョン」を おしてね）', choices: [{ label: 'もどる', val: true, cls: 'btn-main' }, { label: 'つづける', val: false, cls: 'btn-gray' }] });
+      if (!go || !R) return;
+      save(); R = null; BT = null; home();
+    };
   }
   const msg = h => { const m = $('#msg'); if (m) m.innerHTML = h; };
   const setFoe = (html, lbl) => { const f = $('#foe'); if (f) f.innerHTML = html; const l = $('#foelbl'); if (l) l.innerHTML = lbl; };
@@ -957,7 +980,9 @@
     const subj = await new Promise(res => {
       $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}<small>${S.st[s]}</small></button>`).join('');
       $('#subj').querySelectorAll('button').forEach(b => (b.onclick = () => res(b.dataset.s)));
+      homeBtn(true);
     });
+    homeBtn(false);
     $('#subj').innerHTML = '';
     const pre = R.qpre[subj][R.qptr[subj]] || drawNewQs(subj, 1, R.rnd)[0];
     const q = Q[pre.id];
@@ -970,7 +995,7 @@
           const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
           S.st[subj] += gain; if (!pre.osarai) { S.qs[q.id] = 3; S.qd[q.id] = today(); } // 正解 → あと1回
           const c = (pre.osarai ? K.COIN_OSARAI : K.COIN_OK) + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
-          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${emo} がアイテムを落とした！`);
+          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${rare ? '金色のレア雑魚' : foe.n}は アイテムを落としていった……`);
           out = { ok, subj, gain, c };
         } else {
           if (!pre.osarai) { S.qs[q.id] = 2; S.miss[q.id] = 1; } // 不正解 → 復習待ち（一発でまちがえた記録も残す）
@@ -1398,7 +1423,7 @@
     });
   }
   const blog = h => { const b = $('#blog'); if (b) b.innerHTML = h; };
-  async function blogLines(lines, ms = 1100) { for (const l of lines) { blog(l); await wait(ms); } }
+  async function blogLines(lines, ms = 1100) { for (const l of lines) { blog(l); await msgWait(ms); } }
   function showGauge(f, st, n) {
     const el = $(f === BT.P ? '#fP' : '#fB'); if (!el) return;
     const g = el.querySelector('.gauge'); g.style.visibility = 'visible';
@@ -1413,7 +1438,7 @@
 
   // ルーレット（運が高いほど幅が広い）
   async function roulette(P, B) {
-    if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`🎰 運命の指輪！ ${esc(w.name)}が 先攻・後攻をえらぶ`); await wait(1200); return w; }
+    if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`🎰 運命の指輪！ ${esc(w.name)}が 先攻・後攻をえらぶ`); await msgWait(1200); return w; }
     const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
     const pa = 360 * wp / (wp + wb);
     const win = Math.random() < wp / (wp + wb) ? P : B;
@@ -1511,7 +1536,7 @@
       blog(`${B.emo} ${esc(B.name)}は「${act.sk}」で、${act.subj}の問題に挑戦！${act.sk === 'ふういん' && first ? `<br>🔒 ${esc(P.name)}の ${topSubj(P)}が ふういんされた！` : ''}`);
       showGauge(B, st, n);
       for (const ok of act.ans) { await wait(600); gaugeStep(B, st, ok); showGauge(B, st, n); }
-      await wait(800);
+      await msgWait(800);
     } else { act.ans.forEach(ok => gaugeStep(B, st, ok)); showGauge(B, st, n); }
     act.mult = gaugeMult(B, st, n); act.s3 = st.s3;
     return act;
@@ -1540,8 +1565,8 @@
         if (tEl) { tEl.classList.remove('hit'); void tEl.offsetWidth; tEl.classList.add('hit'); }
         floatAt(e.side === 'P' ? 260 : 960, 150, (e.crit ? '会心！ ' : '') + e.hit, e.crit ? '#f472b6' : '#fde047', 'dmg');
         blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
-        updBars(e.snap); await wait(900);
-      } else { blog(e.t); updBars(e.snap); await wait(1000); }
+        updBars(e.snap); await msgWait(900);
+      } else { blog(e.t); updBars(e.snap); await msgWait(1000); }
     }
     updBars();
   }
@@ -1550,14 +1575,14 @@
     const { P, B } = BT, turn = BT.turn;
     hideGauges();
     $('#turn').textContent = `ターン ${turn} / 3`;
-    await cutin(`ターン ${turn}`, 900);
+    await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       let right;
-      if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await wait(900); }
+      if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await msgWait(900); }
       else right = await roulette(P, B);
       let first;
       if (right === P) first = await dialog({ who: '🎡', text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: P, cls: 'btn-main' }, { label: '👀 後攻', val: B, cls: 'btn-blue' }] });
-      else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await wait(1300); }
+      else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await msgWait(1300); }
       BT.firstId = first.side; save();
     }
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
@@ -1566,7 +1591,7 @@
       if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
         x.skipNext = false;
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; save(); }
-        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await wait(1300); continue;
+        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await msgWait(1300); continue;
       }
       if (x === P) {
         const ba = BT.acts.B;
@@ -1590,13 +1615,15 @@
   }
 
   // ボス戦の2人（育成ダンジョンと おためしバトルで共通）
-  function bossCfg(boss, stg, hand, flags = {}) {
+  // look：見た目（ダンジョンでは 入ったときの すがた。進化はリザルトで）
+  function bossCfg(boss, stg, hand, flags = {}, look = null) {
     const t = total(S.st), bd = D.BOSSES[boss];
     // ボスのステータス（プレイヤーの合計に合わせる）
     const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
     const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
     const skills = skillsOf(t);
-    const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...hand], prevType: S.type, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
+    const lt = look || { type: S.type, t };
+    const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...S.st }, items: [...hand], prevType: S.type, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
     const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
     // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
     const wk = D.WEAK[boss];
@@ -1691,7 +1718,7 @@
     if ('boss' in R.ns) return result_(); // ボス戦はもう終わっている
     const stg = stageOf(total(S.st));
     if (!R.bt) {
-      R.bt = { cfg: bossCfg(R.boss, stg, R.hand, R.flags), snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
+      R.bt = { cfg: bossCfg(R.boss, stg, R.hand, R.flags, { type: R.startType, t: total(R.startSt) }), snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
       save();
     }
     BT = hydrate(R.bt);
@@ -1705,7 +1732,7 @@
     }
     while (BT.phase === 'turn') await playTurn();
     if (BT.phase === 'end' && BT.result === 'lose') {
-      blog(`${esc(P.name)}は たおれてしまった……`); await wait(1500);
+      blog(`${esc(P.name)}は たおれてしまった……`); await msgWait(1500);
       const cont = await dialog({ who: '💫', text: 'コンティニューする？\n（仲間が応援にかけつけて、ボスを かならずたおせるよ）', choices: [{ label: '🔥 コンティニュー', val: true, cls: 'btn-main' }, { label: 'リザルトへ', val: false, cls: 'btn-gray' }] });
       if (!cont) return finishBoss('lose');
       BT.cont = true; P.hp = P.maxhp; P.status = {}; P.skipNext = false; P.seal = {}; Object.keys(P.ct).forEach(k => (P.ct[k] = 0));
@@ -1714,7 +1741,7 @@
     if (BT.phase === 'cheer') {
       updBars();
       await cutin('📣 みんなの応援！', 1200);
-      for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800);
+      for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800, false);
       $('#turn').textContent = '📣 応援ターン';
       BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの力で、かならず たおせる！ 正解するほど 演出がはでになるよ</div>';
       const act = await playerAct(P, B, 4, true);
@@ -1764,7 +1791,7 @@
         <div class="mid" style="text-align:center;margin-top:12px">ごうけい ${t0} → <b class="gold">${t1}</b>　　🪙 +${R.coins}（もっている ${S.coins}）</div>
         ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}</div>` : ''}
       </div></div>`, 'res', 'result');
-    await wait(1500);
+    await msgWait(1500);
     // 持ち帰り（未取得のものから1個。1日2個まで。ボス撃破報酬も候補にまぜる）
     await once('take', async () => {
       const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])].filter(n => !S.owned.includes(n));
@@ -1776,7 +1803,7 @@
       return took;
     });
     await evolution(R.startSt, R.startType);
-    R = null; BT = null; save();
+    R = null; BT = null; S.run = null; save();
     home();
   }
 
@@ -1797,11 +1824,11 @@
       for (let i = 0; i < 8; i++) { e.style.filter = i % 2 ? 'brightness(3)' : 'none'; await wait(180 - i * 15); }
       e.innerHTML = artPlayer(S.type, t1); e.style.filter = 'drop-shadow(0 0 40px #fde047)';
       $('#evt', o).innerHTML = `<span class="gold">${esc(S.cname)}</span>が ${evolved ? `<span class="gold">${D.STYLE_NAME[styleFor(S, t1)]}</span>に ` : ''}進化した！${type0 !== S.type ? `<div class="mid">${S.type}タイプになった！</div>` : ''}`;
-      await wait(2200);
+      await msgWait(2200);
     }
     for (const k of newSk) {
       $('#evt', o).innerHTML = `✨ 新しいスキル <span class="gold">「${k}」</span> を おぼえた！<div class="sm">${D.SKILLS.find(s => s.n === k).d}</div>`;
-      await wait(2200);
+      await msgWait(2200);
     }
     $('#evb', o).innerHTML = '<button class="btn-main">ホームへ</button>';
     await new Promise(r => ($('#evb button', o).onclick = r));
@@ -2168,10 +2195,10 @@
     battleScreen();
     $('#turn').textContent = '🧪 おためしバトル';
     await bossIntro();
-    blog(`<span class="sm dim">${weakText(TR.boss)}</span>`); await wait(1200);
+    blog(`<span class="sm dim">${weakText(TR.boss)}</span>`); await msgWait(1200);
     while (BT.phase === 'turn') await playTurn();
     if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}を たおした！`, 1500); }
-    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await wait(1200); }
+    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
     return BT.result;
   }
 
@@ -2276,7 +2303,7 @@
     const { P, B } = BT, turn = BT.turn;
     hideGauges();
     $('#turn').textContent = `🆚 ターン ${turn} / 3`;
-    await cutin(`ターン ${turn}`, 900);
+    await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       const right = await roulette(P, B);
       const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: right, cls: 'btn-main' }, { label: '👀 後攻', val: right.opp, cls: 'btn-blue' }] });
@@ -2288,7 +2315,7 @@
       if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
         x.skipNext = false;
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveVs(); }
-        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await wait(1300); continue;
+        blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await msgWait(1300); continue;
       }
       if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`🎮 ${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
       BT.note = `<div class="sm" style="margin-bottom:6px">🎮 <b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
@@ -2412,7 +2439,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, msgWait, scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動：画像を ぜんぶ先に読みこむ（とちゅうで 画像が あとから出てくる・絵文字がちらつく のをふせぐ）----
   // ASSETS にあるパスと、CSS の url(...) を ぜんぶ集める。アセットを ふやしても 自動で入る

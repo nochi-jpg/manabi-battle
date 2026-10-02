@@ -27,4 +27,3 @@
 | [Verboten Arcane Stash] Basic Skills and Buffs | Atelier Pixerelia | 状態異常・スキルのアイコン |
 | Fantasy RPG UI Pack（DEMO） | dobo_ui | ボタン・パネル・カード・マス・リボン |
 | Garden cozy kit | mandinhart | ハート・スタミナ・コイン・メニューのアイコン |
-| 背景パック（BG.zip：forest・cavern・mountains・ruins・waterfall） | 出典確認中 | タイトル・ダンジョン・バトル・リザルトの背景 |
