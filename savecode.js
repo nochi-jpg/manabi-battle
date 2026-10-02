@@ -65,6 +65,9 @@ window.SAVECODE = (function () {
     w.bits(18, i => !!(((S.bossStg || {})[BOSS[Math.floor(i / 3)]] || 0) & (1 << (i % 3))));
     // せいかく（0〜2000）、すがた（1ビット目＝かっこいい系、2〜3ビット目＝決まった段階）
     w.vu(S.seikaku === undefined ? 1000 : S.seikaku); w.u8((S.style === 'cool' ? 1 : 0) | (((S.styleStg || 0) & 3) << 1));
+    // 限定の隠し称号（持っているもの・つけているもの）
+    const HT = D.HIDDEN_TITLES || [];
+    w.u8(HT.reduce((m, t, i) => m | ((S.hidden || []).includes(t) ? 1 << i : 0), 0)); w.u8(HT.indexOf(S.sel.title) + 1);
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -104,6 +107,8 @@ window.SAVECODE = (function () {
     if (r.i < body.length) r.bits(mids.length).forEach((m, i) => { if (m) o.miss[mids[i]] = 1; });
     if (r.i < body.length) { o.bossStg = {}; r.bits(18).forEach((x, i) => { if (x) { const b = BOSS[Math.floor(i / 3)]; o.bossStg[b] = (o.bossStg[b] || 0) | (1 << (i % 3)); } }); }
     if (r.i < body.length) { o.seikaku = Math.min(2000, r.vu()); const x = r.u8(); o.style = x & 1 ? 'cool' : 'cute'; o.styleStg = (x >> 1) & 3; }
+    o.hidden = [];
+    if (r.i < body.length) { const HT = D.HIDDEN_TITLES || [], m = r.u8(), si = r.u8(); o.hidden = HT.filter((t, i) => m & (1 << i)); if (si && HT[si - 1]) o.sel.title = HT[si - 1]; }
     o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;

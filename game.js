@@ -60,7 +60,7 @@
   function today() { const d = new Date(Date.now() - 5 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
-    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
+    return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
       playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
@@ -455,12 +455,13 @@
     const have = new Set(myRewards('t')), list = D.ACH.filter(a => a.r.t), cats = [...new Set(list.map(a => a.cat))];
     const row = (t, label, on) => `<div class="qrow ttl ${on ? 'sel' : ''}" data-t="${esc(t)}">${on ? '✅' : '⬜'} ${label}</div>`;
     const el = render(`
-      <div class="prog"><span class="mid">🏷️ 称号をえらぶ　<span class="gold">${have.size} / ${list.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
+      <div class="prog"><span class="mid">🏷️ 称号をえらぶ　<span class="gold">${list.filter(a => have.has(a.r.t)).length} / ${list.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
       <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         ${row('', 'つけない', !S.sel.title)}
         ${cats.map(c => `<div class="mid gold" style="margin:8px 0 4px">${c}</div>` + list.filter(a => a.cat === c).map(a => have.has(a.r.t)
-          ? row(a.r.t, `【${esc(a.r.t)}】`, S.sel.title === a.r.t)
+          ? row(a.r.t, titleBadge(a.r.t), S.sel.title === a.r.t)
           : `<div class="qrow ttl lock" data-id="${a.id}">🔒 ？？？</div>`).join('')).join('')}
+        ${(S.hidden || []).length ? `<div class="mid" style="margin:8px 0 4px">🌈 <span class="ttlb tr-rainbow">限定の称号</span></div>` + D.HIDDEN_TITLES.filter(t => S.hidden.includes(t)).map(t => row(t, titleBadge(t), S.sel.title === t)).join('') : ''}
       </div>`, 'res');
     $('#bk', el).onclick = backToSettings;
     el.querySelectorAll('.ttl').forEach(r => (r.onclick = () => {
@@ -512,6 +513,7 @@
   const dbg = k => dbgOn() && !!S.debug[k];
   const towerLimit = () => (dbg('tower') ? 999 * 60 * 1000 : K.TOWER_MS);
   const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分'], ['boss', '👑 ボス討伐 全開放（おためしバトル）'], ['titles', '🏷️ 称号 全開放'], ['ach', '🏆 アチーブメント 全開放'], ['bgs', '🖼️ 背景 全開放']];
+  const HID_KEYS = D.HIDDEN_TITLES.map((t, i) => ['hid' + i, t]);
   // スイッチの状態をセーブに反映（オフにしたら もとの値にもどす）
   function applyDebug() {
     if (!dbgOn()) return;
@@ -525,11 +527,18 @@
   }
   function debugSection() {
     return `<div class="panel" style="margin-top:12px;border-color:#f59e0b"><div class="mid gold">🔧 デバッグモード</div>
+      <div class="mid" style="margin-top:8px">🌈 限定の称号（その子のセーブに のこる。デバッグモードを終わっても 消えない）</div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:4px">${HID_KEYS.map(([k, t]) => { const on = (S.hidden || []).includes(t); return `<button data-hid="${esc(t)}" class="${on ? 'btn-main' : 'btn-gray'}" style="font-size:18px;padding:6px 12px">${esc(t)}：${on ? 'オン' : 'オフ'}</button>`; }).join('')}</div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px">${DBG_ITEMS.map(([k, n]) => `<button data-dbg="${k}" class="${S.debug[k] ? 'btn-main' : 'btn-gray'}" style="font-size:18px;padding:6px 12px">${n}：${S.debug[k] ? 'オン' : 'オフ'}</button>`).join('')}</div>
       <div class="row" style="gap:8px;margin-top:8px"><button class="btn-blue" id="dbr" style="font-size:18px;padding:6px 12px">デバッグルーム（QR引きつぎ・先生用ページ）</button><button class="btn-gray" id="dbx" style="font-size:18px;padding:6px 12px">デバッグモードを終わる</button></div>
       <div class="xs dim" style="margin-top:4px">オフにすると、オンにする前の値にもどります</div></div>`;
   }
   function bindDebug(o) {
+    o.querySelectorAll('[data-hid]').forEach(b => (b.onclick = () => {
+      const t = b.dataset.hid, h = S.hidden = (S.hidden || []).filter(x => D.HIDDEN_TITLES.includes(x));
+      if (h.includes(t)) { S.hidden = h.filter(x => x !== t); if (S.sel.title === t) S.sel.title = ''; } else h.push(t);
+      save(); o.remove(); home(); settings();
+    }));
     o.querySelectorAll('[data-dbg]').forEach(b => (b.onclick = () => { S.debug[b.dataset.dbg] = !S.debug[b.dataset.dbg]; applyDebug(); o.remove(); home(); settings(); }));
     $('#dbr', o).onclick = () => { o.remove(); debugRoom(); };
     $('#dbx', o).onclick = () => { DBG_ITEMS.forEach(([k]) => (S.debug[k] = false)); applyDebug(); S.debug = null; save(); o.remove(); home(); tip('デバッグモードを終わりました', 2000); };
@@ -573,7 +582,25 @@
   }
   const rewardText = r => [r.t && `称号「${esc(r.t)}」`, r.bg && `背景「${esc(r.bg)}」`, r.aura && `${r.aura}オーラ`].filter(Boolean).join('＋');
   // デバッグの「称号 全開放」「背景 全開放」は セーブを書きかえずに 見えるだけ
-  const myRewards = k => D.ACH.filter(a => (S.ach[a.id] || (k === 't' && dbg('titles')) || (k === 'bg' && dbg('bgs'))) && a.r[k]).map(a => a.r[k]);
+  // ---- 称号の色：限定＝虹、むずかしい＝金、教科・属性＝その色、とりやすい＝白 ----
+  const TCOL = { 国語: '#ff8f8f', 算数: '#7cb8ff', 理科: '#6fe3a0', 社会: '#ffc46b', 英語: '#d9a8ff', 無: '#cfd6e6' };
+  function titleRank(t) {
+    if (D.HIDDEN_TITLES.includes(t)) return 'rainbow';
+    const a = D.ACH.find(x => x.r.t === t); if (!a) return 'white';
+    const v = a.v, k = a.k;
+    const hard = (k === 'solved' && v >= 1000) || (k === 'subj' && v >= 300) || (k === 'days' && v >= 30) || (k === 'clear' && v >= 50) || k === 'bossAll' || k === 'nocont'
+      || (k === 'tower' && (v === 0 || v >= 250)) || (k === 'total' && v >= 3000) || k === 'skills' || (k === 'items' && v >= 50) || k === 'ach';
+    if (hard) return 'gold';
+    if (a.s && TCOL[a.s]) return 's:' + a.s;
+    return 'white';
+  }
+  // 称号のバッジ（1行・小さく）
+  function titleBadge(t, cls = '') {
+    if (!t) return '';
+    const r = titleRank(t), c = r.startsWith('s:') ? `style="--tc:${TCOL[r.slice(2)]}"` : '';
+    return `<span class="ttlb tr-${r.startsWith('s:') ? 'subj' : r} ${cls}" ${c}>【${esc(t)}】</span>`;
+  }
+  const myRewards = k => D.ACH.filter(a => (S.ach[a.id] || (k === 't' && dbg('titles')) || (k === 'bg' && dbg('bgs'))) && a.r[k]).map(a => a.r[k]).concat(k === 't' ? (S.hidden || []).filter(t => D.HIDDEN_TITLES.includes(t)) : []);
   const auraCls = () => (S.sel.aura && myRewards('aura').includes(S.sel.aura) ? 'aura-' + D.AURAS[S.sel.aura] : '');
   let toastN = 0;
   function achToast(a) {
@@ -681,7 +708,7 @@
       <div class="chara col">
         <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
-        ${S.sel.title ? `<div style="text-align:center" class="sm gold">【${esc(S.sel.title)}】</div>` : ''}
+        ${S.sel.title ? `<div style="text-align:center">${titleBadge(S.sel.title)}</div>` : ''}
         <div style="text-align:center" class="mid">${esc(S.cname)} <span class="sm dim">（${S.type}タイプ）</span></div>
         <div style="text-align:center" class="sm">🍽️ ${seikakuName(S.seikaku)}</div>
         <div class="panel stats">
@@ -1332,7 +1359,7 @@
   function battleScreen() {
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
-      ${f.title ? `<div class="xs gold" style="margin-top:4px">【${esc(f.title)}】</div>` : ''}<div class="emo ${f.aura || ''}">${f.art}</div><div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
+      <div class="emo ${f.aura || ''}">${f.art}</div>${f.title ? `<div class="ttlrow">${titleBadge(f.title, 'sm')}</div>` : ''}<div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
       <div class="hpbar"><i></i></div><div class="sm hpt"></div>
       <div class="stt"></div>
       <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
@@ -2153,7 +2180,7 @@
   async function vsIntro() {
     const { P, B } = BT;
     const side = (f, k) => `<div class="col" style="width:520px"><div class="mid">プレイヤー${k}：${esc(f.pname)}</div>
-      ${f.title ? `<div class="sm gold">【${esc(f.title)}】</div>` : ''}<div class="mid">${f.art} ${esc(f.name)} <span class="sm dim">${f.type}タイプ・HP ${f.maxhp}</span></div>
+      ${f.title ? `<div>${titleBadge(f.title, 'sm')}</div>` : ''}<div class="mid">${f.art} ${esc(f.name)} <span class="sm dim">${f.type}タイプ・HP ${f.maxhp}</span></div>
       ${[...f.items].map(n => `<div class="xs">${artItem(n)} <b>${esc(n)}</b>：${esc(D.ITEM[n].d)}</div>`).join('') || '<div class="xs dim">アイテムなし</div>'}</div>`;
     await dialog({ who: '🆚', text: '', body: `<div class="row" style="align-items:flex-start;gap:20px">${side(P, 'A')}${side(B, 'B')}</div>`, choices: [{ label: 'バトル スタート！', val: 1, cls: 'btn-main' }] });
   }
@@ -2296,7 +2323,7 @@
 
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
-  const GO = /[?&]test/.test(location.search) ? { home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
+  const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
   window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動 ----
