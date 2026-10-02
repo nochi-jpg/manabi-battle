@@ -109,7 +109,7 @@
   - 画像は 非公開リポジトリ `nochi-jpg/manabi-battle-assets`（二次配布NGの素材があるため）。公開リポジトリ・Pages は 絵文字のまま動く
   - `index.html` が `assets.local.js`（素材リポジトリにある）を読む。なければ絵文字。手元では `images` と `assets.local.js` を素材リポジトリへのリンクにしている（`.gitignore` ずみ）
   - Teams用ZIP：`python3 tools/build_zip.py`（となりのフォルダの素材リポジトリと合体）。前の `git archive` だけだと画像が入らない
-  - 主人公48・ボス18・雑魚17：モケモさんのドット絵（どの番号をどこに使うかは 素材リポジトリの `tools/make_assets.py`）。ホームの背景10：Witches & Wizards。タイトル・ダンジョン・バトルなど：BG.zip（AI生成の背景。クレジットは出さない）。ダンジョンとボス戦は ボスの属性ごとに背景がかわる（`dunBoss` `btlBoss`）
+  - 主人公48・タイトルロゴ：K.nom さんの絵（どの番号を どのタイプ・段階にしたかは `make_assets.py` の PLAYER）。ボス18・雑魚17：モケモさんのドット絵（どの番号をどこに使うかは 素材リポジトリの `tools/make_assets.py`）。ホームの背景10：Witches & Wizards。タイトル・ダンジョン・バトルなど：BG.zip（AI生成の背景。クレジットは出さない）。ダンジョンとボス戦は ボスの属性ごとに背景がかわる（`dunBoss` `btlBoss`）
   - ドット絵は くっきり表示・ふわふわ動く・主人公は相手のほうを向く。画像の背景は少し暗くして文字を読みやすく
   - UIの見た目：素材リポジトリの `assets.local.css`（木のわく・HPバーのわく・メニュー）。`index.html` が読む。なければ ふつうの見た目。状態異常とスキルに VerArc のアイコン
   - UI 2回目：ボタンは Complete UI Essential（CC BY 4.0・クレジット必須）のボタンを色ちがいにして使用、アイテムのマス・ハート・スタミナは Cozy UI。7z は `p7zip` の小さいデコーダ（C/Util/7z）をビルドして広げた

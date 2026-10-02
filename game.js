@@ -380,9 +380,11 @@
   // =====================================================================
   // タイトル・名前を決める・せってい
   // =====================================================================
+  // タイトルロゴ（画像があれば画像。なければ 文字）
+  const logoHtml = (px, w = 640) => (g2(A, 'ui', 'logo') ? `<img class="logo" style="width:${w}px" src="${esc(A.ui.logo)}" alt="まなびバトル" onerror="this.outerHTML='<div style=&quot;font-size:${px}px&quot;>⚔️ まなびバトル</div>'">` : `<div style="font-size:${px}px">⚔️ まなびバトル</div>`);
   function titleScreen() {
     const el = render(`<div class="scr center">
-      <div style="font-size:72px">⚔️ まなびバトル</div>
+      ${logoHtml(72)}
       <div class="mid">${esc(S.pname)} の データ</div>
       <button class="btn-main" id="go">${S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
       <div class="sm dim">ブラウザに 自動でセーブしています</div></div>`, 'title');
@@ -398,7 +400,7 @@
   }
   function nameScreen() {
     const el = render(`<div class="scr center" style="${g2(A, 'bg', 'name') ? '' : 'background:linear-gradient(160deg,#4c1d95,#1e3a8a)'}">
-      <div style="font-size:64px">⚔️ まなびバトル</div>
+      ${logoHtml(64, 380)}
       <div class="mid">ようこそ、まなび学園バトル部へ！</div>
       <div class="panel col" style="gap:16px;padding:28px">
         <label class="mid">プレイヤーネーム（8文字まで）<br><input id="pn" maxlength="8" placeholder="きみの名前"></label>
