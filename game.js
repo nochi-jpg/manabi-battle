@@ -1375,15 +1375,27 @@
     const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
     const pa = 360 * wp / (wp + wb);
     const win = Math.random() < wp / (wp + wb) ? P : B;
-    const o = overlay(`<div class="center"><div class="mid">🎡 先攻・後攻を決める権利は……？</div>
-      <div style="position:relative"><div class="needle">🔻</div><div class="roul" style="background:conic-gradient(#3b82f6 0 ${pa}deg,#ef4444 ${pa}deg 360deg)"></div></div>
-      <div class="row mid"><span style="color:#93c5fd">■ ${esc(P.name)}（運${P.luck}）</span><span style="color:#fca5a5">■ ${esc(B.name)}（運${B.luck}）</span></div></div>`);
+    const side = (f, k) => `<div class="rl-side ${k}"><div class="rl-art">${f.art}</div><div class="rl-nm">${esc(f.name)}</div><div class="rl-luck">🍀 運 ${f.luck}</div></div>`;
+    const lights = Array.from({ length: 24 }, (_, i) => `<i style="transform:rotate(${i * 15}deg) translateY(-176px)"></i>`).join('');
+    const o = overlay(`<div class="rl">
+      <div class="rl-title">🎡 先攻・後攻を 決める権利は……？</div>
+      <div class="rl-stage">${side(P, 'p')}
+        <div class="rl-wheel"><div class="rl-rays"></div><div class="rl-rim">${lights}</div>
+          <div class="roul" style="background:conic-gradient(from 0deg,#2f7bff 0deg,#55b6ff ${pa / 2}deg,#2f7bff ${pa}deg,#ff3d5e ${pa}deg,#ff8a6b ${pa + (360 - pa) / 2}deg,#ff3d5e 360deg)"></div>
+          <div class="rl-gloss"></div><div class="rl-hub">VS</div><div class="needle"></div></div>
+        ${side(B, 'b')}</div>
+      <div class="rl-win" id="rlw"></div></div>`);
     const wheel = o.querySelector('.roul');
     const th = win === P ? 6 + Math.random() * (pa - 12) : pa + 6 + Math.random() * (360 - pa - 12);
     await wait(300);
+    o.querySelector('.rl').classList.add('spin');
     wheel.style.transitionDuration = T(2200) + 'ms';
     wheel.style.transform = `rotate(${360 * 5 + (360 - th)}deg)`;
-    await wait(2500); o.remove();
+    await wait(2300);
+    o.querySelector('.rl').classList.remove('spin');
+    o.querySelector(`.rl-side.${win === P ? 'p' : 'b'}`).classList.add('win');
+    $('#rlw', o).innerHTML = `✨ ${esc(win.name)} が 決める権利を ゲット！`;
+    await wait(1100); o.remove();
     return win;
   }
 
@@ -1771,7 +1783,7 @@
   async function towerSelect() {
     dayCheck();
     const left = towerLimit() - S.towerMs;
-    if (left <= 0) { await dialog({ who: '🗼', text: 'きょうは もう のぼれないよ（1日30分まで）\nまた あしたの朝5時から のぼれるよ' }); return home(); }
+    if (left <= 0) { await dialog({ who: '🗼', text: `きょうは もう のぼれないよ（1日${K.TOWER_MS / 60000}分まで）\nまた あしたの朝5時から のぼれるよ` }); return home(); }
     const el = render(`<div class="scr center" style="gap:16px">
       <div class="big">🗼 無限の塔</div>
       <div class="mid">きょうの のこり時間 <span class="gold">${fmtTime(left)}</span></div>

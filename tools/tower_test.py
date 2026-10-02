@@ -51,7 +51,7 @@ with sync_playwright() as p:
     answer(True); pg.click('.qbox .megane button:last-child'); W(100)
     pg.evaluate("MB.S.day='2000-01-01'; for (const k in MB.S.towerTicket) MB.S.towerTicket[k]='2000-01-01'; MB.S.tower['国語'].day='2000-01-01'")
     pg.evaluate("void MB.go.towerSelect()"); W(100)
-    check(pg.evaluate('MB.S.towerMs') == 0, '次の日は 30分がもどる')
+    check(pg.evaluate('MB.S.towerMs') == 0, '次の日は 時間がもどる')
     check('入場できる' in pg.inner_text('#ts button[data-s="算数"]'), '次の日：入場券がもどる（算数）')
     check('つづきから 2階' in pg.inner_text('#ts button[data-s="国語"]'), '次の日：きのうの つづきから（国語）')
     pg.click('#ts button[data-s="国語"]'); W(100)
@@ -64,9 +64,9 @@ with sync_playwright() as p:
     for _ in range(3): answer(False)
     pg.wait_for_selector('.ov .choices button'); pg.click('.ov .choices button'); W(100)
     check(pg.locator('#ts button[data-s="国語"]').is_disabled(), '2回目（きょうの入場券）で おわったら もう入れない')
-    # 30分しばり
-    pg.evaluate("MB.S.towerMs = 30*60*1000"); pg.evaluate("void MB.go.towerSelect()"); W(100)
-    check('30分まで' in pg.inner_text('.ov'), '30分しばりは そのまま')
+    # 10分しばり
+    pg.evaluate("MB.S.towerMs = 10*60*1000"); pg.evaluate("void MB.go.towerSelect()"); W(100)
+    check('10分まで' in pg.inner_text('.ov'), '1日10分まで')
     b.close()
 
 print('errors:', errors or 'なし'); print('NG:', fails or 'なし')

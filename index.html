@@ -140,8 +140,36 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .blog{position:absolute;left:40px;right:40px;bottom:24px;min-height:150px;font-size:24px;line-height:1.5}
 .turnlbl{position:absolute;top:14px;left:0;right:0;text-align:center;font-size:30px}
 .dmg{position:absolute;font-size:64px;color:#fde047;text-shadow:0 3px 0 #b45309,0 0 12px #000;animation:fl 1.1s ease-out forwards;pointer-events:none}
-.roul{width:300px;height:300px;border-radius:50%;border:6px solid #fff;position:relative;transition:transform 2.2s cubic-bezier(.15,.8,.25,1)}
-.needle{position:absolute;top:-24px;left:50%;transform:translateX(-50%);font-size:40px}
+/* ルーレット（先攻・後攻）：金のふち・ライト・光の筋・中心のVS・勝った側が光る */
+.rl{display:flex;flex-direction:column;align-items:center;gap:6px;animation:fi .3s}
+.rl-title{font-size:34px;font-weight:bold;color:#fff;padding:6px 60px;border-radius:999px;background:linear-gradient(90deg,rgba(30,200,234,0),rgba(30,200,234,.9) 20%,rgba(30,120,234,.9) 80%,rgba(30,200,234,0));text-shadow:0 3px 0 #0b4f86}
+.rl-stage{display:flex;align-items:center;gap:40px}
+.rl-side{width:250px;text-align:center;padding:14px 8px 12px;border-radius:24px;background:rgba(10,18,48,.7);border:4px solid var(--sc);box-shadow:0 0 0 3px rgba(255,255,255,.5),0 10px 24px rgba(0,0,0,.5);transition:transform .3s,box-shadow .3s,filter .3s}
+.rl-side.p{--sc:#3d8bff}.rl-side.b{--sc:#ff4d6a}
+.rl-art{font-size:120px;line-height:1.05;filter:drop-shadow(0 6px 6px rgba(0,0,0,.5))}
+.rl-side.b .rl-art .art{display:inline-block;transform:scaleX(-1)}
+.rl-nm{font-size:24px;font-weight:bold;color:#fff;margin-top:4px}
+.rl-luck{display:inline-block;margin-top:6px;font-size:18px;color:#fff;background:var(--sc);border-radius:999px;padding:2px 14px}
+.rl-side.win{transform:scale(1.12);box-shadow:0 0 0 4px #fff,0 0 40px 12px var(--sc),0 0 90px 20px #ffe27a;animation:rlwin .5s ease-in-out 2 alternate}
+.rl-stage:has(.win) .rl-side:not(.win){filter:grayscale(.8) brightness(.6);transform:scale(.92)}
+@keyframes rlwin{to{filter:brightness(1.35)}}
+.rl-wheel{position:relative;width:380px;height:380px;display:flex;align-items:center;justify-content:center}
+.rl-rays{position:absolute;inset:-70px;border-radius:50%;background:repeating-conic-gradient(rgba(255,240,180,.28) 0 8deg,rgba(255,240,180,0) 8deg 20deg);-webkit-mask:radial-gradient(closest-side,#000 40%,transparent);mask:radial-gradient(closest-side,#000 40%,transparent);animation:sp 14s linear infinite}
+.rl.spin .rl-rays{animation-duration:2.5s}
+.rl-rim{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#ffe9a0,#d99a1e,#fff3c4,#c9851a,#ffe9a0,#d99a1e,#fff3c4,#c9851a,#ffe9a0);box-shadow:0 0 0 4px #7a4b0b,0 0 0 8px #ffe9a0,0 14px 30px rgba(0,0,0,.6)}
+.rl-rim i{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:#fffbe0;box-shadow:0 0 8px 3px #ffd54a;animation:blink .8s steps(2) infinite}
+.rl-rim i:nth-child(odd){animation-delay:.4s}
+.rl.spin .rl-rim i{animation-duration:.25s}
+@keyframes blink{50%{background:#a8781a;box-shadow:none}}
+.roul{width:320px;height:320px;border-radius:50%;border:5px solid #fff;position:relative;transition:transform 2.2s cubic-bezier(.15,.8,.25,1);box-shadow:inset 0 0 0 3px rgba(0,0,0,.25)}
+.rl-gloss{position:absolute;width:320px;height:320px;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.55),rgba(255,255,255,0) 45%),radial-gradient(circle,rgba(0,0,0,0) 60%,rgba(0,0,0,.25))}
+.rl-hub{position:absolute;width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:bold;font-style:italic;color:#fff;
+  background:radial-gradient(circle at 35% 30%,#ffe9a0,#d99a1e 60%,#8a5410);border:4px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,.5);text-shadow:0 2px 0 #7a4b0b,0 0 8px #7a4b0b}
+.needle{position:absolute;top:-26px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:52px solid #ff3355;filter:drop-shadow(0 0 0 #fff) drop-shadow(0 4px 4px rgba(0,0,0,.5));z-index:2}
+.needle::after{content:'';position:absolute;left:-12px;top:-48px;width:24px;height:24px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ffd54a);border:3px solid #7a4b0b}
+.rl.spin .needle{animation:tick .12s ease-in-out infinite alternate}
+@keyframes tick{to{transform:translateX(-50%) rotate(-12deg)}}
+.rl-win{min-height:48px;font-size:32px;font-weight:bold;color:#ffe27a;text-shadow:0 3px 0 #7a4b0b,0 0 12px rgba(0,0,0,.8);animation:fi .3s}
 .cutin{position:absolute;left:0;right:0;top:300px;height:120px;display:flex;align-items:center;justify-content:center;font-size:46px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.8),transparent);z-index:30;animation:ci 1.4s forwards;pointer-events:none}
 @keyframes ci{0%{opacity:0;transform:scaleY(.2)}15%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
 /* 問題リスト */

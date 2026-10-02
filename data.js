@@ -20,7 +20,7 @@ window.DATA = (function () {
     COIN_OK: 40, COIN_NG: 0, COIN_OSARAI: 10, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4, TAKEHOME_PER_DAY: 2,
     BOSS_Q: 3, VS_Q: 5, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
-    COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 30 * 60 * 1000, TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
+    COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 10 * 60 * 1000, /* 塔：1日10分（10/2 先生） */ TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
     STAGE_LINE: [1500, 3500],           // ステータス合計でボスの段階が変わる
     LOOK_LINE: [1200, 2500, 4000],      // ステータス合計で見た目が進化する（4段階。仮の数字）
     SEIKAKU_START: 1000, SEIKAKU_MAX: 2000,
