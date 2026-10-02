@@ -667,7 +667,7 @@
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">🎰 ガチャ</div>
       <div class="mid gold">🪙 ${S.coins}</div>
-      ${done ? '<div class="big gold">🎉 コンプリート！ ぜんぶ集めたよ！</div>' : `
+      ${done ? '<div class="big gold">コンプリート！ ぜんぶ集めたよ！</div>' : `
       <div class="magic" style="width:220px;height:220px"></div>
       <div class="mid">${left === 1 ? '<span class="gold">つぎは ★4以上 確定！</span>' : `あと <b class="gold">${left}</b>回で ★4以上確定！`}</div>
       ${!pool.length ? '<div class="sm">いま出せるアイテムがないよ（スキルや、もとになるアイテムを手に入れると出るようになる）</div>' : ''}
@@ -837,7 +837,7 @@
     const prev = stg === 0 ? 0 : K.LOOK_LINE[stg - 1];
     const bar = (a, b) => `<div class="hpbar" style="width:100%;height:16px;margin:6px 0"><i style="width:${Math.min(100, (a / b) * 100)}%;background:linear-gradient(90deg,#22c55e,#a3e635)"></i></div>`;
     const evo = e
-      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${lookOf(S.type, e)}</span>
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${artPlayer(S.type, e)}</span>
            <div style="flex:1"><div class="mid">進化まで あと <b class="gold">${e - t}</b></div>${bar(t - prev, e - prev)}<div class="xs dim">ステータスの ごうけい ${t} ／ ${e} で 進化</div></div></div>`
       : `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><div class="mid gold">さいごの すがたまで 進化した！</div></div>`;
     const sty = D.STYLE_NAME[styleOf(S.seikaku)];
@@ -953,12 +953,12 @@
     while (R.pend.length) {
       const { n, text } = R.pend[0];
       if (R.hand.length < K.ITEM_MAX) {
-        await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を拾った！`, [n], { labels: ['拾う'] });
+        await chooseItem(`${text}\n${artItem(n)} ${n} を拾った！`, [n], { labels: ['拾う'] });
         R.hand.push(n);
         if (firstRun() && !R.flags.tipItem) { R.flags.tipItem = 1; tip('拾ったアイテムは、この回のボス戦で効くよ。持てるのは4個まで'); }
       } else {
         const all = [...R.hand, n];
-        const out = await chooseItem(`${text}\n${D.ITEM[n].e} ${n} を見つけた！ 持てるのは4個まで。\n<span class="gold">どれを すてる？</span>`, all, { labels: all.map(() => 'すてる') });
+        const out = await chooseItem(`${text}\n${artItem(n)} ${n} を見つけた！ 持てるのは4個まで。\n<span class="gold">どれを すてる？</span>`, all, { labels: all.map(() => 'すてる') });
         R.hand = all.filter(x => x !== out);
       }
       R.pend.shift(); save(); drawHand();
@@ -1154,7 +1154,7 @@
         });
         drawHand();
         if (ok) { $('#foe').classList.add('bye'); await dialog({ who: '✨', text: 'おばけを追いはらった！' }); }
-        else if (lost) await dialog({ who: artUi('obake', '👻'), text: `${D.ITEM[lost].e} ${lost} を取られてしまった……` });
+        else if (lost) await dialog({ who: artUi('obake', '👻'), text: `${artItem(lost)} ${lost} を取られてしまった……` });
         else await dialog({ who: artUi('obake', '👻'), text: '「ちぇっ、取れるものがないや」\nおばけは帰っていった' });
         break;
       }
@@ -1175,7 +1175,7 @@
           else if (kuji === '凶') t += 'なにも起きなかった……';
           else {
             const can = R.hand.filter(n => S.owned.includes(n));
-            if (can.length) { const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); t += `${D.ITEM[n].e} ${n} がこわれてしまった……`; }
+            if (can.length) { const n = pick(can, R.rnd); R.hand = R.hand.filter(x => x !== n); t += `${artItem(n)} ${n} がこわれてしまった……`; }
             else t += 'でも、こわれるアイテムがなかった。セーフ！';
           }
           return t;
@@ -1193,7 +1193,7 @@
           R.hand = got; return got;
         });
         drawHand();
-        await dialog({ who: npc('ヴァルツ', '😈'), name: 'ヴァルツ', text: `「フフフ…取引成立だ」\n${got.map(n => D.ITEM[n].e + ' ' + n).join('、')} を手に入れた！` });
+        await dialog({ who: npc('ヴァルツ', '😈'), name: 'ヴァルツ', text: `「フフフ…取引成立だ」\n${got.map(n => artItem(n) + ' ' + n).join('、')} を手に入れた！` });
         break;
       }
       case 'mirror': {
@@ -1207,7 +1207,7 @@
           R.hand = R.hand.map(x => (x === n ? m : x)); return [n, m];
         });
         drawHand();
-        if (sw) await dialog({ who: artUi('mirror', '🪞'), text: `${D.ITEM[sw[0]].e} ${sw[0]} が\n${D.ITEM[sw[1]].e} ${sw[1]} に変わった！` });
+        if (sw) await dialog({ who: artUi('mirror', '🪞'), text: `${artItem(sw[0])} ${sw[0]} が\n${artItem(sw[1])} ${sw[1]} に変わった！` });
         break;
       }
     }
@@ -1288,7 +1288,7 @@
     const was = stt in dst.status;
     dst.status[stt] = true;
     if (dst.has('教室のベル') || dst.has('ユニコーンの角')) dst.hp = Math.min(dst.maxhp, dst.hp + 0.05 * dst.maxhp);
-    if (!was) log(`${D.STATUS[stt].e} ${dst.name}は ${stt}になった！`, { stt });
+    if (!was) log(`${art(g2(A, 'status', stt), D.STATUS[stt].e)} ${dst.name}は ${stt}になった！`, { stt });
   }
   const procRate = (a, d, r) => Math.min(1, r * (a.has('悪魔の契約書') ? 2.5 : 1) * (d.has('重力の石') ? 0.5 : 1));
 
@@ -1325,9 +1325,9 @@
     if (a.has('弱点さがしの虫めがね') && recvMult(d, subj) > 1) m *= 1.15;
     if (a.power) m *= a.power;                                  // クロガネの修行など
     if (a.weakSubj === subj) m *= a.weakMul;                   // 紋章が輝く（ボスの弱点補正）
-    if ('しびれ' in a.status) { m *= 0.7; delete a.status['しびれ']; log(`⚡ ${a.name}はしびれて力が出ない…`); }
+    if ('しびれ' in a.status) { m *= 0.7; delete a.status['しびれ']; log(`${art(g2(A, 'status', 'しびれ'), '⚡')} ${a.name}はしびれて力が出ない…`); }
     let nocrit = a.has('運命の指輪');
-    if ('よわき' in a.status) { m *= a.opp && a.opp.has('やみの霧') ? 0.6 : 0.8; nocrit = true; delete a.status['よわき']; log(`🫧 ${a.name}はよわきになっている…`); }
+    if ('よわき' in a.status) { m *= a.opp && a.opp.has('やみの霧') ? 0.6 : 0.8; nocrit = true; delete a.status['よわき']; log(`${art(g2(A, 'status', 'よわき'), '🫧')} ${a.name}はよわきになっている…`); }
     let cr, cm;
     if (a.has('運命の水晶')) { cr = 0.25; cm = 1.5; }
     else { cr = K.CRIT * a.luck / 1000 + 0.1 * a.has('ねらいのメガネ') + 0.25 * a.has('一撃の角') + (a.has('ひらめき電球') && act.s3 ? 0.25 : 0); cm = 2; }
@@ -1375,7 +1375,7 @@
     return out;
   }
   function endTurn(f, log) {
-    if ('どく' in f.status) { const dmg = R0(0.10 * f.maxhp * (f.opp.has('もうどくビン') ? 1.5 : 1)); f.hp -= dmg; log(`🟣 ${f.name}は どくで ${dmg} ダメージ`); }
+    if ('どく' in f.status) { const dmg = R0(0.10 * f.maxhp * (f.opp.has('もうどくビン') ? 1.5 : 1)); f.hp -= dmg; log(`${art(g2(A, 'status', 'どく'), '🟣')} ${f.name}は どくで ${dmg} ダメージ`); }
     if (f.has('おにぎり') && f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + R0(0.03 * f.maxhp));
     if (f.has('ばんそうこう') && f.hp > 0 && f.hp <= 0.3 * f.maxhp && !f.used.has('ばんそうこう')) { f.used.add('ばんそうこう'); f.hp += R0(0.25 * f.maxhp); log(`🩹 ${f.name}は ばんそうこうで回復！`); }
     ['やけど', 'こおり', 'こんらん'].forEach(k => { if (k in f.status) { if (f.status[k] === true) f.status[k] = 'next'; else delete f.status[k]; } });
@@ -1457,7 +1457,7 @@
     const side = (f, k) => `<div class="rl-side ${k}"><div class="rl-art">${f.art}</div><div class="rl-nm">${esc(f.name)}</div><div class="rl-luck">🍀 運 ${f.luck}</div></div>`;
     const lights = Array.from({ length: 24 }, (_, i) => `<i style="transform:rotate(${i * 15}deg) translateY(-176px)"></i>`).join('');
     const o = overlay(`<div class="rl">
-      <div class="rl-title">🎡 先攻・後攻を 決める権利は……？</div>
+      <div class="rl-title">先攻・後攻を 決める権利は……？</div>
       <div class="rl-stage">${side(P, 'p')}
         <div class="rl-wheel"><div class="rl-rays"></div><div class="rl-rim">${lights}</div>
           <div class="roul" style="background:conic-gradient(from 0deg,#2f7bff 0deg,#55b6ff ${pa / 2}deg,#2f7bff ${pa}deg,#ff3d5e ${pa}deg,#ff8a6b ${pa + (360 - pa) / 2}deg,#ff3d5e 360deg)"></div>
@@ -1545,7 +1545,7 @@
     applyActStart(B, act, turn, first);
     const st = newGauge();
     if (fresh) {
-      blog(`${B.emo} ${esc(B.name)}は「${act.sk}」で、${act.subj}の問題に挑戦！${act.sk === 'ふういん' && first ? `<br>🔒 ${esc(P.name)}の ${topSubj(P)}が ふういんされた！` : ''}`);
+      blog(`${B.art} ${esc(B.name)}は「${act.sk}」で、${act.subj}の問題に挑戦！${act.sk === 'ふういん' && first ? `<br>🔒 ${esc(P.name)}の ${topSubj(P)}が ふういんされた！` : ''}`);
       showGauge(B, st, n);
       for (const ok of act.ans) { await wait(600); gaugeStep(B, st, ok); showGauge(B, st, n); }
       await msgWait(800);
@@ -1562,7 +1562,7 @@
       if (!act || act === 'skip' || x.hp <= 0 || y.hp <= 0) return;
       const s = D.SKILLS.find(k => k.n === act.sk);
       x.ct[act.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(act.sk) && x.has('ふしぎなウォッチ') ? 1 : s.ct) + 1;
-      ev.push({ cut: `${x.emo} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
+      ev.push({ cut: `${x.art} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
       ev.push(...resolveAttack(x, y, act, turn, i === 0, { rnd: Math.random, cheer }));
       if (cheer && y.hp > 0) { const extra = Math.max(1, R0(y.hp)); y.hp = 0; ev.push({ hit: extra, crit: false, eff: 1, side: y.side, snap: vsnap() }); }
     });
@@ -1597,7 +1597,7 @@
       if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await msgWait(900); }
       else right = await roulette(P, B);
       let first;
-      if (right === P) first = await dialog({ who: '🎡', text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: P, cls: 'btn-main' }, { label: '👀 後攻', val: B, cls: 'btn-blue' }] });
+      if (right === P) first = await dialog({ text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: P, cls: 'btn-main' }, { label: `${artUi('second', '👀')} 後攻`, val: B, cls: 'btn-blue' }] });
       else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await msgWait(1300); }
       BT.firstId = first.side; save();
     }
@@ -1725,8 +1725,8 @@
 
   async function bossIntro() {
     const { P, B } = BT;
-    await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
-    if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => D.ITEM[n].e + n).join('、')}`], 1600);
+    await cutin(`${B.art} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
+    if (B.items.size) await blogLines([`${esc(B.name)}の持ち物：${[...B.items].map(n => artItem(n) + n).join('、')}`], 1600);
     if (P.weakSubj) await blogLines([`✨ 紋章が輝く…！！ このボスには ${P.weakSubj}（弱点）の攻撃力が <b class="gold">${P.weakMul.toFixed(2)}倍</b> になる！`], 2200);
   }
 
@@ -1764,7 +1764,7 @@
       const good = act.mult;
       const ev = resolveTurn([P], 4, true);
       BT.phase = 'end'; BT.result = 'win'; BT.snap = dynAll(); save();
-      await cutin(good >= 1 ? '🌈 みんなの力がひとつに！！' : good >= 0.8 ? '✨ 応援の力が集まる！' : '💪 いけーっ！', 1200);
+      await cutin(good >= 1 ? 'みんなの力がひとつに！！' : good >= 0.8 ? '応援の力が集まる！' : 'いけーっ！', 1200);
       await playEvents(ev);
     }
     if (BT.result === 'win') {
@@ -2195,7 +2195,7 @@
             if (!beaten(b, stg)) return `<button disabled style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:48px;line-height:1">❓</span><span class="mid">？？？</span><span class="xs dim">まだ倒していない</span></button>`;
             return `<button data-b="${b}" style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
               <span style="font-size:48px;line-height:1">${art(g2(A, 'boss', b, stg), bd.e[stg])}</span><span class="mid">${esc(bd.n[stg])}</span>
-              <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => D.ITEM[n].e).join('')}</span></button>`;
+              <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => artItem(n)).join('')}</span></button>`;
           }).join('')}</div>
           <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
         el.querySelectorAll('#sg button').forEach(b => (b.onclick = () => { TR.stg = +b.dataset.g; draw(); }));
@@ -2322,7 +2322,7 @@
     await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       const right = await roulette(P, B);
-      const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: '⚔️ 先攻', val: right, cls: 'btn-main' }, { label: '👀 後攻', val: right.opp, cls: 'btn-blue' }] });
+      const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: right, cls: 'btn-main' }, { label: `${artUi('second', '👀')} 後攻`, val: right.opp, cls: 'btn-blue' }] });
       BT.firstId = first.side; saveVs();
     }
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
@@ -2333,8 +2333,8 @@
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveVs(); }
         blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await msgWait(1300); continue;
       }
-      if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`🎮 ${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
-      BT.note = `<div class="sm" style="margin-bottom:6px">🎮 <b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
+      if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
+      BT.note = `<div class="sm" style="margin-bottom:6px"><b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
       await playerAct(x, x.opp, turn, i === 0, K.VS_Q);
     }
     hideGauges();
@@ -2456,6 +2456,33 @@
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
   window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, msgWait, updBars, scan: b => (scanHook ? scanHook(b) : false) };
+
+  // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
+  const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
+  function emoFix(node) {
+    const M = A.emo; if (!M || !node) return;
+    const list = [];
+    if (node.nodeType === 3) list.push(node);
+    else if (node.nodeType === 1) { const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); let t; while ((t = w.nextNode())) list.push(t); }
+    for (const tn of list) {
+      const s = tn.nodeValue, p = tn.parentNode;
+      if (!s || !p || /^(TEXTAREA|INPUT|SCRIPT|STYLE|OPTION)$/.test(p.nodeName)) continue;
+      const frag = document.createDocumentFragment(); let last = 0, hit = false;
+      for (const m of s.matchAll(EMO_RE)) {
+        const e = m[0], k = e.replace(/\uFE0F/g, ''), v = M[k] !== undefined ? M[k] : M[e];
+        if (v === undefined) continue;
+        hit = true; frag.append(s.slice(last, m.index)); last = m.index + e.length;
+        if (v) { const im = document.createElement('img'); im.className = 'emoi'; im.src = v; im.alt = ''; frag.append(im); }
+        else if (/[ 　]/.test(s[last] || '')) last++; // 消したら うしろの空白も
+      }
+      if (!hit) continue;
+      frag.append(s.slice(last)); p.replaceChild(frag, tn);
+    }
+  }
+  if (A.emo) {
+    new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') emoFix(m.target); else m.addedNodes.forEach(emoFix); } })
+      .observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
 
   // ---- 起動：画像を ぜんぶ先に読みこむ（とちゅうで 画像が あとから出てくる・絵文字がちらつく のをふせぐ）----
   // ASSETS にあるパスと、CSS の url(...) を ぜんぶ集める。アセットを ふやしても 自動で入る

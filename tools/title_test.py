@@ -28,7 +28,7 @@ with sync_playwright() as p:
     check(pg.evaluate("MB.S.debug") is None and pg.evaluate("MB.S.hidden") == ['👑大会の覇者'], 'デバッグモードを終わっても 限定称号は のこる')
     pg.evaluate(close); pg.click('#set'); W(100); pg.click('#sT'); W(150)
     rows = pg.evaluate("[...document.querySelectorAll('.qrow.ttl')].map(r=>r.innerText.trim())")
-    check(rows[-1].endswith('【👑大会の覇者】') and not any('グランド' in r for r in rows), f'称号リストの いちばん下に 手に入れた物だけ（{rows[-1]}）')
+    check(rows[-1].endswith('大会の覇者】') and not any('グランド' in r for r in rows), f'称号リストの いちばん下に 手に入れた物だけ（{rows[-1]}）')
     pg.click('.qrow.ttl >> nth=-1'); W(100)
     check(pg.evaluate("MB.S.sel.title") == '👑大会の覇者', '限定称号を つけられる')
     if OUT: pg.screenshot(path=str(OUT / 'title_list.png'))

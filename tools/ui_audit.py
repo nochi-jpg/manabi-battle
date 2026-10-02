@@ -58,6 +58,12 @@ KEY = r"""() => {
   return t.replace(/[0-9０-９]+/g, '#').replace(/\s+/g, ' ').slice(0, 46);
 }"""
 
+# 画面に のこっている 絵文字（画像に おきかわっていないもの）を あつめる
+EMOS = r"""() => { const out = []; const w = document.createTreeWalker(document.querySelector('#app'), NodeFilter.SHOW_TEXT); let t;
+  while ((t = w.nextNode())) { const s = t.nodeValue; if (!t.parentElement || !t.parentElement.offsetParent) continue;
+    for (const m of s.matchAll(/[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}][\uFE0F\u200D\u{1F000}-\u{1FAFF}]*/gu)) out.push([m[0], s.trim().slice(0, 30)]); }
+  return out; }"""
+EMO_LEFT = {}
 seen, report = set(), []
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1280, 'height': 720})
@@ -71,6 +77,7 @@ with sync_playwright() as p:
         if k in seen and not force: return
         seen.add(k); W(380)  # 窓のポップ（0.22秒）が おわってから撮る
         iss = pg.evaluate(CHECK)
+        for e, ctx in pg.evaluate(EMOS): EMO_LEFT.setdefault(e, ctx)
         n = len(report) + 1
         fn = f"{'!' if iss else ''}{n:03d}_{re.sub(r'[^0-9A-Za-zぁ-んァ-ヶ一-龠ー]+', '_', (label or k))[:40]}.png"
         pg.screenshot(path=str(OUT / fn))
@@ -178,6 +185,7 @@ with sync_playwright() as p:
 (OUT / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=1))
 bad = [r for r in report if r['issues']]
 print(f'画面 {len(report)}／問題あり {len(bad)}　errors: {errors or "なし"}')
+print('のこっている絵文字:'); [print('  ', e, repr(c)) for e, c in EMO_LEFT.items() if e != '★']
 for r in bad:
     print(f"--- {r['file']}")
     seen_i = set()
