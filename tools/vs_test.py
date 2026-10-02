@@ -22,7 +22,7 @@ def player(b, pn, cn, runs, acc):
         for _ in range(4000):
             if pg.query_selector('#dun') and not pg.query_selector('.ov'): break
             pg.evaluate(BOT, acc); pg.wait_for_timeout(25)
-    pg.evaluate("MB.S.owned.push('どくキバ','木の盾','たこあげ','おにぎり','ねらいのメガネ')")
+    pg.evaluate("MB.S.owned.push('どくキバ','木の盾','たこ焼き','おにぎり','ねらいのメガネ')")
     return ctx, pg
 
 with sync_playwright() as p:
