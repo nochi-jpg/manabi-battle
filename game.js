@@ -63,7 +63,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '学園の町' }, fav: [], gachaN: 0 };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: 'まなびタウン' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -100,6 +100,7 @@
   // アイテムの名前を かえた（10/3）。セーブの中の 古い名前を 新しい名前に
   const ITEM_RENAME = { 'たこあげ': 'たこ焼き', 'ふたつのお面': 'きつねのおめん', 'かみなりの羽': 'かみなりぐも', '雷鳴の太鼓': 'らいうのくも', '雪女のかんざし': 'かきごおり', 'うずまきキャンディ': 'キャンディのつえ', 'しゃぼん玉の杖': 'ばくちく', 'みつまたの槍': 'でんせつの弓', 'トゲよろい': 'かたいよろい', '鉄壁のこて': '鉄壁の兜', '吸血マント': '吸血セーター', 'すなどけい': 'ふしぎなウォッチ' };
   const renItems = a => (Array.isArray(a) ? a.map(x => ITEM_RENAME[x] || x) : a);
+  const TITLE_RENAME = { バトル部員: '見習いまほうつかい', 新入部員: '新米まほうつかい', 部長: '一人前のまほうつかい', 伝説の部員: '伝説のまほうつかい' };
   function migrate(s) {
     if (!s || typeof s !== 'object' || !s.v) return null;
     if (s.v === 1) { // v1→v2：「正解(1)」は「あと1回(3)」に
@@ -111,7 +112,9 @@
     if (!s.bossStg) s.bossStg = bossStgFrom(s.bossWin, s.boss3);
     s.owned = renItems(s.owned); s.fav = renItems(s.fav);
     if (s.run) { s.run.hand = renItems(s.run.hand); (s.run.pend || []).forEach(p => (p.n = ITEM_RENAME[p.n] || p.n)); }
-    if (s.sel && !(s.sel.bg in D.BGS)) s.sel.bg = '学園の町'; // 背景を 入れかえた（10/3）。いまは ない背景は さいしょの背景に
+    if (s.sel && TITLE_RENAME[s.sel.title]) s.sel.title = TITLE_RENAME[s.sel.title]; // 称号の名前を かえた（10/3）
+    if (s.sel && s.sel.bg === '学園の町') s.sel.bg = 'まなびタウン';
+    if (s.sel && !(s.sel.bg in D.BGS)) s.sel.bg = 'まなびタウン'; // 背景を 入れかえた（10/3）。いまは ない背景は さいしょの背景に
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
@@ -206,8 +209,8 @@
     // 画像の背景は 少し暗くして 文字を読みやすくする
     const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
     if (cls === 'home' && S) { // ホームの背景（えらんだもの。画像がなければ仮の色）
-      const k = (S.sel && S.sel.bg) || '学園の町', img = g2(A, 'homeBg', k);
-      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['学園の町'];
+      const k = (S.sel && S.sel.bg) || 'まなびタウン', img = g2(A, 'homeBg', k);
+      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['まなびタウン'];
       return el;
     }
     // ダンジョン・ボス戦は ボスの属性ごとの背景（画像があるとき）
@@ -465,7 +468,7 @@
       const cn = await ask('あいぼうの なまえは？', 'あいぼうの名前', '※ あとから すきなときに かえられます（せってい）');
       S = newState(pn, cn); save();
       const nm = `<div class="meet-who">${esc(cn)}</div>`;
-      for (const t of ['この まほうとしでは、<br>おおくの まほうつかいが', 'あいぼうの まものと いっしょに<br>くらしているんだ。', `${esc(pn)}と いっしょに 学習して、<br>たくさん せいちょう したいな！`, 'バトルも だいすきだから、<br>つよく そだててね！']) {
+      for (const t of ['この まなびタウンでは、<br>まほうつかいが あいぼうの つかいまと', 'いっしょに 学問と まほうを<br>たんきゅう しているんだ。', `${esc(pn)}と いっしょに 学習して、<br>たくさん せいちょう したいな！`, 'バトルも だいすきだから、<br>つよく そだててね！']) {
         box.innerHTML = `${nm}<div class="meet-t">${t}</div><div class="meet-next">▼</div>`;
         await new Promise(res => (box.onclick = () => { box.onclick = null; res(); }));
       }
@@ -498,6 +501,11 @@
       P.push(['ホームの ボタン ③', row(btnPic('b1'), 'コインで アイテムを ひく') + row(btnPic('b2'), 'あつめた アイテムを 見る')
         + row(btnPic('b3'), 'といた問題を 見なおす') + row(btnPic('b4'), 'データの 引きつぎ・対戦') + row(btnPic('b5'), 'ごほうびの 称号や 背景')]);
     }
+    if (parts.includes('item')) {
+      P.push(['アイテム', row(art(g2(A, 'ui', 'treasure'), '🎁'), 'ダンジョンで ひろった アイテムは、<br>その回の 道中と ボス戦で 効きます')
+        + row(btnPic('b2') || art(g2(A, 'emo', '🎒'), '🎒'), 'ダンジョンからは 1回に 1個だけ<br>アイテムを もちかえれるよ')
+        + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは<br>対戦モードで つかうことが できるよ<br>（おためしバトルでも つかえます）')]);
+    }
     if (parts.includes('grow')) {
       P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">ステータスの ごうけいが ふえると<br><b>4だんかい</b>に 進化します</div>
         <div class="tut-mons">${[0, 1, 2, 3].map(g => pimg('全教科', 'cute', g, g > 0)).join('<span class="tut-ar">▶</span>')}</div>`]);
@@ -527,7 +535,6 @@
   function nameScreen() {
     const el = render(`<div class="scr center" style="${g2(A, 'bg', 'name') ? '' : 'background:linear-gradient(160deg,#4c1d95,#1e3a8a)'}">
       ${logoHtml(64, 380)}
-      <div class="mid">ようこそ、まなび学園バトル部へ！</div>
       <div class="panel col" style="gap:16px;padding:28px">
         <label class="mid">プレイヤーネーム（8文字まで）<br><input id="pn" maxlength="8" placeholder="きみの名前"></label>
         <label class="mid">モンスターの名前（8文字まで）<br><input id="cn" maxlength="8" placeholder="モンスターの名前"></label>
@@ -552,7 +559,7 @@
       <div class="big">⚙️ せってい</div>
       <div class="setbtns">
         <button id="sT">🏷️ 称号をかえる<small>いま：${S.sel.title ? esc(S.sel.title) : 'つけない'}</small></button>
-        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '学園の町')}</small></button>
+        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || 'まなびタウン')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
         <button id="sH">📖 ゲームのせつめい<small>まいにちの ながれ・すがた</small></button>
         <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
@@ -568,7 +575,7 @@
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
     $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
     $('#sV', o).onclick = () => { o.remove(); volumePage(); };
-    $('#sH', o).onclick = () => { o.remove(); tutorial(['cycle', 'grow']).then(backToSettings); };
+    $('#sH', o).onclick = () => { o.remove(); tutorial(['cycle', 'item', 'grow']).then(backToSettings); };
     if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
       o.remove();
@@ -641,14 +648,14 @@
   }
   // ---- 背景をかえる ----
   function bgPage() {
-    const have = new Set(['学園の町', ...myRewards('bg')]), keys = Object.keys(D.BGS);
+    const have = new Set(['まなびタウン', ...myRewards('bg')]), keys = Object.keys(D.BGS);
     const el = render(`
       <div class="prog"><span class="mid">🖼️ ホームの背景をえらぶ　<span class="gold">${keys.filter(k => have.has(k)).length} / ${keys.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
       <div class="panel bggrid" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         ${keys.map(k => {
           if (!have.has(k)) return `<div class="bgc lock" data-k="${esc(k)}"><div class="bgp">🔒</div><div class="mid">？？？</div></div>`;
           const img = g2(A, 'homeBg', k);
-          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === '学園の町') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
+          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === 'まなびタウン') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
         }).join('')}
       </div>`, 'res');
     $('#bk', el).onclick = backToSettings;
@@ -695,12 +702,35 @@
     if (d.ach) { if (!b.ach) b.ach = { ...S.ach }; D.ACH.forEach(a => { if (!S.ach[a.id]) S.ach[a.id] = today(); }); } else if (b.ach) { S.ach = b.ach; delete b.ach; }
     refreshType(); rawSave();
   }
+  // 数値を 自由に かえる（先生用）：5教科・スタミナ・コイン・せいかく（運は 教科から 自動で きまる）
+  // 9999 スイッチが オンの ものは、オフにしたときに ここで 入れた値に もどる
+  function debugParams() {
+    const F = [...SUBJ.map(s => [s, s, 0, 99999]), ['stamina', 'スタミナ', 0, 99999], ['coins', 'まなびコイン', 0, 9999999], ['seikaku', 'せいかく（0〜2000）', 0, K.SEIKAKU_MAX]];
+    const b = S.debug.bak || {};
+    const cur = k => (SUBJ.includes(k) ? (b.st ? b.st[k] : S.st[k]) : k === 'stamina' && b.stamina !== undefined ? b.stamina : k === 'coins' && b.coins !== undefined ? b.coins : S[k]);
+    const o = overlay(`<div class="panel" style="width:900px"><div class="big">✏️ 数値を かえる（デバッグ）</div>
+      <div class="dbgp">${F.map(([k, n, lo, hi]) => `<label><span>${n}</span><input type="number" data-pk="${k}" min="${lo}" max="${hi}" value="${cur(k)}"></label>`).join('')}</div>
+      <div class="sm dim" id="dps"></div>
+      <div class="row" style="justify-content:flex-end;gap:10px;margin-top:12px"><button class="btn-gray" id="cl">やめる</button><button class="btn-main" id="ok">けってい</button></div></div>`);
+    const sk = () => { const v = +o.querySelector('[data-pk="seikaku"]').value; $('#dps', o).textContent = `せいかく：${seikakuName(Math.max(0, Math.min(K.SEIKAKU_MAX, v)))}`; };
+    o.querySelector('[data-pk="seikaku"]').oninput = sk; sk();
+    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
+    $('#ok', o).onclick = () => {
+      o.querySelectorAll('[data-pk]').forEach(inp => {
+        const k = inp.dataset.pk, f = F.find(x => x[0] === k), v = Math.max(f[2], Math.min(f[3], Math.round(+inp.value || 0)));
+        if (SUBJ.includes(k)) { if (b.st) b.st[k] = v; else S.st[k] = v; }
+        else if ((k === 'stamina' || k === 'coins') && b[k] !== undefined) b[k] = v;
+        else S[k] = v;
+      });
+      refreshType(); save(); o.remove(); backToSettings(); tip('数値を かえました', 2000);
+    };
+  }
   function debugSection() {
     return `<div class="panel" style="margin-top:12px;border-color:#f59e0b"><div class="mid gold">🔧 デバッグモード</div>
       <div class="mid" style="margin-top:8px">🌈 限定の称号（その子のセーブに のこる。デバッグモードを終わっても 消えない）</div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:4px">${HID_KEYS.map(([k, t]) => { const on = (S.hidden || []).includes(t); return `<button data-hid="${esc(t)}" class="${on ? 'btn-main' : 'btn-gray'}" style="font-size:18px;padding:6px 12px">${esc(t)}：${on ? 'オン' : 'オフ'}</button>`; }).join('')}</div>
       <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:6px">${DBG_ITEMS.map(([k, n]) => `<button data-dbg="${k}" class="${S.debug[k] ? 'btn-main' : 'btn-gray'}" style="font-size:18px;padding:6px 12px">${n}：${S.debug[k] ? 'オン' : 'オフ'}</button>`).join('')}</div>
-      <div class="row" style="gap:8px;margin-top:8px"><button class="btn-blue" id="dbr" style="font-size:18px;padding:6px 12px">デバッグルーム（QR引きつぎ・先生用ページ）</button><button class="btn-gray" id="dbx" style="font-size:18px;padding:6px 12px">デバッグモードを終わる</button></div>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn-main" id="dbp" style="font-size:18px;padding:6px 12px">✏️ 数値を 自由に かえる</button><button class="btn-blue" id="dbr" style="font-size:18px;padding:6px 12px">デバッグルーム（QR引きつぎ・先生用ページ）</button><button class="btn-gray" id="dbx" style="font-size:18px;padding:6px 12px">デバッグモードを終わる</button></div>
       <div class="xs dim" style="margin-top:4px">オフにすると、オンにする前の値にもどります</div></div>`;
   }
   function bindDebug(o) {
@@ -711,6 +741,7 @@
     }));
     o.querySelectorAll('[data-dbg]').forEach(b => (b.onclick = () => { S.debug[b.dataset.dbg] = !S.debug[b.dataset.dbg]; applyDebug(); o.remove(); home(); settings(); }));
     $('#dbr', o).onclick = () => { o.remove(); debugRoom(); };
+    $('#dbp', o).onclick = () => { o.remove(); debugParams(); };
     $('#dbx', o).onclick = () => { DBG_ITEMS.forEach(([k]) => (S.debug[k] = false)); applyDebug(); S.debug = null; save(); o.remove(); home(); tip('デバッグモードを終わりました', 2000); };
   }
 
@@ -864,7 +895,7 @@
   }
 
   // =====================================================================
-  // ホーム（学園の町）
+  // ホーム（まなびタウン）
   // =====================================================================
   // セリフ：せいかくの 段階（SEIKAKU と 同じ順）ごとに 10こ
   const sayLines = () => D.SAY[Math.max(0, D.SEIKAKU.findIndex(([x]) => (S.seikaku === undefined ? K.SEIKAKU_START : S.seikaku) <= x))];
@@ -914,7 +945,7 @@
     $('#tri', el).onclick = () => trialMode();
     $('#grow', el).onclick = () => growthPanel();
     $('#b4', el).onclick = () => qrScreen();
-    if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
+    if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'item', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
     if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); if (fed && S.tutorial === 2) { S.tutorial = 0; save(); dialog({ who: artPlayer(S.type, total(S.st)), name: S.cname, text: 'まずは ダンジョンに 行こう！' }); } }); return; }
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
   }
@@ -922,7 +953,7 @@
   // ---- スタミナの説明 ----
   function staminaHelp() {
     const full = S.stamina >= K.STAMINA_MAX;
-    return dialog({ who: '⚡', name: 'スタミナって なに？', text: `<div style="text-align:left;font-size:22px;line-height:1.8">・育成ダンジョンに 入るときに <b class="gold">${K.DUNGEON_COST}</b> つかうよ
+    return dialog({ name: 'スタミナって なに？', cls: 'ovhelp', text: `<div style="text-align:left;font-size:21px;line-height:1.7">・育成ダンジョンに 入るときに <b class="gold">${K.DUNGEON_COST}</b> つかうよ
 ・毎朝5時に <b class="gold">${K.STAMINA_DAY}</b> たまるよ（1日2回 ダンジョンに 入れる）
 ・遊ばなかった日の ぶんも たまって、<b class="gold">${K.STAMINA_MAX}</b> まで ためておけるよ
 ・復習ダンジョン・無限の塔・おためしバトル・対戦は スタミナを つかわないよ</div>
@@ -930,17 +961,18 @@
   }
 
   function coinHelp() {
-    return dialog({ who: ic('coin', '🪙'), name: 'まなびコインって なに？', text: `<div style="text-align:left;font-size:22px;line-height:1.8"><b>あつめかた</b>
-・ダンジョンで 問題に 正解する（レアモンスターは 多め）
-・ボスを たおす（強いボスほど 多い）
-・復習ダンジョンで 正解する・卒業する
-・無限の塔で 1問 正解するごとに ${K.TOWER_COIN}まい
-・イベント（こぼれたコイン・石碑・おみくじ など）
-<b>つかいみち</b>
-・ガチャで アイテムを ひく（1回 ${D.GACHA_COST}）
-・ダンジョンの お店で アイテムを 買う・おみくじを ひく</div>
-いまの まなびコイン：<b class="gold">${S.coins}</b>` });
+    return dialog({ name: 'まなびコインって なに？', cls: 'ovhelp', text: `<div class="help2"><div><b>あつめかた</b>
+・ダンジョンで 正解する<br>（レアモンスターは 多め）
+・ボスを たおす
+・復習ダンジョンで 正解する
+・無限の塔で 1問 正解ごとに ${K.TOWER_COIN}まい
+・イベント（おみくじ など）</div><div><b>つかいみち</b>
+・ガチャで アイテムを ひく<br>（1回 ${D.GACHA_COST}）
+・ダンジョンの お店で 買う
+・おみくじを ひく</div></div>
+<div style="text-align:center">いまの まなびコイン：<b class="gold">${S.coins}</b></div>` });
   }
+
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
   let feeding = false;
@@ -1173,7 +1205,7 @@
       se('hit'); foeEl.classList.add('bye');
       floatAt(820, 180, `${subj} +${out.gain}`, D.SUBJ_COLOR[subj]);
       setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
-      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${out.osarai ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ</span>'}`);
+      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${rare ? `<br><span class="gold">コインを たくさん 手に入れた！（🪙+${out.c}）</span>` : out.osarai ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ</span>'}`);
     } else {
       foeEl.style.transition = 'transform .6s,opacity .6s'; foeEl.style.transform = 'translateX(300px)'; foeEl.style.opacity = 0;
       if (out.c) floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
@@ -1963,19 +1995,19 @@
         ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}</div>` : ''}
       </div></div>`, 'res', 'result');
     await msgWait(1500);
-    // 持ち帰り（未取得のものから1個。1日2個まで。ボス撃破報酬も候補にまぜる）
+    // 持ち帰り（未取得のものから 1回に1個。1日の上限は なし（10/3）。ボス撃破報酬も候補にまぜる）
     await once('take', async () => {
       const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])].filter(n => !S.owned.includes(n));
       if (rw.bossItem) await chooseItem('👑 ボス撃破のごほうび！ 持ち帰りの候補に入ったよ', [rw.bossItem], { labels: ['見た！'] });
-      if (S.takeHome >= K.TAKEHOME_PER_DAY) { await dialog({ who: '🎒', text: `きょうは もう アイテムを持ち帰れないよ（ダンジョンからは1日${K.TAKEHOME_PER_DAY}個まで）\nまた あした！` }); return null; }
       if (!cands.length) { await dialog({ who: '🎒', text: '持ち帰れる 新しいアイテムはなかった……\n（ぜんぶ もう持っているアイテムだった）' }); return null; }
-      const took = await chooseItem(`🎒 1つだけ 持ち帰れるよ！（きょう あと${K.TAKEHOME_PER_DAY - S.takeHome}個）`, cands, { labels: cands.map(() => '持ち帰る') });
+      const took = await chooseItem('🎒 1つだけ 持ち帰れるよ！', cands, { labels: cands.map(() => '持ち帰る') });
       S.owned.push(took); S.takeHome++;
       return took;
     });
     await evolution(R.startSt, R.startType);
     R = null; BT = null; S.run = null; save();
     home();
+    if (!S.tutItem) { S.tutItem = 1; save(); await tutorial(['item']); } // はじめて ダンジョンから 帰ったら アイテムの せつめい
   }
 
   // 進化演出（新スキル・タイプ変化・見た目の成長）

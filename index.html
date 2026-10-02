@@ -25,6 +25,12 @@ button:disabled{opacity:.4;cursor:default}
 input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;border:2px solid #94a3b8;width:360px}
 #stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center;overflow:hidden;background:linear-gradient(160deg,#1e293b,#0f172a)}
 #app{position:absolute;inset:0}
+/* 窓は 画面に おさめる（中身が 多いときは 中で スクロール。ボタンは いつも見える） */
+.ov > .panel.evbox{max-height:680px!important;display:flex;flex-direction:column}
+.ov > .panel.evbox > .txt{overflow-y:auto;min-height:0}
+.ovhelp .evbox{width:980px}
+.help2{display:grid;grid-template-columns:1fr 1fr;gap:10px 30px;text-align:left;font-size:20px;line-height:1.7;margin-bottom:8px}
+.dbgp{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin:14px 0}.dbgp label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:20px}.dbgp input{width:200px;font-size:22px;padding:4px 10px;text-align:right}
 /* 上の ピル（スタミナ・まなびコイン）：アイコン｜名前｜数｜？ を 1行に きれいに */
 .pill2{display:flex!important;align-items:center;gap:6px;height:44px;padding:0 10px 0 6px!important;line-height:1}
 .pill2 .ic{display:flex;align-items:center;font-size:30px}.pill2 .ic .art img{height:32px!important;vertical-align:0!important}

@@ -16,7 +16,7 @@ with sync_playwright() as p:
     pg.fill('#pn', 'あおい'); pg.fill('#cn', 'ポチ'); pg.click('#go'); W(150)
     close = "document.querySelectorAll('#app > .ov').forEach(o=>o.remove())"
     # 色の分けかた
-    rk = pg.evaluate("['バトル部員','算数の塔 見習い','火ハンター','まなびの鬼','国語の塔 制覇','伝説の部員','👑大会の覇者'].map(t=>{const e=document.createElement('div');e.innerHTML=MB.go.titleBadge(t);return e.firstChild.className})")
+    rk = pg.evaluate("['見習いまほうつかい','算数の塔 見習い','火ハンター','まなびの鬼','国語の塔 制覇','伝説のまほうつかい','👑大会の覇者'].map(t=>{const e=document.createElement('div');e.innerHTML=MB.go.titleBadge(t);return e.firstChild.className})")
     check('tr-white' in rk[0] and 'tr-subj' in rk[1] and 'tr-subj' in rk[2] and 'tr-gold' in rk[3] and 'tr-gold' in rk[4] and 'tr-gold' in rk[5] and 'tr-rainbow' in rk[6], f'称号の色 {rk}')
     # 限定称号：デバッグでオン → 称号リストの いちばん下に出る → デバッグを終わっても のこる
     pg.click('#set'); W(100); pg.click('#sT'); W(150)

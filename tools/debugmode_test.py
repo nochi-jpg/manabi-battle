@@ -33,6 +33,13 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     to_reset(10)
     check(pg.evaluate("!!(MB.S && MB.S.debug && MB.S.debug.on)") and pg.evaluate("MB.S.coins") == 123, '10回タッチで デバッグモード（セーブは消えない）')
+    # 数値を 自由に かえる
+    pg.click('#dbp'); pg.wait_for_timeout(100)
+    pg.fill('[data-pk="国語"]', '1234'); pg.fill('[data-pk="stamina"]', '555'); pg.fill('[data-pk="coins"]', '777'); pg.fill('[data-pk="seikaku"]', '1800')
+    pg.click('.ov #ok'); pg.wait_for_timeout(150)
+    v = pg.evaluate("[MB.S.st['国語'], MB.S.stamina, MB.S.coins, MB.S.seikaku]")
+    check(v == [1234, 555, 777, 1800], f'数値を 自由に かえられる {v}')
+    pg.evaluate("MB.S.st['国語']=100; MB.S.stamina=77; MB.S.coins=123; MB.S.seikaku=1000"); pg.click('#set') if not pg.locator('#dbp').count() else None; pg.wait_for_timeout(100)
     for k in ['st', 'stamina', 'coins', 'items', 'allq', 'tower']:
         pg.click(f'[data-dbg="{k}"]'); pg.wait_for_timeout(80)
     s = pg.evaluate("({st: MB.S.st, sta: MB.S.stamina, c: MB.S.coins, o: MB.S.owned.length})")

@@ -28,7 +28,7 @@ with sync_playwright() as p:
     check(pg.evaluate('MB.S.pname') == 'ゆうき' and pg.evaluate('MB.S.cname') == 'ポチ', 'セーブができる')
     talk = []
     for _ in range(4): talk.append(pg.inner_text('.meet-t')); shot('talk'); pg.click('#mb'); W(150)
-    check('まほうとし' in talk[0] and 'つよく そだてて' in talk[3], 'お話が 4つ')
+    check('まなびタウン' in talk[0] and 'つよく そだてて' in talk[3], 'お話が 4つ')
     check('せつめいを 聞きますか' in pg.inner_text('.ov'), 'せつめいを 聞くか きく'); shot('ask')
     pg.click('.ov .choices button >> nth=0'); W(300)
     pages = 0
