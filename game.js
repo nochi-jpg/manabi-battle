@@ -61,7 +61,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '教室' }, fav: [], gachaN: 0 };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '学園の町' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -95,8 +95,6 @@
     catch (e) { try { localStorage.setItem(SAVE_KEY + '_broken', raw); } catch (_) { } return null; }
   }
   // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
-  // ホームの背景の名前を かえた（10/3）。番号（QR）は そのまま
-  const BG_RENAME = { 部室: '教室', 図書室: '魔法陣の部屋', 放課後: 'はじまりの草原', 夕焼けの屋上: '砂漠の塔', わすれの迷宮: 'ほのおの洞くつ', 夜の校舎: '闘技場', 桜の校庭: 'みどりの森', 宝物庫: 'たきの谷', 星空: 'かみなりの山', 木もれ日の森: '星見の書斎', レンガの町: 'はじまりの草原', まよいの森: 'ほのおの洞くつ', ゆうれい屋敷: '闘技場', 岬の海: 'みどりの森', ひみつの坑道: 'たきの谷', はるかな谷: 'かみなりの山', 雪の峠: 'ことばの遺跡' };
   function migrate(s) {
     if (!s || typeof s !== 'object' || !s.v) return null;
     if (s.v === 1) { // v1→v2：「正解(1)」は「あと1回(3)」に
@@ -106,7 +104,7 @@
     if (s.v === 2) s.v = 3; // v2→v3：問題の番号に「問題DBの版（qv）」をつけた
     remapSave(s);
     if (!s.bossStg) s.bossStg = bossStgFrom(s.bossWin, s.boss3);
-    if (s.sel && BG_RENAME[s.sel.bg]) s.sel.bg = BG_RENAME[s.sel.bg]; // ホームの背景の名前を かえた（10/3）
+    if (s.sel && !(s.sel.bg in D.BGS)) s.sel.bg = '学園の町'; // 背景を 入れかえた（10/3）。いまは ない背景は さいしょの背景に
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
@@ -165,15 +163,15 @@
     // 画像の背景は 少し暗くして 文字を読みやすくする
     const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
     if (cls === 'home' && S) { // ホームの背景（えらんだもの。画像がなければ仮の色）
-      const k = (S.sel && S.sel.bg) || '教室', img = g2(A, 'homeBg', k);
-      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['教室'];
+      const k = (S.sel && S.sel.bg) || '学園の町', img = g2(A, 'homeBg', k);
+      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['学園の町'];
       return el;
     }
     // ダンジョン・ボス戦は ボスの属性ごとの背景（画像があるとき）
     let bg = sk ? g2(A, 'scrBg', sk) : '';
     if (cls === 'dun' && R && R.boss) bg = g2(A, 'dunBoss', R.boss);
-    // ボス戦・おためしバトルは 闘技場で固定。対戦は ダンジョンの背景から ランダム（対戦ごとに決めて しまっておく）
-    if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'scrBg', 'arena');
+    // ボス戦・おためしバトルは ボスの属性の ダンジョンと同じ背景。対戦は ダンジョンの背景から ランダム（対戦ごとに決めて しまっておく）
+    if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'dunBoss', BT.B.type) || g2(A, 'scrBg', 'arena');
     if (cls === 'btl' && BT && BT.vs) bg = g2(A, 'dunBoss', BT.bgVs) || g2(A, 'scrBg', 'arena');
     bg = bg || g2(A, 'bg', BG[cls]);
     if (bg) el.style.background = `${shade(cls === 'btl' || cls === 'dun' ? 0.2 : 0.35)}, url("${bg}") center/cover`;
@@ -430,7 +428,7 @@
       <div class="big">⚙️ せってい</div>
       <div class="setbtns">
         <button id="sT">🏷️ 称号をかえる<small>いま：${S.sel.title ? esc(S.sel.title) : 'つけない'}</small></button>
-        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '教室')}</small></button>
+        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '学園の町')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
       </div>
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
@@ -500,14 +498,14 @@
   }
   // ---- 背景をかえる ----
   function bgPage() {
-    const have = new Set(['教室', ...myRewards('bg')]), keys = Object.keys(D.BGS);
+    const have = new Set(['学園の町', ...myRewards('bg')]), keys = Object.keys(D.BGS);
     const el = render(`
       <div class="prog"><span class="mid">🖼️ ホームの背景をえらぶ　<span class="gold">${keys.filter(k => have.has(k)).length} / ${keys.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
       <div class="panel bggrid" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         ${keys.map(k => {
           if (!have.has(k)) return `<div class="bgc lock" data-k="${esc(k)}"><div class="bgp">🔒</div><div class="mid">？？？</div></div>`;
           const img = g2(A, 'homeBg', k);
-          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === '教室') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
+          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === '学園の町') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
         }).join('')}
       </div>`, 'res');
     $('#bk', el).onclick = backToSettings;
@@ -723,7 +721,7 @@
   }
 
   // =====================================================================
-  // ホーム（教室）
+  // ホーム（学園の町）
   // =====================================================================
   const LINES = ['きょうも いっしょに がんばろう！', 'いろんな教科を解くと、運が上がるよ', '解いた問題は、復習ダンジョンで もう1回 正解すると 卒業だよ', 'ボスの弱点をつくと、大ダメージ！', 'バトル部、さいこう！'];
   function home() {

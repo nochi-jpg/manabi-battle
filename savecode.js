@@ -98,7 +98,7 @@ window.SAVECODE = (function () {
     o.owned = ITEMS.filter((n, i) => own[i] && D.ITEM[n]); o.fav = ITEMS.filter((n, i) => fav[i] && D.ITEM[n]);
     const na = r.vu(), ach = r.bits(na); o.ach = {}; D.ACH.forEach((a, i) => { if (ach[i]) o.ach[a.id] = o.day; });
     const ti = r.u8(), ai = r.u8(), bi = r.u8();
-    o.sel = { title: ti && D.ACH[ti - 1] ? D.ACH[ti - 1].r.t || '' : '', aura: AURA[ai] || '', bg: BG[bi] || '教室' };
+    o.sel = { title: ti && D.ACH[ti - 1] ? D.ACH[ti - 1].r.t || '' : '', aura: AURA[ai] || '', bg: BG[bi] || '学園の町' };
     const qmax = r.vu(); o.qs = {}; o.qd = {};
     for (let id = 1; id <= qmax; id += 4) { const x = r.u8(); for (let j = 0; j < 4; j++) { const c = (x >> (j * 2)) & 3; if (c) o.qs[id + j] = QBACK[c]; } }
     o.miss = {};
