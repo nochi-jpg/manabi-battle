@@ -26,13 +26,11 @@ with sync_playwright() as p:
     kids = [kid(b, n, a) for n, a in [('あおい', 0.9), ('けんた', 0.5), ('みさき', 0.7)]]
     ctx = b.new_context(accept_downloads=True); pg = ctx.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.add_init_script('window.FAST = true'); pg.goto(URL)
-    # まちがった名前ではデバッグルームに入らない
-    pg.fill('#pn', 'teacher'); pg.fill('#cn', 'pass'); pg.click('#go'); pg.wait_for_timeout(100)
-    check(pg.query_selector('#dun') is not None, 'ちがう名前ではふつうに始まる')
-    pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_timeout(100)
+    # 名前の暗号では デバッグルームに入らない（入口は データ削除の ⚠️ 10回だけ。10/3）
     pg.fill('#pn', 'teacher'); pg.fill('#cn', 'password'); pg.click('#go'); pg.wait_for_timeout(100)
-    check(pg.query_selector('#tr') is not None and pg.evaluate("localStorage.getItem('manabi_battle_save')") is None, 'デバッグルームに入れる（セーブは作らない）')
-    check('password' not in (ROOT / 'game.js').read_text(), 'コードに入口の名前が書かれていない')
+    check(pg.query_selector('#dun') is not None and pg.query_selector('#tr') is None, '名前の暗号では デバッグルームに入らない')
+    check('DEBUG_HASH' not in (ROOT / 'game.js').read_text(), '名前の暗号の しくみが ない')
+    pg.evaluate("void MB.go.debugRoom()"); pg.wait_for_timeout(100)
 
     # 先生用ページ：3人読みこむ（同じ人をもう一度読んでも ふえない）
     pg.click('#tp'); pg.wait_for_timeout(100); pg.click('#add'); pg.wait_for_timeout(100)

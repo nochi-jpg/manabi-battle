@@ -463,7 +463,6 @@
       const pn = await ask('あなたの なまえは？', 'あなたの名前', '※ あとから かえることは できません');
       await talk(`${esc(pn)}、よろしくね！<br>つぎに、わたしの なまえを きめてほしいな。`);
       const cn = await ask('あいぼうの なまえは？', 'あいぼうの名前', '※ あとから すきなときに かえられます（せってい）');
-      if (nameHash(dbgNorm(pn), dbgNorm(cn)) === DEBUG_HASH) { debugRoom(); return; } // デバッグルームの入口（セーブは作らない）
       S = newState(pn, cn); save();
       const nm = `<div class="meet-who">${esc(cn)}</div>`;
       for (const t of ['この まほうとしでは、<br>おおくの まほうつかいが', 'あいぼうの まものと いっしょに<br>くらしているんだ。', `${esc(pn)}と いっしょに 学習して、<br>たくさん せいちょう したいな！`, 'バトルも だいすきだから、<br>つよく そだててね！']) {
@@ -521,14 +520,8 @@
       });
     }
   }
-  // デバッグルームの入口（名前そのものは書かない。変えるときは tools/make_debug_hash.py で作る）
-  const DEBUG_HASH = '952292505c231cec';
-  const dbgNorm = s => s.normalize('NFKC').toLowerCase().replace(/\s+/g, ''); // 全角・大文字・空白のちがいは気にしない
-  function nameHash(p, c) {
-    let h1 = 0x811c9dc5, h2 = (0x01000193 ^ 0x5bd1e995) >>> 0;
-    for (const x of new TextEncoder().encode('manabi-debug:' + p + '\n' + c)) { h1 = Math.imul(h1 ^ x, 0x01000193) >>> 0; h2 = Math.imul((h2 ^ x) >>> 0, 0x5bd1e995) >>> 0; h2 = (h2 ^ (h2 >>> 13)) >>> 0; }
-    return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
-  }
+  // デバッグモードの入口は「さいしょから やりなおす」の確認画面の ⚠️ を 10回タッチ だけ（名前の暗号は 10/3 に やめた）
+
   // はじめから：タイトル → あいぼうとの出会い（テストは すぐ名前を入れる画面。?test&intro で 出会いを ためせる）
   const startNew = () => (/[?&]test/.test(location.search) && !/[?&]intro/.test(location.search) ? nameScreen() : titleScreen());
   function nameScreen() {
@@ -545,7 +538,6 @@
     $('#go', el).onclick = () => {
       const pn = $('#pn', el).value.trim(), cn = $('#cn', el).value.trim();
       if (!pn || !cn) { $('#err', el).textContent = '名前を2つとも入れてね'; return; }
-      if (nameHash(dbgNorm(pn), dbgNorm(cn)) === DEBUG_HASH) { debugRoom(); return; } // セーブは作らない
       S = newState(pn, cn);
       if (/[?&]test/.test(location.search)) { S.stamina = 9999; S.coins = 5000; }
       save(); home();
@@ -883,7 +875,7 @@
     const towerLeft = Math.max(0, towerLimit() - S.towerMs);
     const el = render(`
       <div class="topbar"><span class="pname">${mi('user', '👤')} ${esc(S.pname)}</span><span class="sp"></span>
-        <span id="sta" class="pill" style="cursor:pointer">${ic('stamina', '⚡')} スタミナ <b>${S.stamina}</b><span class="xs dim"> / ${K.STAMINA_MAX}</span> <span class="xs">❔</span></span><span class="gold pill">${ic('coin', '🪙')} <b>${S.coins}</b></span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">${mi('set', '⚙️')} せってい</button></div>
+        <span id="sta" class="pill pill2" style="cursor:pointer">${ic('stamina', '⚡')}<span class="pl">スタミナ</span><b>${S.stamina}</b><span class="pm">/ ${K.STAMINA_MAX}</span><span class="ph">?</span></span><span id="coinp" class="gold pill pill2" style="cursor:pointer">${ic('coin', '🪙')}<span class="pl">まなびコイン</span><b>${S.coins}</b><span class="ph">?</span></span><button class="btn-gray" id="set" style="font-size:18px;padding:6px 12px">${mi('set', '⚙️')} せってい</button></div>
       <div class="chara col">
         <div class="emo ${auraCls()}" id="me">${artPlayer(S.type, t)}</div>
         <div class="say" id="say"></div>
@@ -891,8 +883,8 @@
         <div style="text-align:center" class="mid">${esc(S.cname)} <span class="sm dim">（${S.type}タイプ）</span></div>
         <div style="text-align:center" class="sm">🍽️ ${seikakuName(S.seikaku)}</div>
         <div class="panel stats">
-          ${SUBJ.map(s => `<div>${subjIc(s)} ${s} <b>${S.st[s]}</b></div>`).join('')}
-          <div>🍀 運 <b>${luck}</b></div>
+          ${SUBJ.map(s => `<div class="stc"><span class="sti2">${subjIc(s)}</span><span class="stn">${s}</span><b>${S.st[s]}</b></div>`).join('')}
+          <div class="stc"><span class="sti2"><span class="sji">${art(g2(A, 'emo', '🍀'), '🍀')}</span></span><span class="stn">運</span><b>${luck}</b></div>
           <div class="dim" style="grid-column:span 3">ごうけい ${t}　HP ${R0(t * K.HPK)}　スキル ${sk.length}/8</div>
         </div>
       </div>
@@ -911,6 +903,7 @@
     $('#dun', el).onclick = () => startDungeon();
     $('#set', el).onclick = () => settings();
     $('#sta', el).onclick = () => staminaHelp();
+    $('#coinp', el).onclick = () => coinHelp();
     $('#rev', el).onclick = () => reviewDungeon();
     $('#tow', el).onclick = () => towerSelect();
     $('#b3', el).onclick = () => questionList();
@@ -934,6 +927,19 @@
 ・遊ばなかった日の ぶんも たまって、<b class="gold">${K.STAMINA_MAX}</b> まで ためておけるよ
 ・復習ダンジョン・無限の塔・おためしバトル・対戦は スタミナを つかわないよ</div>
 いまの スタミナ：<b class="gold">${S.stamina}</b> / ${K.STAMINA_MAX}${full ? '\n<span class="red">いっぱい！ これ以上は たまらないよ。ダンジョンで つかおう！</span>' : ''}` });
+  }
+
+  function coinHelp() {
+    return dialog({ who: ic('coin', '🪙'), name: 'まなびコインって なに？', text: `<div style="text-align:left;font-size:22px;line-height:1.8"><b>あつめかた</b>
+・ダンジョンで 問題に 正解する（レアモンスターは 多め）
+・ボスを たおす（強いボスほど 多い）
+・復習ダンジョンで 正解する・卒業する
+・無限の塔で 1問 正解するごとに ${K.TOWER_COIN}まい
+・イベント（こぼれたコイン・石碑・おみくじ など）
+<b>つかいみち</b>
+・ガチャで アイテムを ひく（1回 ${D.GACHA_COST}）
+・ダンジョンの お店で アイテムを 買う・おみくじを ひく</div>
+いまの まなびコイン：<b class="gold">${S.coins}</b>` });
   }
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
@@ -1132,7 +1138,7 @@
     const fname = (foe.ns && foe.ns[foe.e.indexOf(emo)]) || foe.n; // 1体ずつの名前
     setFoe(artZako(emo), rare ? `<span class="gold">✨ ${esc(fname)}</span>` : esc(fname));
     if (R.ns.ans) { await flushPend(); return; } // 答えたあとに閉じた → 結果はもう出ている
-    msg(`${rare ? `✨ レア！ <span class="gold">${esc(fname)}</span>` : esc(fname)}があらわれた！<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
+    msg(`${rare ? `${esc(fname)}があらわれた！ <span class="gold">レアモンスターだ！ いいことありそう</span>` : `${esc(fname)}があらわれた！`}<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
     if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
     const subj = await new Promise(res => {
       $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}"><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('');
@@ -2524,7 +2530,7 @@
       <div class="big">🔧 デバッグルーム（先生用）</div>
       <button class="btn-main" id="tr" style="width:560px">📲 QR引きつぎ<br><span class="sm">このPCに セーブを移す</span></button>
       <button class="btn-blue" id="tp" style="width:560px">📊 先生用ページ<br><span class="sm">クラスの記録</span></button>
-      <button class="btn-gray" id="bk">もどる（名前を決める画面へ）</button></div>`, 'btl');
+      <button class="btn-gray" id="bk">もどる</button></div>`, 'btl');
     $('#tr', el).onclick = () => transferQR();
     $('#tp', el).onclick = () => teacherPage();
     $('#bk', el).onclick = () => { S = load(); if (S) (dbgOn() ? home() : titleScreen()); else startNew(); };

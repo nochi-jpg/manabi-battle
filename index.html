@@ -25,6 +25,17 @@ button:disabled{opacity:.4;cursor:default}
 input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;border:2px solid #94a3b8;width:360px}
 #stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center;overflow:hidden;background:linear-gradient(160deg,#1e293b,#0f172a)}
 #app{position:absolute;inset:0}
+/* 上の ピル（スタミナ・まなびコイン）：アイコン｜名前｜数｜？ を 1行に きれいに */
+.pill2{display:flex!important;align-items:center;gap:6px;height:44px;padding:0 10px 0 6px!important;line-height:1}
+.pill2 .ic{display:flex;align-items:center;font-size:30px}.pill2 .ic .art img{height:32px!important;vertical-align:0!important}
+.pill2 .pl{font-size:17px}.pill2 b{font-size:24px;min-width:1.6em;text-align:right}
+.pill2 .pm{font-size:15px;opacity:.7}
+.pill2 .ph{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#23305a;color:#fff;font-size:14px;margin-left:2px}
+/* ホームの ステータス：アイコン｜教科名（はば固定）｜数（右ぞろえ）で たてが そろう */
+.stats .stc{display:grid;grid-template-columns:30px 2.3em 3.3em;align-items:center;column-gap:4px}
+.stats .sti2{display:flex;align-items:center;justify-content:center;height:30px}
+.stats .sti2 .sji{vertical-align:0}.stats .sti2 .art img{height:26px!important;vertical-align:0}
+.stats .stc b{text-align:right}
 .meet{position:absolute;inset:0}
 .meet-mon{position:absolute;left:50%;top:40px;transform:translateX(-50%);font-size:330px;line-height:1}
 .meet-mon .art img{animation:bob 1.6s ease-in-out infinite;image-rendering:pixelated;filter:drop-shadow(0 12px 10px rgba(0,0,0,.5))}
@@ -69,7 +80,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .topbar .sp{flex:1}
 .chara{position:absolute;left:40px;top:62px;width:520px;bottom:108px;gap:3px}
 .chara .emo{font-size:292px;line-height:.96;text-align:center;cursor:pointer;filter:drop-shadow(0 0 30px rgba(255,255,255,.25))}
-.chara .say{position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:5;max-width:500px;width:max-content;text-align:center;font-size:19px;color:#23305a;background:#fff;border:3px solid #23305a;border-radius:16px;padding:6px 14px;pointer-events:none}
+.chara .say{white-space:nowrap;position:absolute;left:50%;top:0;transform:translateX(-50%);z-index:5;max-width:500px;width:max-content;text-align:center;font-size:19px;color:#23305a;background:#fff;border:3px solid #23305a;border-radius:16px;padding:6px 14px;pointer-events:none}
 .chara .say:empty{display:none}
 .chara .say::after{content:'';position:absolute;left:50%;bottom:-12px;margin-left:-8px;border:8px solid transparent;border-top-color:#23305a;border-bottom:0}
 .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 14px;font-size:20px}
@@ -283,6 +294,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">
+<link rel="icon" type="image/png" href="images/player/all_cute_1.png">
 </head>
 <body>
 <div id="stage"><div id="app"></div></div>
