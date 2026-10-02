@@ -199,6 +199,7 @@ window.DATA = (function () {
   const SEIKAKU = [[0, '高貴で高潔な性格'], [200, '気品のある性格'], [400, '上品な性格'], [600, 'おしとやかな性格'], [800, 'やさしい性格'], [1000, 'おだやかな性格'],
     [1200, 'げんきな性格'], [1400, 'かちきな性格'], [1600, '勇気のある性格'], [1800, '英雄的な性格'], [2000, '英雄的で高潔な性格']];
   // ---- クレジット（せってい →「クレジット」。画像の素材は assets.local.js の credits がたす）----
+  const STAFF = [['ディレクション・ゲームデザイン・企画', 'K.nom']];
   const CREDITS = [
     ['DotGothic16', 'Fontworks', 'フォント', 'SIL Open Font License 1.1'],
     ['M PLUS Rounded 1c', 'M+ FONTS PROJECT', 'フォント', 'SIL Open Font License 1.1'],
@@ -277,5 +278,5 @@ window.DATA = (function () {
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
   const GACHA_COST = 1000, GACHA_PITY = 5;
 
-  return { CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
+  return { STAFF, CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
 })();

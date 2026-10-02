@@ -456,6 +456,7 @@
     const o = overlay(`<div class="panel cred" style="width:1100px;max-height:680px;overflow-y:auto">
       <div class="big">📜 クレジット</div>
       <div class="sm dim">このゲームは、たくさんの人が作った素材を つかわせてもらっています。ありがとうございます！</div>
+      <div class="staff">${D.STAFF.map(([r, n]) => `<div class="sr">${esc(r)}</div><div class="sn">${esc(n)}</div>`).join('')}</div>
       ${img.length ? `<div class="mid ch">🎨 画像</div>${rows(img)}` : ''}
       <div class="mid ch">🔤 フォント・プログラム</div>${rows(D.CREDITS)}
       <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn-blue" id="cl">とじる</button></div></div>`);
@@ -2411,9 +2412,38 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, scan: b => (scanHook ? scanHook(b) : false) };
 
-  // ---- 起動 ----
-  S = load();
-  if (S) titleScreen(); else nameScreen();
+  // ---- 起動：画像を ぜんぶ先に読みこむ（とちゅうで 画像が あとから出てくる・絵文字がちらつく のをふせぐ）----
+  // ASSETS にあるパスと、CSS の url(...) を ぜんぶ集める。アセットを ふやしても 自動で入る
+  const KEEP = []; // 読みこんだ画像を にぎっておく（キャッシュから消えないように）
+  function imagePaths() {
+    const set = new Set();
+    const walk = o => { if (typeof o === 'string') { if (/\.(png|jpe?g|gif|webp|svg)$/i.test(o)) set.add(o); } else if (o && typeof o === 'object') Object.values(o).forEach(walk); };
+    walk(A);
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      const base = sh.href || location.href;
+      for (const r of rules || []) for (const m of (r.cssText || '').matchAll(/url\(["']?([^"')]+\.(?:png|jpe?g|gif|webp|svg))["']?\)/gi)) set.add(new URL(m[1], base).href);
+    }
+    return [...set];
+  }
+  async function preload() {
+    const list = imagePaths();
+    if (!list.length || window.FAST) return;
+    app.innerHTML = '<div class="boot"><div class="boot-t">よみこみ中…</div><div class="boot-bar"><i></i></div></div>';
+    const bar = app.querySelector('.boot-bar i');
+    let done = 0;
+    const one = src => new Promise(res => {
+      const im = new Image(); KEEP.push(im);
+      const fin = () => { done++; bar.style.width = (100 * done / list.length) + '%'; res(); };
+      im.onload = () => (im.decode ? im.decode().catch(() => {}) : Promise.resolve()).then(fin); im.onerror = fin; im.src = src;
+    });
+    // 8秒たっても おわらなければ、そのまま はじめる（とちゅうの画像は あとから出る）
+    await Promise.race([Promise.all(list.map(one)), new Promise(r => setTimeout(r, 8000))]);
+  }
+  preload().then(() => {
+    S = load();
+    if (S) titleScreen(); else nameScreen();
+  });
 })();
