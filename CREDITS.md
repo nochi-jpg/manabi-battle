@@ -23,7 +23,6 @@
 | 素材 | 作者 | 使っているところ |
 |---|---|---|
 | Monsters Pixel Pack vol.01〜10 | モケモ（mokemo-factory） | ボス・雑魚 |
-| Witches & Wizards Backgrounds | Lornn（lornn.itch.io） | ホームの背景 |
 | [Verboten Arcane Stash] Basic Skills and Buffs | Atelier Pixerelia | 状態異常・スキルのアイコン |
 | Fantasy RPG UI Pack（DEMO） | dobo_ui | ボタン・パネル・カード・マス・リボン |
 | Garden cozy kit | mandinhart | ハート・スタミナ・コイン・メニューのアイコン |
