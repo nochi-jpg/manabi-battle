@@ -166,21 +166,23 @@
   // BGM：同じ曲なら 切りかえない（画面をかえても とぎれない）。ブラウザは さいしょのタップまで 音を出せないので、そのとき はじめる
   const SND = { cur: null, el: null, want: null, se: {} };
   const sndOff = () => window.FAST || /[?&]test/.test(location.search);
-  const bgmOn = () => !(S && S.sel && S.sel.bgm === 'off');
-  const seOn = () => !(S && S.sel && S.sel.se === 'off');
+  // 音量 0〜5（せっていの「音量」）。さいしょは 3
+  const vol = k => { const v = S && S.sel ? S.sel[k] : undefined; return (v === undefined || v === null ? 3 : +v) / 5; };
+  const bgmOn = () => vol('vbgm') > 0;
+  const seOn = () => vol('vse') > 0;
   function bgm(k) {
     SND.want = k;
     const src = g2(A, 'bgm', k);
     if (sndOff() || !src || !bgmOn()) { if (SND.el) { SND.el.pause(); SND.el = null; SND.cur = null; } return; }
-    if (SND.cur === k && SND.el) { if (SND.el.paused) SND.el.play().catch(() => {}); return; }
+    if (SND.cur === k && SND.el) { SND.el.volume = 0.8 * vol('vbgm'); if (SND.el.paused) SND.el.play().catch(() => {}); return; }
     if (SND.el) SND.el.pause();
-    const a = new Audio(src); a.loop = k !== 'result'; a.volume = 0.45;
+    const a = new Audio(src); a.loop = k !== 'result'; a.volume = 0.8 * vol('vbgm');
     SND.el = a; SND.cur = k; a.play().catch(() => {});
   }
   function se(k) {
     if (sndOff() || !seOn()) return;
     const src = g2(A, 'se', k); if (!src) return;
-    const a = (SND.se[k] = SND.se[k] || new Audio(src)).cloneNode(); a.volume = 0.6; a.play().catch(() => {});
+    const a = (SND.se[k] = SND.se[k] || new Audio(src)).cloneNode(); a.volume = vol('vse'); a.play().catch(() => {});
   }
   // さいしょのタップで BGM を はじめる・ボタンの音（決定・キャンセル・メニュー）
   document.addEventListener('pointerdown', e => {
@@ -263,11 +265,11 @@
     });
   }
   // セリフ＋選択肢（イベント・確認など）
-  function dialog({ who = '', name = '', text = '', choices = [{ label: 'OK', val: true }], body = '' }) {
+  function dialog({ who = '', name = '', text = '', choices = [{ label: 'OK', val: true }], body = '', cls = '' }) {
     return new Promise(res => {
       const o = overlay(`<div class="panel evbox">${who ? `<div class="who">${who}</div>` : ''}
         ${name ? `<div class="mid gold" style="text-align:center">${esc(name)}</div>` : ''}
-        <div class="txt">${text}</div>${body}<div class="choices"></div></div>`);
+        <div class="txt">${text}</div>${body}<div class="choices"></div></div>`, cls);
       const box = o.querySelector('.choices');
       choices.forEach(c => {
         const b = document.createElement('button'); b.innerHTML = c.label; b.className = c.cls || 'btn-blue';
@@ -471,9 +473,8 @@
         <button id="sT">🏷️ 称号をかえる<small>いま：${S.sel.title ? esc(S.sel.title) : 'つけない'}</small></button>
         <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '学園の町')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
+        <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
       </div>
-      ${sec('🎵 BGM', ['on', 'off'], S.sel.bgm === 'off' ? 'off' : 'on', 'bgm', x => (x === 'on' ? 'ならす' : 'けす'))}
-      ${sec('🔔 効果音', ['on', 'off'], S.sel.se === 'off' ? 'off' : 'on', 'se', x => (x === 'on' ? 'ならす' : 'けす'))}
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
@@ -484,6 +485,7 @@
     $('#sB', o).onclick = () => { o.remove(); bgPage(); };
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
     $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
+    $('#sV', o).onclick = () => { o.remove(); volumePage(); };
     if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
       o.remove();
@@ -502,6 +504,21 @@
       }
       resetSave(); nameScreen();
     };
+  }
+
+  // ---- 音量（BGM・効果音 を 0〜5 で）----
+  function volumePage() {
+    const row = (k, name) => `<div class="mid" style="margin-top:12px">${name}</div><div class="row volrow" style="gap:8px">${[0, 1, 2, 3, 4, 5].map(v =>
+      `<button data-vk="${k}" data-v="${v}" class="${Math.round(vol(k) * 5) === v ? 'btn-main' : ''}">${v}</button>`).join('')}</div>`;
+    const o = overlay(`<div class="panel" style="width:760px"><div class="big">🔊 音量</div>
+      <div class="sm dim">0 で 音が でなくなるよ</div>${row('vbgm', '🎵 BGM')}${row('vse', '🔔 効果音')}
+      <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn-blue" id="cl">とじる</button></div></div>`);
+    o.querySelectorAll('[data-vk]').forEach(b => (b.onclick = () => {
+      S.sel[b.dataset.vk] = +b.dataset.v; save();
+      if (b.dataset.vk === 'vbgm') bgm(SND.want || 'menu'); else setTimeout(() => se('ok'), 50);
+      o.remove(); volumePage();
+    }));
+    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
   }
 
   // ---- クレジット（使っている素材・フォント・ライブラリ）----
@@ -1025,7 +1042,7 @@
     msg(`${rare ? `✨ レア！ <span class="gold">${esc(fname)}</span>` : esc(fname)}があらわれた！<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
     if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
     const subj = await new Promise(res => {
-      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${subjIc(s)} ${s}<small>${S.st[s]}</small></button>`).join('');
+      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}"><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('');
       $('#subj').querySelectorAll('button').forEach(b => (b.onclick = () => res(b.dataset.s)));
       homeBtn(true);
     });
@@ -1535,7 +1552,7 @@
         <div class="row" style="justify-content:center">${SUBJ.map(s => {
           let v = baseAtk(P, s) * recvMult(B, s); if (P.weakSubj === s) v *= P.weakMul;
           const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : recvMult(B, s) < 1 ? '<span class="dim">効きづらい</span>' : '';
-          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center">${subjIc(s)} ${s}<span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
+          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="sbn">${subjIc(s)}${s}</span><span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
     });
@@ -1636,7 +1653,7 @@
       if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await msgWait(900); }
       else right = await roulette(P, B);
       let first;
-      if (right === P) first = await dialog({ text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: P, cls: 'btn-main' }, { label: `${artUi('second', '👀')} 後攻`, val: B, cls: 'btn-blue' }] });
+      if (right === P) first = await dialog({ text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: P, cls: 'btn-main fsb' }, { label: `${artUi('second', '👀')} 後攻`, val: B, cls: 'btn-blue fsb' }], cls: 'ovb ovfs' });
       else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await msgWait(1300); }
       BT.firstId = first.side; save();
     }
@@ -1922,7 +1939,14 @@
       const q = Q[id], stage = S.qs[id];
       $('#foe').innerHTML = artZako(stage === 3 ? '🦉' : '👻'); $('#foe').className = 'foe fadein';
       $('#foelbl').textContent = stage === 3 ? 'あと1回（正解で卒業）' : '復習まち';
-      msg(`のこり <b>${left() + 1}</b> 問。解いた問題に もう一度 挑戦して、しっかり おぼえよう！`);
+      msg(`<span class="gold">${q.s}</span>の ${stage === 3 ? 'あと1回の問題' : '復習まちの問題'}が あらわれた！ のこり <b>${left() + 1}</b> 問<br>解いた問題に もう一度 挑戦して、しっかり おぼえよう！`);
+      // いきなり 問題を出さずに、ボタンを おしてから（ダンジョンと同じ ながれ）
+      const go1 = await new Promise(res => {
+        $('#subj').innerHTML = `<button class="btn-main" id="rgo">${subjIc(q.s)} 問題に ちょうせん！</button><button class="btn-gray" id="rbk">🏠 ホームへ</button>`;
+        $('#rgo').onclick = () => res(true); $('#rbk').onclick = () => res(false);
+      });
+      $('#subj').innerHTML = '';
+      if (!go1) { queue.unshift(id); break; }
       let out = null;
       const r = await ask(q, {
         head: stage === 3 ? '（あと1回）' : '（復習まち）', extra: '🏠 ホームへ',
@@ -2366,7 +2390,7 @@
     await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       const right = await roulette(P, B);
-      const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: right, cls: 'btn-main' }, { label: `${artUi('second', '👀')} 後攻`, val: right.opp, cls: 'btn-blue' }] });
+      const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: right, cls: 'btn-main fsb' }, { label: `${artUi('second', '👀')} 後攻`, val: right.opp, cls: 'btn-blue fsb' }], cls: 'ovb ovfs' });
       BT.firstId = first.side; saveVs();
     }
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
