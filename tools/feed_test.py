@@ -89,7 +89,7 @@ with sync_playwright() as p:
     check(pg.evaluate('MB.S.sel.title') == 'バトル部員', '称号を えらべる')
     pg.click('#bk'); W(100); pg.click('#sB'); W(100)
     nb = pg.evaluate("1 + MB.D.ACH.filter(a => MB.S.ach[a.id] && a.r.bg).length")
-    check(pg.locator('.bgc:not(.lock)').count() == nb and pg.locator('.bgc.lock').count() == pg.evaluate("Object.keys(MB.D.BGS).length") - nb, f'背景：部室と 手に入れた背景（{nb}）だけ。ほかは ？？？')
+    check(pg.locator('.bgc:not(.lock)').count() == nb and pg.locator('.bgc.lock').count() == pg.evaluate("Object.keys(MB.D.BGS).length") - nb, f'背景：教室と 手に入れた背景（{nb}）だけ。ほかは ？？？')
     pg.click('.bgc.lock >> nth=0'); W(100)
     check('手に入れかた' in pg.inner_text('.ov'), '背景：？？？をタップすると 手に入れかた'); pg.click('.ov button'); W(50)
     pg.click('#bk'); W(100); pg.click('#sN'); W(100)

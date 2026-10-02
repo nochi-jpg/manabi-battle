@@ -61,7 +61,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '部室' }, fav: [], gachaN: 0 };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: '教室' }, fav: [], gachaN: 0 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -95,7 +95,8 @@
     catch (e) { try { localStorage.setItem(SAVE_KEY + '_broken', raw); } catch (_) { } return null; }
   }
   // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
-  const BG_RENAME = { 教室: '木もれ日の森', 図書室: '星見の書斎', 放課後: 'レンガの町', 夕焼けの屋上: '砂漠の塔', わすれの迷宮: 'まよいの森', 夜の校舎: 'ゆうれい屋敷', 桜の校庭: '岬の海', 宝物庫: 'ひみつの坑道', 星空: 'はるかな谷' };
+  // ホームの背景の名前を かえた（10/3）。番号（QR）は そのまま
+  const BG_RENAME = { 部室: '教室', 図書室: '魔法陣の部屋', 放課後: 'はじまりの草原', 夕焼けの屋上: '砂漠の塔', わすれの迷宮: 'ほのおの洞くつ', 夜の校舎: '闘技場', 桜の校庭: 'みどりの森', 宝物庫: 'たきの谷', 星空: 'かみなりの山', 木もれ日の森: '星見の書斎', レンガの町: 'はじまりの草原', まよいの森: 'ほのおの洞くつ', ゆうれい屋敷: '闘技場', 岬の海: 'みどりの森', ひみつの坑道: 'たきの谷', はるかな谷: 'かみなりの山', 雪の峠: 'ことばの遺跡' };
   function migrate(s) {
     if (!s || typeof s !== 'object' || !s.v) return null;
     if (s.v === 1) { // v1→v2：「正解(1)」は「あと1回(3)」に
@@ -157,15 +158,15 @@
   function refreshType() { S.type = typeOf(S.st, S.type); if (S.type !== '全教科') S.typeChanged = true; }
 
   // ---- 小さな部品 ----
-  // sk：画面ごとの背景（assets の scrBg。ガチャ＝gacha、リザルト＝result、問題リスト・アチーブ・もちもの＝library）
+  // sk：画面ごとの背景（assets の scrBg。ガチャ＝gacha、リザルト＝result、問題リスト・アチーブ・もちもの＝library、無限の塔の入口＝tower・とちゅう＝towerRun）
   function render(html, cls, sk) {
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
     const el = app.firstElementChild;
     // 画像の背景は 少し暗くして 文字を読みやすくする
     const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
     if (cls === 'home' && S) { // ホームの背景（えらんだもの。画像がなければ仮の色）
-      const k = (S.sel && S.sel.bg) || '部室', img = g2(A, 'homeBg', k) || (k === '部室' ? g2(A, 'bg', 'home') : '');
-      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['部室'];
+      const k = (S.sel && S.sel.bg) || '教室', img = g2(A, 'homeBg', k);
+      el.style.background = img ? `${shade(0.12)}, url("${img}") center/cover` : D.BGS[k] || D.BGS['教室'];
       return el;
     }
     // ダンジョン・ボス戦は ボスの属性ごとの背景（画像があるとき）
@@ -429,7 +430,7 @@
       <div class="big">⚙️ せってい</div>
       <div class="setbtns">
         <button id="sT">🏷️ 称号をかえる<small>いま：${S.sel.title ? esc(S.sel.title) : 'つけない'}</small></button>
-        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '部室')}</small></button>
+        <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '教室')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
       </div>
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
@@ -499,14 +500,14 @@
   }
   // ---- 背景をかえる ----
   function bgPage() {
-    const have = new Set(['部室', ...myRewards('bg')]), keys = Object.keys(D.BGS);
+    const have = new Set(['教室', ...myRewards('bg')]), keys = Object.keys(D.BGS);
     const el = render(`
       <div class="prog"><span class="mid">🖼️ ホームの背景をえらぶ　<span class="gold">${keys.filter(k => have.has(k)).length} / ${keys.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
       <div class="panel bggrid" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         ${keys.map(k => {
           if (!have.has(k)) return `<div class="bgc lock" data-k="${esc(k)}"><div class="bgp">🔒</div><div class="mid">？？？</div></div>`;
-          const img = g2(A, 'homeBg', k) || (k === '部室' ? g2(A, 'bg', 'home') : '');
-          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === '部室') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
+          const img = g2(A, 'homeBg', k);
+          return `<div class="bgc ${S.sel.bg === k || (!S.sel.bg && k === '教室') ? 'sel' : ''}" data-k="${esc(k)}"><div class="bgp" style="background:${img ? `url('${esc(img)}') center/cover` : D.BGS[k]}"></div><div class="mid">${S.sel.bg === k ? '✅ ' : ''}${esc(k)}</div></div>`;
         }).join('')}
       </div>`, 'res');
     $('#bk', el).onclick = backToSettings;
@@ -722,7 +723,7 @@
   }
 
   // =====================================================================
-  // ホーム（部室）
+  // ホーム（教室）
   // =====================================================================
   const LINES = ['きょうも いっしょに がんばろう！', 'いろんな教科を解くと、運が上がるよ', '解いた問題は、復習ダンジョンで もう1回 正解すると 卒業だよ', 'ボスの弱点をつくと、大ダメージ！', 'バトル部、さいこう！'];
   function home() {
@@ -1946,7 +1947,7 @@
         return `<button data-s="${s}" ${st.kind === 'used' ? 'disabled' : ''} style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
           <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階<br>頂上 ${top}階</span></button>`;
       }).join('')}</div>
-      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
+      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun', 'tower');
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('#ts button').forEach(b => (b.onclick = () => towerRun(b.dataset.s)));
   }
@@ -1963,7 +1964,7 @@
         <span class="coin"><span class="gold" id="tcoin"></span>　⏱️ <b class="gold" id="timer"></b></span></div>
       <div class="field" style="flex-direction:column;justify-content:flex-start;padding-top:20px;gap:4px">
         <div style="font-size:120px;line-height:1">🗼</div><div class="big" id="floor"></div><div class="sm dim" id="best"></div>
-      </div>`, 'dun');
+      </div>`, 'dun', 'towerRun');
     let got = 0;
     const upd = () => {
       $('#hearts').innerHTML = hearts(tw.hearts, K.TOWER_HEARTS);
