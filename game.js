@@ -187,7 +187,7 @@
     setTimeout(() => el.remove(), T(ms));
   }
   // ---- ゲームのテンポ（せってい）：はやい＝時間で進む ／ ふつう＝メッセージを 1クリック（タップ）で送る ----
-  const slow = () => !!(S && S.sel && S.sel.tempo !== 'fast') && !window.FAST; // さいしょは ふつう
+  const slow = () => !!(S && S.sel && S.sel.tempo !== 'fast') && !window.FAST && !(BT && BT.vs); // さいしょは ふつう。対戦は いつも はやい
   function clickWait() {
     return new Promise(res => {
       const t0 = Date.now(), mk = document.createElement('div'); mk.className = 'nextmark'; mk.textContent = '▼'; app.appendChild(mk);
@@ -1277,7 +1277,7 @@
     const was = stt in dst.status;
     dst.status[stt] = true;
     if (dst.has('教室のベル') || dst.has('ユニコーンの角')) dst.hp = Math.min(dst.maxhp, dst.hp + 0.05 * dst.maxhp);
-    if (!was) log(`${D.STATUS[stt].e} ${dst.name}は ${stt}になった！`);
+    if (!was) log(`${D.STATUS[stt].e} ${dst.name}は ${stt}になった！`, { stt });
   }
   const procRate = (a, d, r) => Math.min(1, r * (a.has('悪魔の契約書') ? 2.5 : 1) * (d.has('重力の石') ? 0.5 : 1));
 
@@ -1286,7 +1286,7 @@
 
   // 攻撃1回ぶんを計算して、表示する出来事の列を返す
   function resolveAttack(a, d, act, turn, first, ctx) {
-    const out = []; const log = t => out.push({ t, snap: vsnap() });
+    const out = []; const log = (t, x) => out.push({ t, snap: vsnap(), ...x });
     const sk = act.sk, subj = act.subj; const skill = D.SKILLS.find(k => k.n === sk);
     let m = 1;
     if (a.has('あばれ斧')) m *= 1.3;
@@ -1400,13 +1400,13 @@
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
       <div class="emo ${f.aura || ''}">${f.art}</div>${f.title ? `<div class="ttlrow">${titleBadge(f.title, 'sm')}</div>` : ''}<div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
-      <div class="hpbar"><i></i></div><div class="sm hpt"></div>
-      <div class="stt"></div>
+      <div class="hpbar"><i></i></div><div class="hprow"><span class="sm hpt"></span><span class="stt"></span></div>
       <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
       <div class="gauge" style="visibility:hidden"><i></i></div><div class="sm gtxt"></div></div>`;
     const el = render(`<div class="turnlbl" id="turn"></div>${side(P, true)}${side(B, false)}
       <div class="blog panel" id="blog"></div>`, 'btl');
     el.querySelectorAll('.it').forEach(s => (s.onclick = () => showItem(s.dataset.n)));
+    el.addEventListener('click', e => { const s = e.target.closest('.sti'); if (s) statusHelp(s.dataset.stt); }); // 状態異常のアイコンを タップで 説明
     updBars();
   }
   function updBars(snap) {
@@ -1418,10 +1418,11 @@
       el.querySelector('.hpbar i').style.width = r * 100 + '%';
       el.querySelector('.hpbar').classList.toggle('low', r < 0.3);
       el.querySelector('.hpt').textContent = `HP ${Math.max(0, R0(v.hp))} / ${f.maxhp}`;
-      el.querySelector('.stt').innerHTML = v.status.map(k => `<span title="${k}">${art(g2(A, 'status', k), D.STATUS[k].e)}${k}</span>`).join(' ') +
+      el.querySelector('.stt').innerHTML = v.status.map(k => `<span class="sti" data-stt="${k}" title="${k}">${art(g2(A, 'status', k), D.STATUS[k].e)}${k}</span>`).join(' ') +
         Object.entries(v.ct).filter(([, x]) => x > 0).map(([k, x]) => ` <span class="xs dim">${k}あと${x}</span>`).join('');
     });
   }
+  const statusHelp = k => dialog({ who: art(g2(A, 'status', k), D.STATUS[k].e), name: k, text: D.STATUS[k].h });
   const blog = h => { const b = $('#blog'); if (b) b.innerHTML = h; };
   async function blogLines(lines, ms = 1100) { for (const l of lines) { blog(l); await msgWait(ms); } }
   function showGauge(f, st, n) {
@@ -1470,11 +1471,11 @@
   function playerSkill(P) {
     return new Promise(res => {
       const frozen = 'こおり' in P.status;
-      const o = overlay(`<div class="panel" style="width:1100px">${BT.note || ''}<div class="mid" style="margin-bottom:10px">スキルをえらぼう ${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">${P.skills.map(k => {
+      const o = overlay(`<div class="panel selp" style="width:1100px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}</div>
+        <div class="skgrid">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = ct > 0 || (frozen && k !== '通常攻撃');
-          return `<button data-k="${k}" ${dis ? 'disabled' : ''} style="text-align:left;font-size:22px">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}${esc(k)}${ct ? ` <span class="sm">（あと${ct}ターン）</span>` : ''}<br><span class="xs">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
+          return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.k); }));
     });
@@ -1483,11 +1484,11 @@
     return new Promise(res => {
       const ban = sealed(P, turn);
       if ('こんらん' in P.status) { const c = SUBJ.filter(s => !ban.includes(s)); const s = pick(c.length ? c : SUBJ); tip(`😵 こんらんして、教科が「${s}」になった！`); setTimeout(() => res(s), T(1500)); return; }
-      const o = overlay(`<div class="panel" style="width:1180px">${BT.note || ''}<div class="mid" style="margin-bottom:10px">教科をえらぼう（攻撃力の目安）</div>
+      const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">教科をえらぼう</span><span class="sm dim">（攻撃力の目安）</span>${BT.note || ''}</div>
         <div class="row" style="justify-content:center">${SUBJ.map(s => {
           let v = baseAtk(P, s) * recvMult(B, s); if (P.weakSubj === s) v *= P.weakMul;
           const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : recvMult(B, s) < 1 ? '<span class="dim">効きづらい</span>' : '';
-          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:120px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center">${D.SUBJ_EMO[s]} ${s}<span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
+          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center">${D.SUBJ_EMO[s]} ${s}<span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
     });
@@ -1566,7 +1567,11 @@
         floatAt(e.side === 'P' ? 260 : 960, 150, (e.crit ? '会心！ ' : '') + e.hit, e.crit ? '#f472b6' : '#fde047', 'dmg');
         blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
         updBars(e.snap); await msgWait(900);
-      } else { blog(e.t); updBars(e.snap); await msgWait(1000); }
+      } else {
+        blog(e.t); updBars(e.snap); await msgWait(1000);
+        // CPU戦だけ：はじめて見る 状態異常は 説明を出す（対戦では出さない。きろくは QR に入れない）
+        if (e.stt && !BT.vs) { S.seenStt = S.seenStt || {}; if (!S.seenStt[e.stt]) { S.seenStt[e.stt] = 1; save(); await statusHelp(e.stt); } }
+      }
     }
     updBars();
   }
@@ -1733,7 +1738,7 @@
     while (BT.phase === 'turn') await playTurn();
     if (BT.phase === 'end' && BT.result === 'lose') {
       blog(`${esc(P.name)}は たおれてしまった……`); await msgWait(1500);
-      const cont = await dialog({ who: '💫', text: 'コンティニューする？\n（仲間が応援にかけつけて、ボスを かならずたおせるよ）', choices: [{ label: '🔥 コンティニュー', val: true, cls: 'btn-main' }, { label: 'リザルトへ', val: false, cls: 'btn-gray' }] });
+      const cont = await dialog({ who: '💫', text: 'コンティニューする？\n（仲間が 応援に かけつけてくれるよ）', choices: [{ label: '🔥 コンティニュー', val: true, cls: 'btn-main' }, { label: 'リザルトへ', val: false, cls: 'btn-gray' }] });
       if (!cont) return finishBoss('lose');
       BT.cont = true; P.hp = P.maxhp; P.status = {}; P.skipNext = false; P.seal = {}; Object.keys(P.ct).forEach(k => (P.ct[k] = 0));
       BT.phase = 'cheer'; BT.acts = {}; BT.snap = dynAll(); save();
@@ -1743,7 +1748,7 @@
       await cutin('📣 みんなの応援！', 1200);
       for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800, false);
       $('#turn').textContent = '📣 応援ターン';
-      BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの力で、かならず たおせる！ 正解するほど 演出がはでになるよ</div>';
+      BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの応援で 力が わいてきた！ 正解するほど 攻撃が はでになるよ</div>';
       const act = await playerAct(P, B, 4, true);
       const good = act.mult;
       const ev = resolveTurn([P], 4, true);
@@ -2439,7 +2444,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, msgWait, scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, msgWait, updBars, scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動：画像を ぜんぶ先に読みこむ（とちゅうで 画像が あとから出てくる・絵文字がちらつく のをふせぐ）----
   // ASSETS にあるパスと、CSS の url(...) を ぜんぶ集める。アセットを ふやしても 自動で入る
