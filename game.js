@@ -1033,7 +1033,7 @@
     setFoe(artUi('fork', '🔀'), '分かれ道');
     const L = { coin: '🪙 コインが多そうな道', item: '🎁 アイテムがありそうな道', event: '❓ イベントがありそうな道' };
     await once('fork', async () => {
-      const c = await dialog({ who: '🔀', text: '道が2つに分かれている……\nどっちに進む？', choices: R.forks.map(f => ({ label: L[f], val: f })) });
+      const c = await dialog({ who: artUi('fork', '🔀'), text: '道が2つに分かれている……\nどっちに進む？', choices: R.forks.map(f => ({ label: L[f], val: f })) });
       const base = R.zi; // 次の雑魚3体は base, base+1, base+2
       if (c === 'coin') R.flags.rareIn = [base + Math.floor(R.rnd() * 3)];
       if (c === 'item') R.flags.dropIn = shuffle([base, base + 1, base + 2], R.rnd).slice(0, 2);
@@ -1046,9 +1046,9 @@
   async function treasureNode() {
     setFoe(artUi('treasure', '🎁'), 'ボス前の宝箱');
     const names = await once('names', () => { const a = []; for (let k = 0; k < 3; k++) { const n = drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: a }); if (n) a.push(n); } return a; });
-    if (!names.length) { await dialog({ who: '🎁', text: '宝箱はからっぽだった……\n（もうぜんぶ持っているみたい！）' }); return; }
+    if (!names.length) { await dialog({ who: artUi('treasure', '🎁'), text: '宝箱はからっぽだった……\n（もうぜんぶ持っているみたい！）' }); return; }
     if (firstRun() && !('pick' in R.ns)) tip('「NEW」は まだ持っていないアイテム。リザルトで1個持ち帰れるよ');
-    await once('pick', async () => { const n = await chooseItem('🎁 宝箱が3つある！ 1つえらんで開けよう', names, { labels: names.map(() => '開ける') }); queuePick(n, '🎁 宝箱を開けた！'); return n; });
+    await once('pick', async () => { const n = await chooseItem(`${artUi('treasure', '🎁')} 宝箱が3つある！ 1つえらんで開けよう`, names, { labels: names.map(() => '開ける') }); queuePick(n, `${artUi('treasure', '🎁')} 宝箱を開けた！`); return n; });
     await flushPend();
   }
 
@@ -1195,7 +1195,7 @@
         setFoe(artUi('mirror', '🪞'), 'ふしぎな鏡');
         if (!R.hand.length && !('swap' in R.ns)) { await dialog({ who: artUi('mirror', '🪞'), text: 'ふしぎな鏡がある。\nアイテムを持っていれば、交換できたかもしれない……' }); break; }
         const sw = await once('swap', async () => {
-          const n = await chooseItem('🪞 ふしぎな鏡に、アイテムがうつっている。\n1つを、同じレア度のべつのアイテムに交換できる', R.hand, { labels: R.hand.map(() => '交換する'), skip: '交換しない' });
+          const n = await chooseItem(`${artUi('mirror', '🪞')} ふしぎな鏡に、アイテムがうつっている。\n1つを、同じレア度のべつのアイテムに交換できる`, R.hand, { labels: R.hand.map(() => '交換する'), skip: '交換しない' });
           if (!n) return null;
           const m = drawItem(R.rnd, { rarity: D.ITEM[n].r, hand: R.hand, exclude: [n] });
           if (!m) return null;
