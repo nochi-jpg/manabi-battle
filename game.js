@@ -95,6 +95,7 @@
     catch (e) { try { localStorage.setItem(SAVE_KEY + '_broken', raw); } catch (_) { } return null; }
   }
   // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
+  const BG_RENAME = { 教室: '木もれ日の森', 図書室: '星見の書斎', 放課後: 'レンガの町', 夕焼けの屋上: '砂漠の塔', わすれの迷宮: 'まよいの森', 夜の校舎: 'ゆうれい屋敷', 桜の校庭: '岬の海', 宝物庫: 'ひみつの坑道', 星空: 'はるかな谷' };
   function migrate(s) {
     if (!s || typeof s !== 'object' || !s.v) return null;
     if (s.v === 1) { // v1→v2：「正解(1)」は「あと1回(3)」に
@@ -104,6 +105,7 @@
     if (s.v === 2) s.v = 3; // v2→v3：問題の番号に「問題DBの版（qv）」をつけた
     remapSave(s);
     if (!s.bossStg) s.bossStg = bossStgFrom(s.bossWin, s.boss3);
+    if (s.sel && BG_RENAME[s.sel.bg]) s.sel.bg = BG_RENAME[s.sel.bg]; // ホームの背景の名前を かえた（10/3）
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
