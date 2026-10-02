@@ -9,7 +9,14 @@ def check(c, m):
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(has_touch=True); pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.add_init_script('window.FAST = true'); pg.goto(URL)
-    pg.fill('#pn', 'せんせい'); pg.fill('#cn', 'テスト'); pg.click('#go'); pg.wait_for_timeout(100)
+    def start(pn, cn, story=True):  # タイトル → あいぼうとの出会い → 名前2つ →（お話 → せつめいは いいえ）
+        pg.click('#go'); pg.wait_for_timeout(100); pg.click('#mb'); pg.wait_for_timeout(60)
+        pg.fill('#nm', pn); pg.click('#ok'); pg.wait_for_timeout(60); pg.click('#mb'); pg.wait_for_timeout(60)
+        pg.fill('#nm', cn); pg.click('#ok'); pg.wait_for_timeout(100)
+        if story:
+            for _ in range(4): pg.click('#mb'); pg.wait_for_timeout(60)
+            pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(100)
+    start('せんせい', 'テスト')
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     def to_reset(taps):
@@ -20,8 +27,8 @@ with sync_playwright() as p:
         pg.click('.ov .choices button'); pg.wait_for_timeout(200)  # ぜんぶ消す
     # 9回では入れない（ふつうに消える）→ 名前の画面
     to_reset(9)
-    check(pg.query_selector('#pn') is not None, '9回タッチでは ふつうに「さいしょから」になる')
-    pg.fill('#pn', 'せんせい'); pg.fill('#cn', 'テスト'); pg.click('#go'); pg.wait_for_timeout(100)
+    check(pg.query_selector('#go') is not None and pg.evaluate('MB.S') is None, '9回タッチでは ふつうに「さいしょから」になる（タイトル）')
+    start('せんせい', 'テスト')
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     to_reset(10)

@@ -133,7 +133,7 @@ with sync_playwright() as p:
     pg.click('.bk:not(.none) >> nth=0'); W(100); audit('そうびえらび：アイテム', True); pg.click('#eq'); W(100)
     pg.click('#ok'); W(200)
     bot("!!document.querySelector('#app > .ov .choices') && /ほうびはない/.test(document.querySelector('#app > .ov').innerText)", acc=0.8)
-    audit('おためし：結果', True); pg.click('.ov .choices button >> nth=3'); W(200); pg.evaluate(close)
+    audit('おためし：結果', True); pg.evaluate("(()=>{const b=[...document.querySelectorAll('.ov .choices button')].pop(); if(b) b.click()})()"); W(200); pg.evaluate(close)
     # ガチャ
     go('home()'); pg.evaluate(close); pg.click('#b1'); W(200); audit('ガチャ', True)
     btns = pg.locator('button');
