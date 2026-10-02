@@ -68,6 +68,8 @@ window.SAVECODE = (function () {
     // 限定の隠し称号（持っているもの・つけているもの）
     const HT = D.HIDDEN_TITLES || [];
     w.u8(HT.reduce((m, t, i) => m | ((S.hidden || []).includes(t) ? 1 << i : 0), 0)); w.u8(HT.indexOf(S.sel.title) + 1);
+    // ボーナスポイント・きょう ひいたガチャの数・きょう 未入手確定を つかったか（10/3）
+    w.vu(S.bonusPt || 0); w.u8(Math.min(255, S.gachaToday || 0)); w.u8(S.newDay === S.day ? 1 : 0);
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -109,6 +111,7 @@ window.SAVECODE = (function () {
     if (r.i < body.length) { o.seikaku = Math.min(2000, r.vu()); const x = r.u8(); o.style = x & 1 ? 'cool' : 'cute'; o.styleStg = (x >> 1) & 3; }
     o.hidden = [];
     if (r.i < body.length) { const HT = D.HIDDEN_TITLES || [], m = r.u8(), si = r.u8(); o.hidden = HT.filter((t, i) => m & (1 << i)); if (si && HT[si - 1]) o.sel.title = HT[si - 1]; }
+    if (r.i < body.length) { o.bonusPt = r.vu(); o.gachaToday = r.u8(); if (r.u8() & 1) o.newDay = o.day; }
     o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;

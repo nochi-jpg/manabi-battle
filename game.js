@@ -6,6 +6,7 @@
   const D = window.DATA, K = D.K, SUBJ = D.SUBJ, A = window.ASSETS || {};
   const $ = (s, r = document) => r.querySelector(s);
   const app = $('#app');
+  if (window.FAST) document.documentElement.classList.add('fast'); // テスト：さわったときの動きを 止める（クリックが ぶれないように）
   const T = ms => (window.FAST ? ms / 50 : ms);
   const wait = ms => new Promise(r => setTimeout(r, T(ms)));
   const pick = (a, rnd = Math.random) => a[Math.floor(rnd() * a.length)];
@@ -69,7 +70,7 @@
     const t = today(); if (S.day === t) return;
     const days = Math.max(1, Math.round((new Date(t) - new Date(S.day)) / 864e5) || 1);
     if (S.stamina < K.STAMINA_MAX) S.stamina = Math.min(K.STAMINA_MAX, S.stamina + K.STAMINA_DAY * days); // 2000までためておける
-    S.day = t; S.takeHome = 0; S.lastBoss = null; S.towerMs = 0; S.playDays = (S.playDays || 0) + 1;
+    S.day = t; S.takeHome = 0; S.gachaToday = 0; S.lastBoss = null; S.towerMs = 0; S.playDays = (S.playDays || 0) + 1;
     save();
   }
   function packRun() {
@@ -827,27 +828,31 @@
   // =====================================================================
   // ガチャ（1回1000コイン・確率は固定・5回目ごとに★4以上・まだ持っていないものだけ）
   // =====================================================================
-  function gachaPool() { return D.ITEMS.filter(it => !S.owned.includes(it.n) && reqOK(it, [])); }
+  // ガチャ：出せる アイテム ぜんぶ（持っているものも 出る。ダブりは ボーナスポイント）
+  function gachaPool() { return D.ITEMS.filter(it => reqOK(it, [])); }
+  const gachaLeftToday = () => D.GACHA_DAY - (S.gachaToday || 0);
   function gacha() {
     applyDebug();
-    const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = S.owned.length >= D.ITEMS.length;
+    const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = S.owned.length >= D.ITEMS.length, lt = gachaLeftToday();
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">🎰 ガチャ</div>
       <div class="mid gold">🪙 ${S.coins}</div>
-      ${done ? '<div class="big gold">コンプリート！ ぜんぶ集めたよ！</div>' : `
+      ${done ? '<div class="mid gold">コンプリート！ ぜんぶ集めたよ！（ダブりは ボーナスポイントに なるよ）</div>' : ''}${`
       <div class="magic" style="width:220px;height:220px"></div>
       <div class="mid">${left === 1 ? '<span class="gold">つぎは ★4以上 確定！</span>' : `あと <b class="gold">${left}</b>回で ★4以上確定！`}</div>
       ${!pool.length ? '<div class="sm">いま出せるアイテムがないよ（スキルや、もとになるアイテムを手に入れると出るようになる）</div>' : ''}
-      <button class="btn-main" id="pull" ${S.coins < D.GACHA_COST || !pool.length ? 'disabled' : ''}>ガチャを引く（🪙${D.GACHA_COST}）</button>`}
+      <button class="btn-main" id="pull" ${S.coins < D.GACHA_COST || !pool.length || lt <= 0 ? 'disabled' : ''}>ガチャを引く（🪙${D.GACHA_COST}）</button>
+      <div class="sm">${lt > 0 ? `きょう あと ${lt}回 ひけるよ` : 'きょうは もう ひけないよ（1日' + D.GACHA_DAY + '回まで）'}${S.bonusPt ? `　<button class="btn-purple" id="bpa" style="font-size:18px;padding:4px 18px">ボーナス ${S.bonusPt} を ふる</button>` : ''}</div>`}
       <div class="row"><button class="btn-blue" id="rate" style="font-size:20px">提供割合</button><button class="btn-gray" id="bk" style="font-size:20px">🏠 ホームへ</button></div>
       </div>`, 'res', 'gacha');
     $('#bk', el).onclick = () => home();
-    $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `★1　35%\n★2　30%\n★3　20%\n★4　10%\n★5　5%\n5回目ごとに ★4以上が かならず出ます（★4 67%・★5 33%）。\nまだ持っていないアイテムだけが出ます。そのレア度のアイテムを ぜんぶ持っているときは、近いレア度のアイテムが出ます。\n「出る条件」があるアイテムは、条件を満たすまで出ません。` });
+    $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `★1　35%\n★2　30%\n★3　20%\n★4　10%\n★5　5%\n${D.GACHA_PITY}回目ごとに ★4以上が かならず出ます（★4 67%・★5 33%）。\nもう持っている アイテムが出たら、ボーナスポイント +${D.DUP_BONUS}（すきな教科に ふれる）。\n1日 ${D.GACHA_DAY}回まで ひけます` });
+    const ba = $('#bpa', el); if (ba) ba.onclick = () => bonusAlloc().then(gacha);
     const pb = $('#pull', el); if (pb) pb.onclick = () => pullGacha();
   }
   async function pullGacha() {
     const pool = gachaPool();
-    if (S.coins < D.GACHA_COST || !pool.length) return;
+    if (S.coins < D.GACHA_COST || !pool.length || gachaLeftToday() <= 0) return;
     const pity = S.gachaN % D.GACHA_PITY === D.GACHA_PITY - 1;
     const w = pity ? [0, 0, 0, 0, 10, 5] : D.RARITY_W;
     let t = Math.random() * w.reduce((a, b) => a + b), r = 5;
@@ -858,14 +863,17 @@
       r = order.find(has);
     }
     const it = pick(pool.filter(x => x.r === r));
-    S.coins -= D.GACHA_COST; S.gachaN++; S.owned.push(it.n); save();
+    const dup = S.owned.includes(it.n);
+    S.coins -= D.GACHA_COST; S.gachaN++; S.gachaToday = (S.gachaToday || 0) + 1;
+    if (dup) S.bonusPt = (S.bonusPt || 0) + D.DUP_BONUS; else S.owned.push(it.n);
+    save();
     const col = ['', '#e5e7eb', '#4ade80', '#60a5fa', '#c084fc', '#fde047'][it.r];
     const o = overlay(`<div class="center" style="gap:16px"><div class="magic spin" style="--c:${col}"></div><div id="gr"></div></div>`);
     await wait(1600);
     o.querySelector('.magic').classList.add('flash');
     await wait(500);
     o.querySelector('.magic').remove();
-    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${itemCard(it.n).replace(NEWB, '')}</div><div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
+    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${dup ? itemCard(it.n) : itemCard(it.n).replace('<div class="itemcard">', '<div class="itemcard">' + NEWB)}</div>${dup ? `<div class="mid gold" style="text-align:center;margin-top:8px">もう持っている アイテム！ ボーナスポイント +${D.DUP_BONUS}</div>` : ''}<div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
     await new Promise(res => ($('#gr button', o).onclick = res));
     o.remove(); gacha();
   }
@@ -925,7 +933,7 @@
         <button id="tow">${mb('tow', '🗼', '無限の塔', `きょうの のこり ${fmtTime(towerLeft)}`)}</button>
         <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
         <button id="vs">${mb('vs', '🆚', '対戦モード', '2人で1台')}</button>
-        <button id="grow" style="grid-column:span 2;height:84px">${mb('grow', '📈', 'せいちょう・スキル', growLine(t))}</button>
+        <button id="grow" style="grid-column:span 2;height:84px">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナスポイント ${S.bonusPt} を ふれるよ！</span>` : growLine(t))}</button>
       </div>
       <div class="menuB">
         <button id="b1">${mb('b1', '🎰', 'ガチャ')}</button><button id="b2">${mb('b2', '🎒', 'もちもの')}</button><button id="b3">${mb('b3', '📋', '問題リスト')}</button><button id="b4">${mb('b4', '🔳', 'QR')}</button><button id="b5">${mb('b5', '🏆', 'アチーブメント')}</button>
@@ -967,12 +975,31 @@
 ・復習ダンジョンで 正解する
 ・無限の塔で 1問 正解ごとに ${K.TOWER_COIN}まい
 ・イベント（おみくじ など）</div><div><b>つかいみち</b>
-・ガチャで アイテムを ひく<br>（1回 ${D.GACHA_COST}）
+・ガチャで アイテムを ひく<br>（1回 ${D.GACHA_COST}・1日 ${D.GACHA_DAY}回まで）
 ・ダンジョンの お店で 買う
 ・おみくじを ひく</div></div>
 <div style="text-align:center">いまの まなびコイン：<b class="gold">${S.coins}</b></div>` });
   }
 
+
+  // ---- ボーナスポイント（ダブりで +3）を すきな教科に ふる。3ずつ ----
+  function bonusAlloc() {
+    return new Promise(res => {
+      const draw = () => {
+        const o = overlay(`<div class="panel" style="width:900px"><div class="big">ボーナスポイントを ふる</div>
+          <div class="mid">のこり <b class="gold">${S.bonusPt || 0}</b>　（1回 タップで +${D.DUP_BONUS}）</div>
+          <div class="row bpr" style="gap:10px;margin:14px 0;justify-content:center">${SUBJ.map(s => `<button data-bs="${s}" style="border-color:${D.SUBJ_COLOR[s]}" ${(S.bonusPt || 0) < D.DUP_BONUS ? 'disabled' : ''}><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('')}</div>
+          <div class="sm dim">あとで「せいちょう・スキル」や ガチャの画面から ふることも できるよ</div>
+          <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn-blue" id="cl">とじる</button></div></div>`);
+        o.querySelectorAll('[data-bs]').forEach(b => (b.onclick = () => {
+          if ((S.bonusPt || 0) < D.DUP_BONUS) return;
+          S.bonusPt -= D.DUP_BONUS; S.st[b.dataset.bs] += D.DUP_BONUS; refreshType(); save(); o.remove(); draw();
+        }));
+        $('#cl', o).onclick = () => { o.remove(); res(); };
+      };
+      draw();
+    });
+  }
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
   let feeding = false;
@@ -1032,11 +1059,12 @@
         <span class="sm">${has ? esc(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
     }).join('');
     const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;overflow-y:auto">
-      <div class="row" style="justify-content:space-between"><span class="big">📈 せいちょう・スキル</span><button class="btn-gray" id="cl">とじる</button></div>
+      <div class="row" style="justify-content:space-between"><span class="big">📈 せいちょう・スキル</span>${S.bonusPt ? `<button class="btn-purple" id="gbp" style="font-size:18px;padding:4px 18px">ボーナス ${S.bonusPt} を ふる</button>` : ''}<button class="btn-gray" id="cl">とじる</button></div>
       <div class="panel" style="margin:8px 0">${evo}${sei}</div>
       <div class="mid" style="margin:6px 0">スキル <span class="gold">${sk.length} / ${D.SKILLS.length}</span></div>
       <div class="sklist">${rows}</div></div>`);
     $('#cl', o).onclick = () => o.remove();
+    const gb = $('#gbp', o); if (gb) gb.onclick = () => { o.remove(); bonusAlloc().then(() => { home(); growthPanel(); }); };
   }
 
   async function startDungeon() {
@@ -1232,10 +1260,17 @@
   }
 
   // ---- ボス前の宝箱（3つとも未取得）----
+  // 「まだ持っていない アイテムが かならず出る」のは 1日1回だけ（宝箱・お店・ボスのごほうび の どれか さいしょの1回。10/3）
+  const newOk = () => S.newDay !== today();
+  const useNew = got => { if (got) S.newDay = today(); };
   async function treasureNode() {
     setFoe(artUi('treasure', '🎁'), 'ボス前の宝箱');
-    const names = await once('names', () => { const a = []; for (let k = 0; k < 3; k++) { const n = drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: a }); if (n) a.push(n); } return a; });
-    if (!names.length) { await dialog({ who: artUi('treasure', '🎁'), text: '宝箱はからっぽだった……\n（もうぜんぶ持っているみたい！）' }); return; }
+    const names = await once('names', () => {
+      const g = newOk(), a = [];
+      for (let k = 0; k < 3; k++) { const n = (g && drawItem(R.rnd, { unowned: true, hand: R.hand, exclude: a })) || drawItem(R.rnd, { hand: R.hand, exclude: a }); if (n) a.push(n); }
+      useNew(g && a.some(n => !S.owned.includes(n))); save(); return a;
+    });
+    if (!names.length) { await dialog({ who: artUi('treasure', '🎁'), text: '宝箱はからっぽだった……' }); return; }
     if (firstRun() && !('pick' in R.ns)) tip('「NEW」は まだ持っていないアイテム。リザルトで1個持ち帰れるよ');
     await once('pick', async () => { const n = await chooseItem(`${artUi('treasure', '🎁')} 宝箱が3つある！ 1つえらんで開けよう`, names, { labels: names.map(() => '開ける') }); queuePick(n, `${artUi('treasure', '🎁')} 宝箱を開けた！`); return n; });
     await flushPend();
@@ -1263,9 +1298,9 @@
         setFoe(npc('ルリ', '👧'), '商人ルリ');
         const price = [0, 50, 100, 200];
         const names = await once('names', () => {
-          const a = [];
-          for (let r = 1; r <= 4; r++) a.push(drawItem(R.rnd, { unowned: true, rarity: r, hand: R.hand, exclude: a }) || drawItem(R.rnd, { rarity: r, hand: R.hand, exclude: a }));
-          return a;
+          const g = newOk(), a = [];
+          for (let r = 1; r <= 4; r++) a.push((g && drawItem(R.rnd, { unowned: true, rarity: r, hand: R.hand, exclude: a })) || drawItem(R.rnd, { rarity: r, hand: R.hand, exclude: a }));
+          useNew(g && a.some(n => n && !S.owned.includes(n))); save(); return a;
         });
         const list = names.map((n, i) => [n, price[i]]).filter(x => x[0]);
         await once('buy', async () => {
@@ -1975,7 +2010,8 @@
       let bossItem = null, bossCoin = 0;
       if (beat) {
         bossCoin = K.COIN_BOSS * (stg + 1); S.coins += bossCoin; R.coins += bossCoin;
-        bossItem = drawItem(R.rnd, { unowned: true, hand: R.hand, minR: cont ? 1 : 3 });
+        const g = newOk(); bossItem = (g && drawItem(R.rnd, { unowned: true, hand: R.hand, minR: cont ? 1 : 3 })) || drawItem(R.rnd, { hand: R.hand, minR: cont ? 1 : 3 });
+        useNew(g && bossItem && !S.owned.includes(bossItem));
       }
       S.dungeons++; refreshType();
       if (beat) {
@@ -1996,14 +2032,17 @@
       </div></div>`, 'res', 'result');
     await msgWait(1500);
     // 持ち帰り（未取得のものから 1回に1個。1日の上限は なし（10/3）。ボス撃破報酬も候補にまぜる）
-    await once('take', async () => {
-      const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])].filter(n => !S.owned.includes(n));
+    const taken = await once('take', async () => {
+      const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])];
       if (rw.bossItem) await chooseItem('👑 ボス撃破のごほうび！ 持ち帰りの候補に入ったよ', [rw.bossItem], { labels: ['見た！'] });
-      if (!cands.length) { await dialog({ who: '🎒', text: '持ち帰れる 新しいアイテムはなかった……\n（ぜんぶ もう持っているアイテムだった）' }); return null; }
-      const took = await chooseItem('🎒 1つだけ 持ち帰れるよ！', cands, { labels: cands.map(() => '持ち帰る') });
-      S.owned.push(took); S.takeHome++;
-      return took;
+      if (!cands.length) { await dialog({ who: '🎒', text: '持ち帰れる アイテムは なかった……' }); return null; }
+      const took = await chooseItem(`🎒 1つだけ 持ち帰れるよ！\n<span class="sm">もう持っている アイテムは ボーナスポイント +${D.DUP_BONUS} に なるよ</span>`, cands, { labels: cands.map(n => (S.owned.includes(n) ? `ボーナス+${D.DUP_BONUS}` : '持ち帰る')) });
+      const dup = S.owned.includes(took);
+      if (dup) S.bonusPt = (S.bonusPt || 0) + D.DUP_BONUS; else S.owned.push(took);
+      S.takeHome++;
+      return dup ? 'dup' : took;
     });
+    if (taken === 'dup' && !R.ns.alloc) { R.ns.alloc = 1; save(); await bonusAlloc(); }
     await evolution(R.startSt, R.startType);
     R = null; BT = null; S.run = null; save();
     home();
