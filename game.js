@@ -1090,19 +1090,19 @@
       case 'coin': {
         setFoe(npc('ミドリ', '🍃'), 'こぼれたコイン');
         const c = await once('got', () => { const c = Math.round((100 + 200 * Math.min(1, R.rnd() * 0.6 + luck / 1000 * 0.5)) / 10) * 10; coin(c); return c; });
-        await dialog({ who: npc('ミドリ', '🍃'), name: 'ミドリ', text: `「あっ、コインがこぼれちゃった！ 拾うの手伝ってくれたお礼に、あげる！」\n🪙 ${c} コイン手に入れた！` });
+        await dialog({ who: npc('ミドリ', '🍃'), name: 'ミドリ', text: `「あっ、コインがこぼれちゃった！ 拾うのを手伝ってくれたお礼に、あげるね♪」\n🪙 ${c} コイン手に入れた！` });
         break;
       }
       case 'izumi': {
         setFoe(artUi('fountain', '⛲'), 'いやしの泉');
         await once('got', () => { R.flags.izumi = true; });
-        await dialog({ who: npc('カズマ', '💧'), name: 'カズマ', text: '「この泉の水を飲むといい。体がじょうぶになるぞ」\nこのダンジョンのボス戦で、最大HPが +15%！' });
+        await dialog({ who: npc('ミズナ', '💧'), name: 'ミズナ', text: '「この泉のお水、飲んでみて！ 体がじょうぶになるのよ」\nこのダンジョンのボス戦で、最大HPが +15%！' });
         break;
       }
       case 'uranai': {
-        setFoe(npc('ライト', '🔮'), 'なぞの占い師');
+        setFoe(npc('ヒカリ', '🔮'), 'うらないの妖精');
         await once('got', () => { R.flags.nextRare = true; });
-        await dialog({ who: npc('ライト', '⚡'), name: 'ライト', text: '「……見えるぞ。次に出会うのは、金色にかがやくモンスターだ」\n次の雑魚が、かならずレア雑魚になる！' });
+        await dialog({ who: npc('ヒカリ', '⚡'), name: 'ヒカリ', text: '「……見えるわ。次に出会うのは、とってもめずらしいモンスターよ！」\n次の雑魚が、かならずレア雑魚になる！' });
         break;
       }
       case 'hayate': {
@@ -1122,7 +1122,7 @@
       }
       case 'sekihi': {
         setFoe(artUi('stone', '🗿'), '古い石碑');
-        if (!('quiz0' in R.ns)) await dialog({ who: npc('コトハ', '🔥'), name: 'コトハ', text: '「石碑に問題が書いてあるわ。解けたら、なにか起きるかも」' });
+        if (!('quiz0' in R.ns)) await dialog({ who: npc('コトハ', '🌸'), name: 'コトハ', text: '「石碑に問題が書いてあるの。解けたら、なにか起きるかもしれないわ」' });
         const ok = await eventQuiz(1, '石碑');
         await once('res', () => { if (ok) { coin(200); R.flags.sekihi = true; } });
         await dialog({ who: artUi('stone', '🗿'), text: ok ? '石碑が光った！\n🪙200コイン手に入れた！ ボスの弱点が さらに効くようになった（+10%）' : '石碑は しずかなままだ……' });
@@ -1752,7 +1752,7 @@
     if (BT.phase === 'cheer') {
       updBars();
       await cutin('📣 みんなの応援！', 1200);
-      for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800, false);
+      for (const f of D.FRIENDS) await cutin(`<span class="cutnpc">${artNpc(f.n, f.e)}</span> ${f.n}「がんばって、${esc(S.cname)}！」`, 800, false);
       $('#turn').textContent = '📣 応援ターン';
       BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの応援で 力が わいてきた！</div>';
       const act = await playerAct(P, B, 4, true);
