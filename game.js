@@ -1748,7 +1748,7 @@
       await cutin('📣 みんなの応援！', 1200);
       for (const f of D.FRIENDS) await cutin(`${f.e} ${f.n}「がんばれ、${esc(S.cname)}！」`, 800, false);
       $('#turn').textContent = '📣 応援ターン';
-      BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの応援で 力が わいてきた！ 正解するほど 攻撃が はでになるよ</div>';
+      BT.note = '<div class="sm gold" style="margin-bottom:6px">📣 みんなの応援で 力が わいてきた！</div>';
       const act = await playerAct(P, B, 4, true);
       const good = act.mult;
       const ev = resolveTurn([P], 4, true);
