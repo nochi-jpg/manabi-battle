@@ -9,7 +9,10 @@
 ## フォント
 | 名前 | ライセンス | 出典 |
 |---|---|---|
-| DotGothic16 | SIL Open Font License 1.1 | Google Fonts（ネットから読みこみ。`fonts/` に置けばオフラインでも使える） |
+| DotGothic16 | SIL Open Font License 1.1 | google/fonts。`fonts/` に同梱（ゲームで使う字だけにしぼったWOFF。`fonts/OFL-DotGothic16.txt`） |
+| M PLUS Rounded 1c | SIL Open Font License 1.1 | google/fonts。`fonts/` に同梱（同上。画像UIで使う丸ゴシック。`fonts/OFL-MPLUSRounded1c.txt`） |
+
+- フォントはネットから読みこまない（Teamsのオフラインでも同じ見た目）。作りなおしは `python3 tools/make_fonts.py`
 
 ## 画像
 - 画像の素材は 非公開リポジトリ `manabi-battle-assets` に置いている（二次配布NGの素材があるため、公開リポジトリには入れない）

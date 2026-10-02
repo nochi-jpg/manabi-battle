@@ -1582,7 +1582,7 @@
     const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
     const skills = skillsOf(t);
     const cP = { name: S.cname, emo: lookOf(S.type, t), art: artPlayer(S.type, t), st: { ...S.st }, items: [...hand], prevType: S.type, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
-    const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss };
+    const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
     // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
     const wk = D.WEAK[boss];
     if (wk) {
@@ -1592,6 +1592,79 @@
     }
     return { P: cP, B: cB };
   }
+  // ---- テスト用：ボス戦を 画面なしで くりかえす（難易度の調整用。MB.simBoss）----
+  // ほんものの計算（resolveAttack・bossChoose など）をそのまま使う。プレイヤーは「いちばん強そうな手」をえらぶ
+  function simPlayer(P, B, turn, first, bAct) {
+    const ban = sealed(P, turn);
+    let cands = SUBJ.filter(s => !ban.includes(s)); if (!cands.length) cands = SUBJ;
+    const val = s => baseAtk(P, s) * recvMult(B, s) * (P.weakSubj === s ? P.weakMul : 1);
+    const subj = 'こんらん' in P.status ? pick(cands) : cands.reduce((x, s) => (val(s) > val(x) ? s : x));
+    const avail = 'こおり' in P.status ? ['通常攻撃'] : P.skills.filter(k => !(P.ct[k] > 0));
+    const est = val(subj) * (1 - cutRate(B));
+    const sc = k => {
+      const pw = D.SKILLS.find(x => x.n === k).pw;
+      if (k === '連続攻撃') return P.has('みつまたの槍') ? 1.35 : 1.2;
+      if (k === 'パワーシュート') return turn === 3 || est * 2 >= B.hp ? 2.1 : 0.9;
+      if (k === 'ドレイン') return pw + (P.hp < 0.5 * P.maxhp ? 0.4 : 0);
+      if (k === 'ガードバッシュ') return pw + (first && turn < 3 ? 0.3 : 0);
+      if (k === 'ふういん') return pw + (first ? 0.2 : 0);
+      if (k === 'カウンター') return pw + (est > 0 ? (0.5 * P.lastrecv) / est : 0);
+      if (k === 'かんつう') return pw / Math.min(1, recvMult(B, subj) * (1 - cutRate(B)));
+      return pw;
+    };
+    return { sk: avail.reduce((x, k) => (sc(k) > sc(x) ? k : x)), subj };
+  }
+  function simBoss({ st, boss = null, items = [], acc = 1, n = 1000, bossHp = null }) {
+    const bak = { st: S.st, type: S.type, BT, hp: K.BOSS_HP };
+    if (bossHp) K.BOSS_HP = bossHp;
+    S.st = { ...st }; S.type = typeOf(S.st, S.type);
+    const stg = stageOf(total(S.st)), q = K.BOSS_Q;
+    let win = 0, turns = 0;
+    try {
+      for (let i = 0; i < n; i++) {
+        const b = boss || pick(['国語', '算数', '理科', '社会', '英語', '無']);
+        const its = typeof items === 'function' ? items(i) : items;
+        const cfg = bossCfg(b, stg, its);
+        const P = makeFighter(cfg.P), B = makeFighter(cfg.B);
+        P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
+        BT = { P, B };
+        let res = null, turn = 1;
+        for (; turn <= 3 && !res; turn++) {
+          let first;
+          if (P.has('運命の指輪') !== B.has('運命の指輪')) first = P.has('運命の指輪') ? P : B;
+          else { const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1); first = Math.random() < wp / (wp + wb) ? P : B; }
+          const order = [first, first.opp], acts = {};
+          order.forEach((x, k) => {
+            if (x.skipNext) { x.skipNext = false; acts[x.side] = 'skip'; return; }
+            const fst = k === 0;
+            const a = x === P ? simPlayer(P, B, turn, fst, acts.B) : bossChoose(B, P, turn, fst);
+            const ok = x === P ? acc : K.BOSS_ACC;
+            a.ans = Array.from({ length: q }, () => Math.random() < ok);
+            applyActStart(x, a, turn, fst);
+            const g = newGauge(); a.ans.forEach(o => gaugeStep(x, g, o));
+            a.mult = gaugeMult(x, g, q); a.s3 = g.s3; acts[x.side] = a;
+          });
+          order.forEach((x, k) => {
+            const y = x.opp, a = acts[x.side];
+            if (!a || a === 'skip' || x.hp <= 0 || y.hp <= 0) return;
+            const s = D.SKILLS.find(z => z.n === a.sk);
+            x.ct[a.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(a.sk) && x.has('すなどけい') ? 1 : s.ct) + 1;
+            resolveAttack(x, y, a, turn, k === 0, { rnd: Math.random, cheer: false });
+          });
+          [P, B].forEach(f => endTurn(f, () => {}));
+          if (P.hp <= 0 || B.hp <= 0) res = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
+          else if (turn >= 3) res = P.hp / P.maxhp >= B.hp / B.maxhp ? 'win' : 'lose';
+        }
+        if (res === 'win') win++;
+        turns += turn - 1;
+      }
+    } finally { S.st = bak.st; S.type = bak.type; BT = bak.BT; K.BOSS_HP = bak.hp; }
+    return { win: win / n, turns: turns / n };
+  }
+  // アイテムを ダンジョンと同じように ひく（テスト用）
+  // ダンジョン1回で 見つけるのは 6個くらい → レアなものを 4個のこす
+  const simHand = (seen = 6, k = K.ITEM_MAX) => { const h = []; for (let i = 0; i < seen; i++) { const it = drawItem(Math.random, { hand: h }); if (it) h.push(it); } return h.sort((a, b) => D.ITEM[b].r - D.ITEM[a].r).slice(0, k); };
+
   async function bossIntro() {
     const { P, B } = BT;
     await cutin(`${B.emo} <span class="gold">${esc(B.name)}</span> があらわれた！`, 1600);
@@ -2324,7 +2397,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 起動 ----
   S = load();

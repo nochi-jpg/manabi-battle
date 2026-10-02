@@ -4,11 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>まなびバトル</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-@font-face{font-family:"DotLocal";src:url("fonts/DotGothic16-Regular.ttf")}
-:root{--f:"DotLocal","DotGothic16","BIZ UDPGothic","Meiryo",monospace;--gold:#ffd54a;--panel:rgba(15,23,42,.88);--line:rgba(255,255,255,.18)}
+/* フォントは fonts/ に同梱（ネットなしで動く。ゲームで使う字＋かな＋JIS第1水準の漢字だけにしぼった版。OFL） */
+@font-face{font-family:"DotLocal";src:url("fonts/DotGothic16-Regular.woff") format("woff")}
+@font-face{font-family:"MBRound";font-weight:400 600;src:url("fonts/MPLUSRounded1c-Regular.woff") format("woff")}
+@font-face{font-family:"MBRound";font-weight:700;src:url("fonts/MPLUSRounded1c-Bold.woff") format("woff")}
+@font-face{font-family:"MBRound";font-weight:800 900;src:url("fonts/MPLUSRounded1c-ExtraBold.woff") format("woff")}
+:root{--f:"DotLocal","BIZ UDPGothic","Meiryo",monospace;--gold:#ffd54a;--panel:rgba(15,23,42,.88);--line:rgba(255,255,255,.18)}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
 body{font-family:var(--f);color:#fff;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
@@ -118,6 +120,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .itemcard .in.l{font-size:20px}.itemcard .in.xl{font-size:18px}
 .rule{color:#fde68a}
 .evbox .who{touch-action:manipulation;font-size:120px;text-align:center;line-height:1.1;margin-bottom:8px}
+.evbox .who .art{display:inline-block;vertical-align:top}.evbox .who+.mid{margin-top:4px}
 .evbox .txt{font-size:26px;line-height:1.6;margin:14px 0;white-space:pre-line}
 .choices{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
 .choices button{min-width:240px}

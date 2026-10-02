@@ -20,9 +20,10 @@ window.DATA = (function () {
     COIN_OK: 40, COIN_NG: 0, COIN_OSARAI: 10, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4, TAKEHOME_PER_DAY: 2,
     BOSS_Q: 3, VS_Q: 5, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
+    BOSS_HP: [1.7, 1.6, 1.4],           // ボスのHP倍率（★1・★2・★3）。ノーコンティニュー勝率：アイテムあり全問正解≒90%・アイテムなし正答80%≒50% をねらう（tools/boss_balance.py）
     COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 10 * 60 * 1000, /* 塔：1日10分（10/2 先生） */ TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
     STAGE_LINE: [1500, 3500],           // ステータス合計でボスの段階が変わる
-    LOOK_LINE: [1200, 2500, 4000],      // ステータス合計で見た目が進化する（4段階。仮の数字）
+    LOOK_LINE: [1050, 2450, 5450],      // 見た目の進化（4段階）。1日約+200（ダンジョン2回＋復習・正答率80%の実測）で 3日目・10日目・25日目
     SEIKAKU_START: 1000, SEIKAKU_MAX: 2000,
     SKILL_LINE: { 連続攻撃: 650, ガードバッシュ: 800, ドレイン: 1300, かんつう: 1800, カウンター: 2500, パワーシュート: 3200, ふういん: 4200 },
   };

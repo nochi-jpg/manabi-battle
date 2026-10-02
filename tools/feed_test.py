@@ -52,7 +52,7 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.seikaku = 2000; MB.go.home()"); W(50)
     check(pg.evaluate(look) == l0 and l0 in ('🐣', 'all_cute_1.png'), '1段階目：せいかくが かわっても すがたは そのまま')
     # 2段階目へ（かっこいい系で進化）：ダンジョンのあとの 進化演出で決まる
-    pg.evaluate("MB.S.st = {国語:238,算数:238,理科:238,社会:238,英語:238}; MB.S.stamina=100")
+    pg.evaluate("MB.S.st = {国語:208,算数:208,理科:208,社会:208,英語:208}; MB.S.stamina=100")
     pg.click('#dun'); W(50); pg.click('.ov .choices button'); W(200)
     BOT = (ROOT / 'tools' / 'play_test.py').read_text().split('BOT = """')[1].split('"""')[0]
     for _ in range(15000):
@@ -67,7 +67,7 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.seikaku = 0; MB.go.home()"); W(50)
     check(pg.evaluate(look) == l1, '2段階目：せいかくを かわいい側にしても すがたは そのまま')
     # 4段階目：すぐ変わる
-    pg.evaluate("MB.S.st = {国語:900,算数:900,理科:900,社会:900,英語:900}; MB.S.seikaku = 1000; MB.go.home()"); W(50)
+    pg.evaluate("MB.S.st = {国語:1100,算数:1100,理科:1100,社会:1100,英語:1100}; MB.S.seikaku = 1000; MB.go.home()"); W(50)
     cute4 = pg.evaluate(look)
     t = feed('肉')
     cool4 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)
