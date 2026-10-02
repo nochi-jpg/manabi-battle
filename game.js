@@ -976,9 +976,10 @@
     const drop = z.drop || (R.flags.dropIn && R.flags.dropIn.includes(zi));
     const foe = rare ? D.RARE_ZAKO : D.ZAKO[z.k];
     const emo = rare ? z.re : z.e;
-    setFoe(artZako(emo), rare ? '<span class="gold">✨ 金色のレア雑魚！</span>' : esc(foe.n));
+    const fname = (foe.ns && foe.ns[foe.e.indexOf(emo)]) || foe.n; // 1体ずつの名前
+    setFoe(artZako(emo), rare ? `<span class="gold">✨ ${esc(fname)}</span>` : esc(fname));
     if (R.ns.ans) { await flushPend(); return; } // 答えたあとに閉じた → 結果はもう出ている
-    msg(`${rare ? '✨ <span class="gold">金色のレア雑魚</span>' : esc(foe.n)}があらわれた！ <span class="gold">教科をえらんで問題に答えよう</span>`);
+    msg(`${rare ? `✨ レア！ <span class="gold">${esc(fname)}</span>` : esc(fname)}があらわれた！<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
     if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
     const subj = await new Promise(res => {
       $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}<small>${S.st[s]}</small></button>`).join('');
@@ -998,7 +999,7 @@
           const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
           S.st[subj] += gain; if (!pre.osarai) { S.qs[q.id] = 3; S.qd[q.id] = today(); } // 正解 → あと1回
           const c = (pre.osarai ? K.COIN_OSARAI : K.COIN_OK) + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
-          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${rare ? '金色のレア雑魚' : foe.n}は アイテムを落としていった……`);
+          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${fname}は アイテムを落としていった……`);
           out = { ok, subj, gain, c };
         } else {
           if (!pre.osarai) { S.qs[q.id] = 2; S.miss[q.id] = 1; } // 不正解 → 復習待ち（一発でまちがえた記録も残す）

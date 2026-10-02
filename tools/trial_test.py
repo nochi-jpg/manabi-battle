@@ -47,7 +47,7 @@ with sync_playwright() as p:
 
     check(pg.evaluate("MB.BT && MB.BT.qn") == 5, '1ターン5問')
     check(pg.evaluate("[...MB.BT.P.items].sort().join()") == ','.join(sorted(['木の盾', 'どくキバ'])), 'えらんだアイテムで戦う')
-    check(pg.evaluate("MB.BT.B.name") == 'たいかいのクジラ', 'えらんだボス・強さ')
+    check(pg.evaluate("MB.BT.B.name") == 'たいかいのぬし', 'えらんだボス・強さ')
     # 1ターン目：プレイヤーの問題数を数える
     asked = 0; maxturn = 0
     end = "!!document.querySelector('.ov .choices') && document.querySelector('.ov').innerText.includes('おためしバトルなので')"
