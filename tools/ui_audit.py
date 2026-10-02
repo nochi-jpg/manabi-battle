@@ -40,6 +40,7 @@ CHECK = r"""() => {
   for (let i = 0; i < leaves.length; i++) for (let j = i + 1; j < leaves.length; j++) {
     const a = leaves[i], b = leaves[j];
     if (a.contains(b) || b.contains(a)) continue;
+    if ([a, b].some(x => x.matches('.new, .newb'))) continue; // かどの NEW バッジは わざと重ねている
     const A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
     const ix = Math.min(A.right, B.right) - Math.max(A.left, B.left), iy = Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top);
     if (ix > 6 && iy > 6) {
@@ -104,6 +105,7 @@ with sync_playwright() as p:
     pg.click('.ttl[data-t]:not([data-t=""]) >> nth=0'); W(100); audit('称号えらび：えらんだ', True)
     pg.click('#bk'); W(150); pg.click('#sB'); W(150); audit('背景えらび', True); pg.click('.bgc.lock >> nth=0'); W(100); audit('背景：手に入れかた', True); pg.evaluate(close)
     pg.click('#bk'); W(150); pg.click('#sN'); W(150); audit('名前をかえる', True); pg.evaluate(close)
+    pg.evaluate(close); pg.click('#set'); W(100); pg.click('#sC'); W(150); audit('クレジット', True); pg.click('.cred #cl'); W(150); pg.evaluate(close)
     pg.evaluate("MB.S.debug={on:true,bak:{}}; MB.S.ach['boss_all']='x'"); go('home()'); pg.evaluate(close); pg.click('#set'); W(100); audit('せってい（デバッグ）', True); pg.evaluate(close)
     pg.evaluate("MB.S.debug=null"); go('home()'); pg.evaluate(close)
     # ごはん

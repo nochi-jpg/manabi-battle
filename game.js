@@ -422,12 +422,13 @@
       </div>
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
-      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><button class="btn-blue" id="cl">とじる</button></div></div>`);
+      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
     o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); o.remove(); home(); settings(); }));
     $('#cl', o).onclick = () => o.remove();
     $('#sT', o).onclick = () => { o.remove(); titlePage(); };
     $('#sB', o).onclick = () => { o.remove(); bgPage(); };
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
+    $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
     if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
       o.remove();
@@ -446,6 +447,19 @@
       }
       resetSave(); nameScreen();
     };
+  }
+
+  // ---- クレジット（使っている素材・フォント・ライブラリ）----
+  function creditsPage() {
+    const rows = list => list.map(([n, a, u, l]) => `<div class="crow"><div class="cn">${esc(n)}</div><div class="ca">${esc(a)}${l ? `<small>${esc(l)}</small>` : ''}</div><div class="cu">${esc(u)}</div></div>`).join('');
+    const img = (A.credits || []).filter(c => c && c[0]);
+    const o = overlay(`<div class="panel cred" style="width:1100px;max-height:680px;overflow-y:auto">
+      <div class="big">📜 クレジット</div>
+      <div class="sm dim">このゲームは、たくさんの人が作った素材を つかわせてもらっています。ありがとうございます！</div>
+      ${img.length ? `<div class="mid ch">🎨 画像</div>${rows(img)}` : ''}
+      <div class="mid ch">🔤 フォント・プログラム</div>${rows(D.CREDITS)}
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn-blue" id="cl">とじる</button></div></div>`);
+    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
   }
 
   // ---- 称号をかえる（アチーブメントの画面と同じ形。まだのものは ？？？ → タップで 手に入れかた）----

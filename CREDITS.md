@@ -12,6 +12,7 @@
 | DotGothic16 | SIL Open Font License 1.1 | google/fonts。`fonts/` に同梱（ゲームで使う字だけにしぼったWOFF。`fonts/OFL-DotGothic16.txt`） |
 | M PLUS Rounded 1c | SIL Open Font License 1.1 | google/fonts。`fonts/` に同梱（同上。画像UIで使う丸ゴシック。`fonts/OFL-MPLUSRounded1c.txt`） |
 
+- ゲームの中でも「せってい → 📜 クレジット」で見られる（フォント・ライブラリは `data.js` の CREDITS、画像は 素材リポジトリの `tools/make_assets.py` の credits。URLは出さない）
 - フォントはネットから読みこまない（Teamsのオフラインでも同じ見た目）。作りなおしは `python3 tools/make_fonts.py`
 
 ## 画像
