@@ -14,11 +14,11 @@ with zipfile.ZipFile(io.BytesIO(code)) as src, zipfile.ZipFile(out, 'w', zipfile
     for i in src.infolist():
         z.writestr(i, src.read(i))
     if ASSETS.exists():
-        files = [ASSETS / 'assets.local.js', ASSETS / 'assets.local.css', ASSETS / 'CREDITS.md'] + sorted((ASSETS / 'images').rglob('*.*'))
+        files = [ASSETS / 'assets.local.js', ASSETS / 'assets.local.css', ASSETS / 'CREDITS.md'] + sorted((ASSETS / 'images').rglob('*.*')) + sorted((ASSETS / 'sounds').rglob('*.mp3'))
         for f in files:
             if f.is_file():
                 name = 'CREDITS-assets.md' if f.name == 'CREDITS.md' else str(f.relative_to(ASSETS)).replace('\\', '/')
-                z.write(f, P + name, compress_type=zipfile.ZIP_STORED if f.suffix in ('.png', '.jpg') else zipfile.ZIP_DEFLATED); n += 1
+                z.write(f, P + name, compress_type=zipfile.ZIP_STORED if f.suffix in ('.png', '.jpg', '.mp3') else zipfile.ZIP_DEFLATED); n += 1
     else:
         print('⚠️ 素材リポジトリが見つからないので、絵文字だけの ZIP になります:', ASSETS)
 print(f'{out}（画像など {n} ファイル入り・{out.stat().st_size // 1024} KB）')

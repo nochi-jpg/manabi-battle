@@ -162,10 +162,44 @@
   const lookOf = (type, t, p = S) => D.LOOK[type][styleFor(p, t)][lookStage(t)];
   function refreshType() { S.type = typeOf(S.st, S.type); if (S.type !== '全教科') S.typeChanged = true; }
 
+  // ---- 音（BGM・効果音）。assets の bgm・se。テスト（?test・FAST）では 鳴らさない ----
+  // BGM：同じ曲なら 切りかえない（画面をかえても とぎれない）。ブラウザは さいしょのタップまで 音を出せないので、そのとき はじめる
+  const SND = { cur: null, el: null, want: null, se: {} };
+  const sndOff = () => window.FAST || /[?&]test/.test(location.search);
+  const bgmOn = () => !(S && S.sel && S.sel.bgm === 'off');
+  const seOn = () => !(S && S.sel && S.sel.se === 'off');
+  function bgm(k) {
+    SND.want = k;
+    const src = g2(A, 'bgm', k);
+    if (sndOff() || !src || !bgmOn()) { if (SND.el) { SND.el.pause(); SND.el = null; SND.cur = null; } return; }
+    if (SND.cur === k && SND.el) { if (SND.el.paused) SND.el.play().catch(() => {}); return; }
+    if (SND.el) SND.el.pause();
+    const a = new Audio(src); a.loop = k !== 'result'; a.volume = 0.45;
+    SND.el = a; SND.cur = k; a.play().catch(() => {});
+  }
+  function se(k) {
+    if (sndOff() || !seOn()) return;
+    const src = g2(A, 'se', k); if (!src) return;
+    const a = (SND.se[k] = SND.se[k] || new Audio(src)).cloneNode(); a.volume = 0.6; a.play().catch(() => {});
+  }
+  // さいしょのタップで BGM を はじめる・ボタンの音（決定・キャンセル・メニュー）
+  document.addEventListener('pointerdown', e => {
+    if (SND.want && SND.el && SND.el.paused && bgmOn()) SND.el.play().catch(() => {});
+    else if (SND.want && !SND.el) bgm(SND.want);
+    const b = e.target.closest && e.target.closest('button');
+    if (!b || b.disabled) return;
+    if (b.closest('.menuR,.menuB') || b.id === 'set') se('menu');
+    else if (/btn-gray/.test(b.className) || /^(とじる|やめる|もどる|◀|🏠|キャンセル)/.test(b.textContent.trim())) se('cancel');
+    else se('ok');
+  }, true);
+
   // ---- 小さな部品 ----
   // sk：画面ごとの背景（assets の scrBg。ガチャ＝gacha、リザルト＝result、問題リスト・アチーブ・もちもの＝library、無限の塔の入口＝tower・とちゅう＝towerRun）
   function render(html, cls, sk) {
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
+    // 画面の BGM：タイトル／メニュー（ホーム・もちもの・アチーブ・塔の入口など。曲は とぎれない）／ダンジョン・塔／ボス戦・おためし／対戦／リザルト
+    bgm(cls === 'title' || cls === 'name' ? 'title' : cls === 'dun' ? (sk === 'tower' ? 'menu' : 'dungeon')
+      : cls === 'btl' ? (BT && BT.vs ? 'vs' : 'boss') : sk === 'result' ? 'result' : 'menu');
     const el = app.firstElementChild;
     // 画像の背景は 少し暗くして 文字を読みやすくする
     const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
@@ -438,6 +472,8 @@
         <button id="sB">🖼️ 背景をかえる<small>いま：${esc(S.sel.bg || '学園の町')}</small></button>
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
       </div>
+      ${sec('🎵 BGM', ['on', 'off'], S.sel.bgm === 'off' ? 'off' : 'on', 'bgm', x => (x === 'on' ? 'ならす' : 'けす'))}
+      ${sec('🔔 効果音', ['on', 'off'], S.sel.se === 'off' ? 'off' : 'on', 'se', x => (x === 'on' ? 'ならす' : 'けす'))}
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
@@ -1018,7 +1054,7 @@
     });
     const foeEl = $('#foe');
     if (out.ok) {
-      foeEl.classList.add('bye');
+      se('hit'); foeEl.classList.add('bye');
       floatAt(820, 180, `${subj} +${out.gain}`, D.SUBJ_COLOR[subj]);
       setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
       msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${out.osarai ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ</span>'}`);
@@ -1471,7 +1507,7 @@
     wheel.style.transitionDuration = T(2200) + 'ms';
     wheel.style.transform = `rotate(${360 * 5 + (360 - th)}deg)`;
     await wait(2300);
-    o.querySelector('.rl').classList.remove('spin');
+    o.querySelector('.rl').classList.remove('spin'); se('roulette');
     o.querySelector(`.rl-side.${win === P ? 'p' : 'b'}`).classList.add('win');
     $('#rlw', o).innerHTML = `✨ ${esc(win.name)} が 決める権利を ゲット！`;
     await wait(1100); o.remove();
@@ -1562,7 +1598,7 @@
       if (!act || act === 'skip' || x.hp <= 0 || y.hp <= 0) return;
       const s = D.SKILLS.find(k => k.n === act.sk);
       x.ct[act.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(act.sk) && x.has('ふしぎなウォッチ') ? 1 : s.ct) + 1;
-      ev.push({ cut: `${x.art} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
+      ev.push({ sk: act.sk, cut: `${x.art} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
       ev.push(...resolveAttack(x, y, act, turn, i === 0, { rnd: Math.random, cheer }));
       if (cheer && y.hp > 0) { const extra = Math.max(1, R0(y.hp)); y.hp = 0; ev.push({ hit: extra, crit: false, eff: 1, side: y.side, snap: vsnap() }); }
     });
@@ -1570,15 +1606,18 @@
     return ev;
   }
   async function playEvents(ev) {
+    let lastSk = null, hitN = 0;
     for (const e of ev) {
-      if (e.cut) { await cutin(e.cut, 1100); continue; }
+      if (e.cut) { lastSk = e.sk; hitN = 0; if (e.sk === 'ガードバッシュ' || e.sk === 'カウンター') se('guard'); await cutin(e.cut, 1100); continue; }
       if (e.hit) {
+        hitN++; se(e.crit ? 'crit' : lastSk === '連続攻撃' ? (hitN === 1 ? 'combo' : null) : 'hit');
         const tEl = $(e.side === 'P' ? '#fP' : '#fB'), d = e.side === 'P' ? BT.P : BT.B;
         if (tEl) { tEl.classList.remove('hit'); void tEl.offsetWidth; tEl.classList.add('hit'); }
         floatAt(e.side === 'P' ? 260 : 960, 150, (e.crit ? '会心！ ' : '') + e.hit, e.crit ? '#f472b6' : '#fde047', 'dmg');
         blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
         updBars(e.snap); await msgWait(900);
       } else {
+        if (e.stt) se(e.stt);
         blog(e.t); updBars(e.snap); await msgWait(1000);
         // CPU戦だけ：はじめて見る 状態異常は 説明を出す（対戦では出さない。きろくは QR に入れない）
         if (e.stt && !BT.vs) { S.seenStt = S.seenStt || {}; if (!S.seenStt[e.stt]) { S.seenStt[e.stt] = 1; save(); await statusHelp(e.stt); } }
@@ -1902,7 +1941,7 @@
       if (r.quit) { queue.unshift(id); break; }
       const c = $('#coin'); if (c) c.textContent = '🪙 ' + S.coins;
       if (r.ok) {
-        $('#foe').classList.add('bye');
+        se('hit'); $('#foe').classList.add('bye');
         floatAt(820, 180, `${q.s} +${out.gain}`, D.SUBJ_COLOR[q.s]);
         if (out.c) setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
         msg(out.grad ? `🎓 卒業！ この問題は もう だいじょうぶ！ ${q.s} +${out.gain}` : `⭕ 正解！ ${q.s} +${out.gain}<br><span class="sm">あと1回 正解すると 卒業だよ（あした以降に また出るよ）</span>`);
@@ -2009,12 +2048,14 @@
       }
     } finally { clearInterval(tick); if (keep.o) keep.o.remove(); save(); }
     if (timeUp) {
+      bgm('result');
       await dialog({ who: '⏰', text: `きょうはここまで！${got ? `（🪙+${got}）` : ''}\nセーブしたから大丈夫。また明日つづきから登ろう` });
       return home();
     }
     if (endMsg === 'over') {
       const f = tw.floor; S.tower[subj] = null; save();
       const again = towerTicketFree(subj);
+      bgm('result');
       await dialog({ who: '💔', text: `ざんねん！ ${f}階まで のぼった（🪙+${got}）\n（さいこう記録 ${S.towerBest[subj] || 0}階）\n${again ? 'きのうの つづきだったので、きょうの入場券で もう一度 1階から 入れるよ' : `${subj}の塔は また あした 1階から 挑戦しよう`}` });
       return towerSelect();
     }
@@ -2174,6 +2215,7 @@
         TR.items = it; TR.picked = true;
       }
       const res = await trialBattle();
+      bgm('result');
       const c = await dialog({ who: res === 'win' ? '🏆' : '💫', text: `${res === 'win' ? '🏆 勝った！' : '😢 負けちゃった……'}\n${esc(BT.P.name)} HP ${Math.max(0, R0(BT.P.hp))}／${BT.P.maxhp}　　${esc(BT.B.name)} HP ${Math.max(0, R0(BT.B.hp))}／${BT.B.maxhp}\n<span class="sm dim">（おためしバトルなので、ほうびはないよ）</span>`,
         choices: [{ label: '🔁 同じそうびで もう一度', val: 'again', cls: 'btn-main' }, { label: '🎒 そうびを かえる', val: 'items', cls: 'btn-blue' }, { label: '👑 ボスを かえる', val: 'boss', cls: 'btn-blue' }, { label: '🏠 ホームへ', val: 'home', cls: 'btn-gray' }] });
       BT = null;
@@ -2248,6 +2290,7 @@
         const w = V.phase === 'pickA' ? 'a' : 'b', pr = V.prof[w];
         await tapScreen(`プレイヤー${AB[w]}（${esc(pr.pname)}）だけ<br>画面を見てください`, w === 'b' ? 'プレイヤーAは 見ないでね。画面をタップしてね' : '');
         const preset = V.picks[w].length ? V.picks[w] : V.last ? V.last[w] : [];
+        bgm('vsPick');
         V.picks[w] = await pickItems(pr, preset.filter(n => pr.owned.includes(n)));
         V.phase = w === 'a' ? 'pickB' : 'intro'; saveVs(); continue;
       }
@@ -2267,6 +2310,7 @@
       if (V.phase === 'end') {
         if (!BT) BT = hydrate(V.bt);
         const { P, B } = BT, res = V.result;
+        bgm('result');
         const msgT = res === 'draw' ? '🤝 引き分け！' : `🏆 プレイヤー${res === 'P' ? 'A' : 'B'}（${esc((res === 'P' ? P : B).pname)}）の 勝ち！`;
         const c = await dialog({ who: res === 'draw' ? '🤝' : (res === 'P' ? P : B).art, text: `${msgT}\n${esc(P.name)} HP ${Math.max(0, R0(P.hp))}／${P.maxhp}　　${esc(B.name)} HP ${Math.max(0, R0(B.hp))}／${B.maxhp}`, choices: [{ label: '🔁 再戦する', val: 1, cls: 'btn-main' }, { label: '🏠 タイトルにもどる', val: 0, cls: 'btn-gray' }] });
         if (!c) { clearVs(); return home(); }
@@ -2455,7 +2499,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, msgWait, updBars, scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
