@@ -30,6 +30,8 @@
   const artZako = e => art(g2(A, 'zako', e), e);
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
+  // 教科のアイコン（画像がなければ 絵文字）
+  const subjIc = s => `<span class="sji">${art(g2(A, 'subj', s), D.SUBJ_EMO[s])}</span>`;
   const ic = (k, e) => `<span class="ic">${artUi(k, e)}</span>`; // UIのアイコン（画像がなければ絵文字）
   const mi = (k, e) => `<span class="mi">${art(g2(A, 'menu', k), e)}</span>`; // メニューのアイコン
   const mb = (k, e, title, sub) => `${mi(k, e)}<span class="mt">${title}${sub !== undefined ? `<small>${sub}</small>` : ''}</span>`;
@@ -261,7 +263,7 @@
       const opts = shuffle(q.a.map((t, i) => ({ t, ok: i === 0 })));
       const lock = Math.min(3000, Math.max(1000, 600 + q.t.length * 30));
       const html = `<div class="qbox">
-        <div class="qh row" style="justify-content:space-between"><span>${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年 ${head}</span>${gauge ? '<span class="qgw">問題ゲージ <span class="gauge qg"><i></i></span> <b class="qgt"></b></span>' : ''}</div>
+        <div class="qh row" style="justify-content:space-between"><span>${subjIc(q.s)} ${q.s}・${q.g}年 ${head}</span>${gauge ? '<span class="qgw">問題ゲージ <span class="gauge qg"><i></i></span> <b class="qgt"></b></span>' : ''}</div>
         <div class="qt">${esc(q.t)}</div>
         <div class="lockrow"><span>⏳ よく読もう</span><div class="lockbar"><i></i></div></div>
         <div class="opts">${opts.map((p, i) => `<button data-i="${i}" disabled>${esc(p.t)}</button>`).join('')}</div>
@@ -739,7 +741,7 @@
         <div style="text-align:center" class="mid">${esc(S.cname)} <span class="sm dim">（${S.type}タイプ）</span></div>
         <div style="text-align:center" class="sm">🍽️ ${seikakuName(S.seikaku)}</div>
         <div class="panel stats">
-          ${SUBJ.map(s => `<div>${D.SUBJ_EMO[s]} ${s} <b>${S.st[s]}</b></div>`).join('')}
+          ${SUBJ.map(s => `<div>${subjIc(s)} ${s} <b>${S.st[s]}</b></div>`).join('')}
           <div>🍀 運 <b>${luck}</b></div>
           <div class="dim" style="grid-column:span 3">ごうけい ${t}　HP ${R0(t * K.HPK)}　スキル ${sk.length}/8</div>
         </div>
@@ -982,7 +984,7 @@
     msg(`${rare ? `✨ レア！ <span class="gold">${esc(fname)}</span>` : esc(fname)}があらわれた！<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
     if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
     const subj = await new Promise(res => {
-      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}<small>${S.st[s]}</small></button>`).join('');
+      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}">${subjIc(s)} ${s}<small>${S.st[s]}</small></button>`).join('');
       $('#subj').querySelectorAll('button').forEach(b => (b.onclick = () => res(b.dataset.s)));
       homeBtn(true);
     });
@@ -1492,7 +1494,7 @@
         <div class="row" style="justify-content:center">${SUBJ.map(s => {
           let v = baseAtk(P, s) * recvMult(B, s); if (P.weakSubj === s) v *= P.weakMul;
           const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : recvMult(B, s) < 1 ? '<span class="dim">効きづらい</span>' : '';
-          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center">${D.SUBJ_EMO[s]} ${s}<span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
+          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center">${subjIc(s)} ${s}<span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
     });
@@ -1796,7 +1798,7 @@
     render(`<div class="scr center" style="gap:14px">
       <div class="big gold">${beat ? '🏆 ダンジョン クリア！' : '🌙 ダンジョン おわり'}</div>
       <div class="panel" style="width:900px">
-        <div class="row" style="justify-content:space-around;font-size:24px">${SUBJ.map(s => { const d = S.st[s] - R.startSt[s]; return `<div style="text-align:center">${D.SUBJ_EMO[s]} ${s}<br><b>${S.st[s]}</b><br><span class="${d ? 'green' : 'dim'}">+${d}</span></div>`; }).join('')}</div>
+        <div class="row" style="justify-content:space-around;font-size:24px">${SUBJ.map(s => { const d = S.st[s] - R.startSt[s]; return `<div style="text-align:center">${subjIc(s)} ${s}<br><b>${S.st[s]}</b><br><span class="${d ? 'green' : 'dim'}">+${d}</span></div>`; }).join('')}</div>
         <div class="mid" style="text-align:center;margin-top:12px">ごうけい ${t0} → <b class="gold">${t1}</b>　　🪙 +${R.coins}（もっている ${S.coins}）</div>
         ${beat ? `<div class="sm" style="text-align:center;margin-top:6px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : '✨ ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}</div>` : ''}
       </div></div>`, 'res', 'result');
@@ -1944,7 +1946,7 @@
         const line = st.kind === 'cont' ? `<span class="sm gold">▶ つづきから ${t.floor + 1}階</span><span class="xs">${hearts(t.hearts, K.TOWER_HEARTS)}</span>`
           : st.kind === 'new' ? `<span class="sm">🎫 入場できる</span><span class="xs">1階から</span>` : `<span class="sm dim">きょうは 入場ずみ</span><span class="xs dim">また あした</span>`;
         return `<button data-s="${s}" ${st.kind === 'used' ? 'disabled' : ''} style="width:220px;height:170px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
-          <span class="mid">${D.SUBJ_EMO[s]} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階<br>頂上 ${top}階</span></button>`;
+          <span class="mid">${subjIc(s)} ${s}</span>${line}<span class="xs dim">さいこう ${S.towerBest[s] || 0}階<br>頂上 ${top}階</span></button>`;
       }).join('')}</div>
       <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun', 'tower');
     $('#bk', el).onclick = () => home();
@@ -1959,7 +1961,7 @@
     }
     const tw = S.tower[subj], top = tw.order.length;
     const el = render(`
-      <div class="prog"><span class="mid">🗼 ${D.SUBJ_EMO[subj]} ${subj}の塔</span><span class="mid" style="margin-left:24px" id="hearts"></span>
+      <div class="prog"><span class="mid">🗼 ${subjIc(subj)} ${subj}の塔</span><span class="mid" style="margin-left:24px" id="hearts"></span>
         <span class="coin"><span class="gold" id="tcoin"></span>　⏱️ <b class="gold" id="timer"></b></span></div>
       <div class="field" style="flex-direction:column;justify-content:flex-start;padding-top:20px;gap:4px">
         <div style="font-size:120px;line-height:1">🗼</div><div class="big" id="floor"></div><div class="sm dim" id="best"></div>
@@ -2029,7 +2031,7 @@
     const el = render(`
       <div class="prog"><span class="mid">📋 問題リスト</span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
       <div style="position:absolute;top:70px;left:24px;right:24px" class="col">
-        <div class="row">${SUBJ.map(s => `<button data-s="${s}" class="${s === subj ? 'btn-main' : ''}" style="font-size:20px;padding:8px 16px;border-color:${D.SUBJ_COLOR[s]}">${D.SUBJ_EMO[s]} ${s}</button>`).join('')}
+        <div class="row">${SUBJ.map(s => `<button data-s="${s}" class="${s === subj ? 'btn-main' : ''}" style="font-size:20px;padding:8px 16px;border-color:${D.SUBJ_COLOR[s]}">${subjIc(s)} ${s}</button>`).join('')}
           <span style="width:24px"></span>${[4, 5, 6].map(g => `<button data-g="${g}" class="${g === grade ? 'btn-blue' : ''}" style="font-size:20px;padding:8px 16px">${g}年</button>`).join('')}</div>
         <div class="sm dim">${subj}：${[2, 3, 4].map(k => `${QST[k][0]}${QST[k][1]} ${cnt(k)}`).join('　')}　⬜まだ ${cnt(0)}</div>
         <div class="panel" id="ql" style="height:520px;overflow-y:auto;padding:8px">
@@ -2040,7 +2042,7 @@
     el.querySelectorAll('[data-g]').forEach(b => (b.onclick = () => questionList(subj, +b.dataset.g)));
     el.querySelectorAll('.qrow').forEach(r => (r.onclick = () => {
       const q = Q[r.dataset.id], v = S.qs[q.id] || 0;
-      const o = overlay(`<div class="qbox qdetail"><div class="qh"><span>${D.SUBJ_EMO[q.s]} ${q.s}・${q.g}年</span>　No.${q.id}　${QST[v][0]} ${QST[v][1]}</div>
+      const o = overlay(`<div class="qbox qdetail"><div class="qh"><span>${subjIc(q.s)} ${q.s}・${q.g}年</span>　No.${q.id}　${QST[v][0]} ${QST[v][1]}</div>
         <div class="qt">${esc(q.t)}</div>
         <div class="opts">${q.a.map((t, i) => `<button disabled class="${i === 0 ? 'ok' : ''}" style="opacity:1">${i === 0 ? '⭕ ' : ''}${esc(t)}</button>`).join('')}</div>
         <div class="expl">${esc(q.x)}</div><div style="text-align:right;margin-top:10px"><button class="btn-blue">とじる</button></div></div>`);

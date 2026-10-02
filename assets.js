@@ -3,6 +3,9 @@
 // 画像が見つからないときも、自動で絵文字にもどる。
 // 例： bg: { home: 'images/bg/home.png' }
 window.ASSETS = {
+  // 教科のアイコン（正方形に近いドット絵・透過PNG）
+  subj: { 国語: '', 算数: '', 理科: '', 社会: '', 英語: '' },
+
   // 背景（1280×720）
   bg: { title: '', name: '', home: '', dungeon: '', battle: '', result: '' },
 
