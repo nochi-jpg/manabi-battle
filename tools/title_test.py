@@ -41,7 +41,7 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.hidden=['👑大会の覇者','👑グランドモンスター']; MB.S.sel.title='👑グランドモンスター'")
     bA = pg.evaluate("MB.qrBytes()")
     bB = pg.evaluate(f"(()=>{{const S=MB.S,p=S.pname,c=S.cname,t=S.sel.title;S.pname='けんた';S.cname='ガオ';S.sel.title={json.dumps(longest)};const b=MB.qrBytes();S.pname=p;S.cname=c;S.sel.title=t;return b}})()")
-    pg.click('#vs'); W(300); pg.evaluate(f"MB.scan({bA})"); W(200); pg.evaluate(f"MB.scan({bB})"); W(300); pg.click('.ov .choices button'); W(200)
+    pg.click('#vs'); W(300); pg.evaluate(f"MB.scan({bB})"); W(300); pg.click('.ov .choices button'); W(200)
     for _ in range(400):
         if pg.query_selector('.fighter .ttlb'): break
         if pg.query_selector('#ok') and not pg.query_selector('#app > .ov'): pg.click('#ok'); W(60); continue

@@ -154,12 +154,12 @@ with sync_playwright() as p:
     pg.click('.qrow >> nth=5'); W(120); audit('問題リスト：英語の問題', True); pg.evaluate(close)
     go('home()'); pg.evaluate(close); pg.click('#b4'); W(300); audit('QR', True)
     go('home()'); pg.evaluate(close); pg.click('#b5'); W(200); audit('アチーブメント', True)
-    go('home()'); pg.evaluate(close); pg.click('#vs'); W(300); audit('対戦：QRを読む', True); pg.evaluate(close)
+    go('home()'); pg.evaluate(close); pg.click('#vs'); W(300); audit('対戦：QRを読む', True); pg.click('#cn'); W(200)
     # 対戦（QRは テスト用の入口から。Bは 名前をかえた自分のQR）
     bA = pg.evaluate("MB.qrBytes()")
     bB = pg.evaluate("(()=>{const S=MB.S,p=S.pname,c=S.cname,t=S.type;S.pname='けんた';S.cname='ガオ';const b=MB.qrBytes();S.pname=p;S.cname=c;return b})()")
     go('home()'); pg.evaluate(close); pg.click('#vs'); W(300)
-    pg.evaluate(f"MB.scan({bA})"); W(200); pg.evaluate(f"MB.scan({bB})"); W(300); audit('対戦：かくにん', True)
+    pg.evaluate(f"MB.scan({bB})"); W(300); audit('対戦：かくにん', True)
     pg.click('.ov .choices button'); W(200)
     for _ in range(8000):
         if pg.evaluate("MB.VS && MB.VS.phase === 'end' && !!document.querySelector('#app > .ov .choices')"): break

@@ -526,7 +526,7 @@
     }
     if (parts.includes('home')) {
       P.push(['ホームの ボタン ①', row(btnPic('dun'), '問題に 正解して そだてる。<br>さいごは ボス戦！')
-        + row(btnPic('vs'), 'QRコードを 見せあって<br>ともだちと 1台で 対戦！')]);
+        + row(btnPic('vs'), 'あいての QRコードを 読みこんで<br>ともだちと 1台で 対戦！')]);
       P.push(['ホームの ボタン ②', row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業')
         + row(btnPic('tow'), '1問＝1階。<br>どこまで のぼれるかな？')
         + row(btnPic('tri'), 'たおした ボスと<br>れんしゅう試合')
@@ -2524,7 +2524,7 @@
       const c = await dialog({ who: '🆚', text: 'とちゅうの対戦があるよ。どうする？', choices: [{ label: '▶ 続きから', val: 1, cls: 'btn-main' }, { label: '新しく はじめる', val: 0, cls: 'btn-gray' }] });
       if (!c) { clearVs(); V = null; }
     }
-    VSV = V || { phase: 'scanA', prof: {}, picks: { a: [], b: [] }, last: null };
+    VSV = V || { phase: 'scanB', prof: {}, picks: { a: [], b: [] }, last: null };
     saveVs();
     await vsRun();
   }
@@ -2532,17 +2532,18 @@
     for (;;) {
       const V = VSV;
       if (V.phase === 'scanA' || V.phase === 'scanB') {
-        const w = V.phase === 'scanA' ? 'a' : 'b';
+        // プレイヤーA＝この端末で あそんでいる人（自分のデータを そのまま使う）。読みこむのは あいて（プレイヤーB）のQRだけ
+        V.prof.a = window.SAVECODE.decode(qrBytes());
         render('<div class="scr center"><div style="font-size:120px">🆚</div></div>', 'btl');
-        const pr = await scanQR(`🆚 プレイヤー${AB[w]}の QRコードを 読みこんでね`, '「QR」ボタンで 出したQRコードを、カメラに見せてね', { myQr: true });
+        const pr = await scanQR(`🆚 あいての QRコードを 読みこんでね`, 'あいての人が「QR」ボタンで 出したQRコードを、カメラに見せてね', { myQr: true });
         if (!pr) { clearVs(); return home(); }
-        V.prof[w] = pr; V.phase = w === 'a' ? 'scanB' : 'confirm'; saveVs(); continue;
+        V.prof.b = pr; V.phase = 'confirm'; saveVs(); continue;
       }
       if (V.phase === 'confirm') {
         const { a, b } = V.prof;
-        const line = (k, p) => `プレイヤー${k}：${esc(p.pname)}（${esc(p.cname)}）ステータス合計 ${total(p.st)}`;
-        const c = await dialog({ who: '🆚', text: `${line('A', a)}\n${line('B', b)}${a.pname === b.pname && a.cname === b.cname ? '\n<span class="red">⚠️ 同じQRを2回 読みこんだかも？</span>' : ''}`, choices: [{ label: 'はじめる！', val: 1, cls: 'btn-main' }, { label: 'QRを読みなおす', val: 0, cls: 'btn-gray' }] });
-        V.phase = c ? 'pickA' : 'scanA'; saveVs(); continue;
+        const line = (k, p, who) => `プレイヤー${k}（${who}）：${esc(p.pname)}（${esc(p.cname)}）ステータス合計 ${total(p.st)}`;
+        const c = await dialog({ who: '🆚', text: `${line('A', a, 'この端末')}\n${line('B', b, 'あいて')}${a.pname === b.pname && a.cname === b.cname ? '\n<span class="red">⚠️ 自分のQRを 読みこんだかも？</span>' : ''}`, choices: [{ label: 'はじめる！', val: 1, cls: 'btn-main' }, { label: 'QRを読みなおす', val: 0, cls: 'btn-gray' }] });
+        V.phase = c ? 'pickA' : 'scanB'; saveVs(); continue;
       }
       if (V.phase === 'pickA' || V.phase === 'pickB') {
         const w = V.phase === 'pickA' ? 'a' : 'b', pr = V.prof[w];

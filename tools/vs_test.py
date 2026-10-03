@@ -36,19 +36,17 @@ with sync_playwright() as p:
     bad = A.evaluate("(() => { const b = MB.qrBytes(); b[10] ^= 1; try { SAVECODE.decode(b); return 'よめた'; } catch (e) { return e.message; } })()")
     check('書きかえ' in bad, f'書きかえたQRは読めない（{bad}）')
 
-    # QR画面の画像 → 画像ファイルから読みこみ
-    A.click('#b4'); A.wait_for_timeout(200)
-    data = A.evaluate("document.querySelector('#qrc').toDataURL('image/png')")
+    # Bの QR画面の画像 → Aの端末で 画像ファイルから読みこみ（Aは この端末の人なので 読みこまない）
+    B.click('#b4'); B.wait_for_timeout(200)
+    data = B.evaluate("document.querySelector('#qrc').toDataURL('image/png')")
     import base64; TMP.write_bytes(base64.b64decode(data.split(',')[1]))
-    A.click('#bk'); A.wait_for_timeout(100)
-    bytesB = B.evaluate("MB.qrBytes()")
+    B.click('#bk'); B.wait_for_timeout(100)
 
-    # 対戦：A は画像ファイル、B はテスト用の入口で読みこむ
     A.click('#vs'); A.wait_for_timeout(200)
+    check(A.evaluate("MB.VS && MB.VS.phase") == 'scanB' and A.evaluate("MB.VS.prof.a.pname") == 'あおい', 'プレイヤーAは この端末の人（QRを読まない）')
     A.set_input_files('#fi', str(TMP)); A.wait_for_timeout(500)
-    check(A.evaluate("MB.VS && MB.VS.phase") == 'scanB', '画像ファイルからQRを読めた')
-    A.evaluate(f"MB.scan({bytesB})"); A.wait_for_timeout(200)
-    check('けんた' in A.inner_text('.ov'), 'Bも読めた（確認画面）')
+    txt = A.inner_text('.ov')
+    check('けんた' in txt and 'あおい' in txt, 'あいて（B）のQRを 画像ファイルから読めた（確認画面）')
     A.click('.ov .choices button')
     reloads = 0
     def play(until, n=6000, reload=0.0):
