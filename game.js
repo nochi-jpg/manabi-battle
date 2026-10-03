@@ -525,9 +525,10 @@
     }
     if (parts.includes('home')) {
       P.push(['ホームの ボタン ①', row(btnPic('dun'), '問題に 正解して そだてる。<br>さいごは ボス戦！')
-        + row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業')
-        + row(btnPic('tow'), '1問＝1階。<br>どこまで のぼれるかな？')]);
-      P.push(['ホームの ボタン ②', row(btnPic('tri'), 'たおした ボスと<br>れんしゅう試合') + row(btnPic('vs'), 'QRコードで<br>ともだちと 1台で 対戦')
+        + row(btnPic('vs'), 'QRコードを 見せあって<br>ともだちと 1台で 対戦！')]);
+      P.push(['ホームの ボタン ②', row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業')
+        + row(btnPic('tow'), '1問＝1階。<br>どこまで のぼれるかな？')
+        + row(btnPic('tri'), 'たおした ボスと<br>れんしゅう試合')
         + row(btnPic('grow'), '進化や スキルまでの<br>のこりが わかる')]);
       P.push(['ホームの ボタン ③', row(btnPic('b1'), 'コインで アイテムを ひく') + row(btnPic('b2'), 'あつめた アイテムを 見る')
         + row(btnPic('b3'), 'といた問題を 見なおす') + row(btnPic('b4'), 'データの 引きつぎ・対戦') + row(btnPic('b5'), 'ごほうびの 称号や 背景')]);
@@ -963,7 +964,7 @@
         <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', S.run ? `つづきから（${S.run.i + 1} / ${S.run.plan.length}）` : `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
         <button class="wide" id="vs">${mb('vs', '🆚', '対戦モード', '友だちと 2人で1台！ QRで しょうぶ')}</button>
         <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
-        <button id="tow">${mb('tow', '🗼', '無限の塔', `きょうの のこり ${fmtTime(towerLeft)}`)}</button>
+        <button id="tow">${mb('tow', '🗼', '無限の塔', `のこり ${fmtTime(towerLeft)}`)}</button>
         <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
         <button id="grow">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナス ${S.bonusPt}pt<br>ふれるよ！</span>` : growLine(t))}</button>
       </div>
@@ -1075,7 +1076,7 @@
   const nextSkill = t => D.SKILLS.filter(k => K.SKILL_LINE[k.n] && t < K.SKILL_LINE[k.n]).sort((a, b) => K.SKILL_LINE[a.n] - K.SKILL_LINE[b.n])[0] || null;
   function growLine(t) {
     const e = nextEvo(t), k = nextSkill(t);
-    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `次のスキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
+    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `スキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
   }
   function growthPanel() {
     const t = total(S.st), stg = lookStage(t), e = nextEvo(t), sk = skillsOf(t);
@@ -2389,11 +2390,11 @@
       const mq = $('#mq', o);
       if (mq) mq.onclick = () => { // 相手に 自分のQRを 見せる（そのあいだ 読みこみは 止める）
         pause = true;
-        const q = overlay(`<div class="panel center" style="gap:10px">
-          <div class="mid">🔳 ${esc(S.pname)} の QRコード</div>
-          <canvas id="qrm" style="background:#fff;border-radius:8px;width:500px;height:500px;image-rendering:pixelated"></canvas>
+        const q = overlay(`<div class="panel center" style="gap:8px;width:640px;padding:22px 30px 26px">
+          <div class="mid">${esc(S.pname)}さんの QRコード</div>
+          <canvas id="qrm" style="background:#fff;border-radius:8px;width:440px;height:440px;image-rendering:pixelated"></canvas>
           <div class="sm">相手のカメラに 見せてね</div>
-          <button class="btn-blue" id="qx">とじる（読みこみに もどる）</button></div>`);
+          <button class="btn-blue" id="qx" style="font-size:22px">読みこみに もどる</button></div>`);
         drawQR($('#qrm', q), qrBytes());
         $('#qx', q).onclick = () => { q.remove(); pause = false; };
       };
@@ -2755,7 +2756,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
