@@ -30,12 +30,15 @@ with sync_playwright() as p:
     pg.click('#aG'); pg.wait_for_timeout(100)
     pg.evaluate(f"MB.scan({friend})"); pg.wait_for_timeout(100)
     t = pg.inner_text('.ov')
-    check('けんた' in t and '算数 100%' in t and '国語 95%' in t and '理科 55%' in t and '社会 50%' in t, f'正解率の めやす（卒業100・あと1回95・復習待ち55・まだ50）')
+    check('けんた' in t and 'せいかく' in t and '算数 400' in t and '%' not in t and 'そうび' not in t, '読みこみの かくにん：せいかく と ステータスだけ（正解率・そうびは 出さない）')
     pg.click('.ov .choices button'); pg.wait_for_timeout(100)
     pg.click('#ok'); pg.wait_for_timeout(100)
     if pg.locator('#vgo').count(): pg.click('#vgo')
     check(pg.evaluate("MB.BT && MB.BT.ghost && MB.BT.qn") == 5, 'ゴースト戦：1ターン5問')
     check(sorted(pg.evaluate("[...MB.BT.B.items]")) == sorted(['どくキバ', 'ねらいのメガネ']), 'ゴーストの そうび＝おきにいり')
+    accm = pg.evaluate("MB.BT.B.acc"); exp = {'国語': 0.95, '算数': 1, '理科': 0.55, '社会': 0.5, '英語': 0.5}
+    check(all(abs(accm[k] - v) < 1e-6 for k, v in exp.items()), f'正解率（卒業100・あと1回95・復習待ち55・まだ50）{accm}')
+    check(pg.evaluate("MB.BT.B.skills.join()") == pg.evaluate("MB.D.SKILLS.filter(k=>!MB.D.K.SKILL_LINE[k.n]||1000>=MB.D.K.SKILL_LINE[k.n]).map(k=>k.n).join()"), 'スキルは QRの ステータス合計（1000）で おぼえていた ものだけ')
     check(pg.evaluate("MB.BT.B.name") == 'ガオ' and not pg.evaluate("MB.BT.B.isBoss"), 'あいては 友だちの モンスター')
     subj = set(); ok = []
     end = "!!document.querySelector('.ov .choices') && document.querySelector('.ov').innerText.includes('QRゴーストなので')"

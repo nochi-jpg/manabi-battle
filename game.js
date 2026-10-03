@@ -2536,7 +2536,8 @@
     $('#bk', el).onclick = () => home();
   }
   let GH = null; // { pr, items, acc, mine, picked }
-  // ゴーストの 正解率（教科ごと）：解いた問題の すすみぐあい。卒業=100%・あと1回=95%・復習待ち=55%。まだ解いていない教科は 50%
+  // ゴーストの スキルは QRの ステータス合計で きまる（vsCfg の skillsOf）＝QRを出したときに おぼえていたスキルだけ
+  // ゴーストの 正解率（教科ごと。画面には出さない）：解いた問題の すすみぐあい。卒業=100%・あと1回=95%・復習待ち=55%。まだ解いていない教科は 50%
   function ghostAcc(pr) {
     const W = { 4: 1, 3: 0.95, 2: 0.55 }, acc = {};
     SUBJ.forEach(s => {
@@ -2558,9 +2559,10 @@
         const pr = await scanQR('👻 友だちの QRコードを 読みこんでね', '友だちが「QR」ボタンで 出したQRコードを、カメラに見せてね');
         if (!pr) return arena();
         const acc = ghostAcc(pr), items = ghostItems(pr), me = pr.pname === S.pname && pr.cname === S.cname;
-        const c = await dialog({ who: '👻', text: `${esc(pr.pname)}さんの ${esc(pr.cname)}（${typeOf(pr.st, pr.type)}タイプ・ステータス合計 ${total(pr.st)}）の ゴーストと 戦う？
-<span class="sm">正解率の めやす：${SUBJ.map(s => `${s} ${R0(acc[s] * 100)}%`).join('　')}</span>
-<span class="sm">そうび：${items.length ? items.map(n => artItem(n) + esc(n)).join('、') : 'なし'}</span>${me ? '\n<span class="red">⚠️ 自分のQRを 読みこんだかも？</span>' : ''}`,
+        // 正解率・そうびは 見せない（人間関係に えいきょうしないように）。モンスターの せいかく と ステータスだけ
+        const c = await dialog({ who: '👻', text: `${esc(pr.pname)}さんの ${esc(pr.cname)}（${typeOf(pr.st, pr.type)}タイプ）の ゴーストと 戦う？
+<span class="sm">せいかく：${seikakuName(pr.seikaku)}</span>
+<span class="sm">ステータス：${SUBJ.map(s => `${s} ${pr.st[s]}`).join('　')}　ごうけい ${total(pr.st)}</span>${me ? '\n<span class="red">⚠️ 自分のQRを 読みこんだかも？</span>' : ''}`,
           choices: [{ label: 'たたかう！', val: 1, cls: 'btn-main' }, { label: 'QRを読みなおす', val: 0, cls: 'btn-gray' }] });
         if (!c) continue;
         GH = { pr, items, acc, mine: S.owned.filter(n => S.fav.includes(n)).slice(0, 4), picked: false };
