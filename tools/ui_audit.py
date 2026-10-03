@@ -134,6 +134,14 @@ with sync_playwright() as p:
     pg.click('#ok'); W(200)
     bot("!!document.querySelector('#app > .ov .choices') && /ほうびはない/.test(document.querySelector('#app > .ov').innerText)", acc=0.8)
     audit('おためし：結果', True); pg.evaluate("(()=>{const b=[...document.querySelectorAll('.ov .choices button')].pop(); if(b) b.click()})()"); W(200); pg.evaluate(close)
+    # とうぎじょう・QRゴースト
+    go('arena()'); audit('とうぎじょう', True)
+    pg.click('#aG'); W(300); audit('QRゴースト：QRを読む', True)
+    pg.evaluate("MB.scan(MB.qrBytes())"); W(300); audit('QRゴースト：かくにん', True)
+    pg.click('.ov .choices button'); W(200); pg.click('#ok'); W(300)
+    if pg.query_selector('#vgo'): audit('QRゴースト：しょうかい', True); pg.click('#vgo'); W(200)
+    bot("!!document.querySelector('#app > .ov .choices') && /ほうびはない/.test(document.querySelector('#app > .ov').innerText)", acc=0.8)
+    audit('QRゴースト：結果', True); pg.evaluate("(()=>{const b=[...document.querySelectorAll('.ov .choices button')].pop(); if(b) b.click()})()"); W(200); pg.evaluate(close)
     # ガチャ
     go('home()'); pg.evaluate(close); pg.click('#b1'); W(200); audit('ガチャ', True)
     btns = pg.locator('button');

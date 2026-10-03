@@ -22,11 +22,11 @@ with sync_playwright() as p:
     before = pg.evaluate("JSON.stringify({c:MB.S.coins,st:MB.S.st,qs:MB.S.qs,o:MB.S.owned,d:MB.S.dungeons,s:MB.S.stamina})")
 
     # まだボスを倒していない → 入れない
-    pg.click('#tri'); pg.wait_for_timeout(100)
-    check('まだ ボスを倒していない' in pg.inner_text('.ov'), 'ボスを倒していないと 入れない'); pg.click('.ov button'); pg.wait_for_timeout(50)
+    pg.click('#tri'); pg.wait_for_timeout(100); pg.click('#aT'); pg.wait_for_timeout(100)
+    check('まだ ボスを倒していない' in pg.inner_text('.ov'), 'ボスを倒していないと 入れない'); pg.click('.ov button'); pg.wait_for_timeout(50); pg.click('#bk'); pg.wait_for_timeout(50)
     # 算数★3・国語★1 だけ倒したことにする
     pg.evaluate("MB.S.bossStg = { 算数: 7, 国語: 1 }")
-    pg.click('#tri'); pg.wait_for_timeout(100)
+    pg.click('#tri'); pg.wait_for_timeout(100); pg.click('#aT'); pg.wait_for_timeout(100)
     pg.click('#sg button[data-g="1"]'); pg.wait_for_timeout(50)
     check(pg.evaluate("[...document.querySelectorAll('#bs button[data-b]')].map(b=>b.dataset.b).join()") == '算数', '★2：★3を倒した算数は えらべる・★1だけの国語は えらべない')
     pg.click('#sg button[data-g="0"]'); pg.wait_for_timeout(50)
@@ -72,6 +72,8 @@ with sync_playwright() as p:
     pg.click('#bk'); pg.wait_for_timeout(100)
     check(pg.locator('#bs').count() == 1, 'もどるで ボスえらびへ')
     pg.click('#bk'); pg.wait_for_timeout(100)
+    check(pg.locator('#aT').count() == 1, 'もどるで とうぎじょうへ')
+    pg.click('#bk'); pg.wait_for_timeout(100)
     check(pg.locator('#tri').count() == 1, 'ホームへもどる')
     after = pg.evaluate("JSON.stringify({c:MB.S.coins,st:MB.S.st,qs:MB.S.qs,o:MB.S.owned,d:MB.S.dungeons,s:MB.S.stamina})")
     check(before == after, 'コイン・ステータス・問題の記録・アイテム・スタミナが変わらない（ほうびなし・記録なし）')
@@ -89,7 +91,7 @@ with sync_playwright() as p:
     check(len(json.loads(w)) == 1 and list(json.loads(w).values())[0] == 1, f'ダンジョンでボスを倒すと記録（{w}）')
     # デバッグ：ボス討伐 全開放
     pg.evaluate("MB.S.bossStg = {}; MB.S.debug = { on: true, boss: true, bak: {} }")
-    pg.click('#tri'); pg.wait_for_timeout(100)
+    pg.click('#tri'); pg.wait_for_timeout(100); pg.click('#aT'); pg.wait_for_timeout(100)
     pg.click('#sg button[data-g="1"]'); pg.wait_for_timeout(50)
     check(pg.locator('#bs button[data-b]').count() == 6, 'デバッグ：ボス討伐 全開放で 6体×3段階 えらべる')
     pg.click('#bk'); pg.wait_for_timeout(50)

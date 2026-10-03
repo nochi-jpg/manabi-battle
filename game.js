@@ -234,7 +234,7 @@
     app.innerHTML = `<div class="scr ${cls || ''} fadein">${html}</div>`;
     // 画面の BGM：タイトル／メニュー（ホーム・もちもの・アチーブ・塔の入口など。曲は とぎれない）／ダンジョン・塔／ボス戦・おためし／対戦／リザルト
     bgm(cls === 'title' || cls === 'name' ? 'title' : cls === 'dun' ? (sk === 'tower' ? 'menu' : 'dungeon')
-      : cls === 'btl' ? (BT && BT.vs ? 'vs' : 'boss') : sk === 'result' ? 'result' : 'menu');
+      : cls === 'btl' ? (BT && (BT.vs || BT.ghost) ? 'vs' : 'boss') : sk === 'result' ? 'result' : 'menu');
     const el = app.firstElementChild;
     // 画像の背景は 少し暗くして 文字を読みやすくする
     const shade = d => `linear-gradient(rgba(8,10,24,${d}),rgba(8,10,24,${d + 0.15}))`;
@@ -248,7 +248,7 @@
     if (cls === 'dun' && R && R.boss) bg = g2(A, 'dunBoss', R.boss);
     // ボス戦・おためしバトルは ボスの属性の ダンジョンと同じ背景。対戦は ダンジョンの背景から ランダム（対戦ごとに決めて しまっておく）
     if (cls === 'btl' && BT && BT.B && BT.B.isBoss) bg = g2(A, 'dunBoss', BT.B.type) || g2(A, 'scrBg', 'arena');
-    if (cls === 'btl' && BT && BT.vs) bg = g2(A, 'dunBoss', BT.bgVs) || g2(A, 'scrBg', 'arena');
+    if (cls === 'btl' && BT && (BT.vs || BT.ghost)) bg = g2(A, 'dunBoss', BT.bgVs) || g2(A, 'scrBg', 'arena');
     bg = bg || g2(A, 'bg', BG[cls]);
     if (bg) el.style.background = `${shade(cls === 'btl' || cls === 'dun' ? 0.2 : 0.35)}, url("${bg}") center/cover`;
     return el;
@@ -529,7 +529,7 @@
         + row(btnPic('vs'), 'あいての QRコードを 読みこんで<br>ともだちと 1台で 対戦！')]);
       P.push(['ホームの ボタン ②', row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業')
         + row(btnPic('tow'), '1問＝1階。<br>どこまで のぼれるかな？')
-        + row(btnPic('tri'), 'たおした ボスと<br>れんしゅう試合')
+        + row(btnPic('tri'), 'ボスと れんしゅう試合・<br>友だちの QRゴーストと 対戦')
         + row(btnPic('grow'), '進化や スキルまでの<br>のこりが わかる')]);
       P.push(['ホームの ボタン ③', row(btnPic('b1'), 'コインで アイテムを ひく') + row(btnPic('b2'), 'あつめた アイテムを 見る')
         + row(btnPic('b3'), 'といた問題を 見なおす') + row(btnPic('b4'), 'データの 引きつぎ・対戦') + row(btnPic('b5'), 'ごほうびの 称号や 背景')]);
@@ -537,7 +537,7 @@
     if (parts.includes('item')) {
       P.push(['アイテム', row(art(g2(A, 'ui', 'treasure'), '🎁'), 'ダンジョンで ひろった アイテムは、<br>その回の 道中と ボス戦で 効きます')
         + row(btnPic('b2') || art(g2(A, 'emo', '🎒'), '🎒'), 'ダンジョンからは 1回に 1個だけ<br>アイテムを もちかえれるよ')
-        + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは<br>対戦モードで つかうことが できるよ<br>（おためしバトルでも つかえます）')]);
+        + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは<br>対戦モードで つかうことが できるよ<br>（とうぎじょうでも つかえます）')]);
     }
     if (parts.includes('grow')) {
       P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">ステータスの ごうけいが ふえると<br><b>4だんかい</b>に 進化します</div>
@@ -724,7 +724,7 @@
   const dbgOn = () => !!(S && S.debug && S.debug.on);
   const dbg = k => dbgOn() && !!S.debug[k];
   const towerLimit = () => (dbg('tower') ? 999 * 60 * 1000 : K.TOWER_MS);
-  const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分'], ['boss', '👑 ボス討伐 全開放（おためしバトル）'], ['titles', '🏷️ 称号 全開放'], ['ach', '🏆 アチーブメント 全開放'], ['bgs', '🖼️ 背景 全開放']];
+  const DBG_ITEMS = [['st', '📊 ステータス 9999'], ['stamina', '⚡ スタミナ 無限（9999）'], ['coins', '🪙 コイン 無限（9999）'], ['items', '🎒 アイテム 全開放'], ['allq', '📋 問題 全開放（学年の順番なし）'], ['tower', '🗼 無限の塔 999分'], ['boss', '👑 ボス討伐 全開放（とうぎじょう）'], ['titles', '🏷️ 称号 全開放'], ['ach', '🏆 アチーブメント 全開放'], ['bgs', '🖼️ 背景 全開放']];
   const HID_KEYS = D.HIDDEN_TITLES.map((t, i) => ['hid' + i, t]);
   // スイッチの状態をセーブに反映（オフにしたら もとの値にもどす）
   function applyDebug() {
@@ -966,7 +966,7 @@
         <button class="wide" id="vs">${mb('vs', '🆚', '対戦モード', '友だちと 2人で1台！ QRで しょうぶ')}</button>
         <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
         <button id="tow">${mb('tow', '🗼', '無限の塔', `のこり ${fmtTime(towerLeft)}`)}</button>
-        <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
+        <button id="tri">${mb('tri', '🧪', 'とうぎじょう', 'ボスと練習・QRゴースト')}</button>
         <button id="grow">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナス ${S.bonusPt}pt<br>ふれるよ！</span>` : growLine(t))}</button>
       </div>
       <div class="menuB">
@@ -984,7 +984,7 @@
     $('#b2', el).onclick = () => itemBook();
     $('#b5', el).onclick = () => achList();
     $('#vs', el).onclick = () => vsMode();
-    $('#tri', el).onclick = () => trialMode();
+    $('#tri', el).onclick = () => arena();
     $('#grow', el).onclick = () => growthPanel();
     $('#b4', el).onclick = () => qrScreen();
     if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'item', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
@@ -998,7 +998,7 @@
     return dialog({ name: 'スタミナって なに？', cls: 'ovhelp', text: `<div style="text-align:left;font-size:21px;line-height:1.7">・育成ダンジョンに 入るときに <b class="gold">${K.DUNGEON_COST}</b> つかうよ
 ・毎朝5時に <b class="gold">${K.STAMINA_DAY}</b> たまるよ（1日2回 ダンジョンに 入れる）
 ・遊ばなかった日の ぶんも たまって、<b class="gold">${K.STAMINA_MAX}</b> まで ためておけるよ
-・復習ダンジョン・無限の塔・おためしバトル・対戦は スタミナを つかわないよ</div>
+・復習ダンジョン・無限の塔・とうぎじょう・対戦は スタミナを つかわないよ</div>
 いまの スタミナ：<b class="gold">${S.stamina}</b> / ${K.STAMINA_MAX}${full ? '\n<span class="red">いっぱい！ これ以上は たまらないよ。ダンジョンで つかおう！</span>' : ''}` });
   }
 
@@ -1798,8 +1798,10 @@
   async function bossAct(B, P, turn, first) {
     let act = BT.acts.B; const fresh = !act, n = BT.qn || K.BOSS_Q;
     if (fresh) {
-      const { sk, subj } = bossChoose(B, P, turn, first);
-      act = { sk, subj, ans: Array.from({ length: n }, () => Math.random() < K.BOSS_ACC) };
+      // QRゴースト：いちばん ダメージが出そうな手（正解率もかけて考える）。正解率は 友だちの 問題の すすみぐあい
+      const { sk, subj } = B.ghost ? simPlayer(B, P, turn, first, null, B.acc) : bossChoose(B, P, turn, first);
+      const acc = B.ghost ? B.acc[subj] : K.BOSS_ACC;
+      act = { sk, subj, ans: Array.from({ length: n }, () => Math.random() < acc) };
       BT.acts.B = act; save();
     }
     applyActStart(B, act, turn, first);
@@ -1915,10 +1917,10 @@
   }
   // ---- テスト用：ボス戦を 画面なしで くりかえす（難易度の調整用。MB.simBoss）----
   // ほんものの計算（resolveAttack・bossChoose など）をそのまま使う。プレイヤーは「いちばん強そうな手」をえらぶ
-  function simPlayer(P, B, turn, first, bAct) {
+  function simPlayer(P, B, turn, first, bAct, acc = null) {
     const ban = sealed(P, turn);
     let cands = SUBJ.filter(s => !ban.includes(s)); if (!cands.length) cands = SUBJ;
-    const val = s => baseAtk(P, s) * recvMult(B, s) * (P.weakSubj === s ? P.weakMul : 1);
+    const val = s => baseAtk(P, s) * recvMult(B, s) * (P.weakSubj === s ? P.weakMul : 1) * (acc ? 0.3 + 0.7 * acc[s] : 1);
     const subj = 'こんらん' in P.status ? pick(cands) : cands.reduce((x, s) => (val(s) > val(x) ? s : x));
     const avail = 'こおり' in P.status ? ['通常攻撃'] : P.skills.filter(k => !(P.ct[k] > 0));
     const est = val(subj) * (1 - cutRate(B));
@@ -2467,7 +2469,7 @@
     if (!TR) { const g0 = stageOf(total(S.st)); TR = { boss: null, stg: anyBeaten(g0) ? g0 : [2, 1, 0].find(anyBeaten), items: S.owned.filter(n => S.fav.includes(n)).slice(0, 4) }; }
     if (!anyBeaten(TR.stg)) TR.stg = [2, 1, 0].find(anyBeaten);
     for (;;) {
-      if (!TR.boss) { const b = await trialSelect(); if (!b) return home(); TR.boss = b; }
+      if (!TR.boss) { const b = await trialSelect(); if (!b) return arena(); TR.boss = b; }
       if (!TR.picked) {
         const it = await pickItems(S, TR.items.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ ボスえらび' });
         if (!it) { TR.boss = null; continue; }
@@ -2498,7 +2500,7 @@
               <span style="font-size:48px;line-height:1">${art(g2(A, 'boss', b, stg), bd.e[stg])}</span><span class="mid">${esc(bd.n[stg])}</span>
               <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => artItem(n)).join('')}</span></button>`;
           }).join('')}</div>
-          <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'dun');
+          <button class="btn-gray" id="bk">◀ とうぎじょう</button></div>`, 'dun');
         el.querySelectorAll('#sg button').forEach(b => (b.onclick = () => { TR.stg = +b.dataset.g; draw(); }));
         el.querySelectorAll('#bs button[data-b]').forEach(b => (b.onclick = () => res(b.dataset.b)));
         $('#bk', el).onclick = () => res(null);
@@ -2515,6 +2517,78 @@
     blog(`<span class="sm dim">${weakText(TR.boss)}</span>`); await msgWait(1200);
     while (BT.phase === 'turn') await playTurn();
     if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}を たおした！`, 1500); }
+    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
+    return BT.result;
+  }
+
+  // =====================================================================
+  // とうぎじょう：おためしバトル（倒したボスと練習）／QRゴースト（友だちのQRの モンスターが CPU）
+  // =====================================================================
+  function arena() {
+    const card = (id, e, t, d) => `<button id="${id}" class="arena-b">${art(g2(A, 'emo', e), e)}<b>${t}</b><small>${d}</small></button>`;
+    const el = render(`<div class="scr center" style="gap:18px">
+      <div class="big">⚔️ とうぎじょう</div>
+      <div class="sm">スタミナは つかわないよ。ほうびは ないけど、何回でも 戦えるよ（1ターン${K.VS_Q}問×3ターン）</div>
+      <div class="row" style="gap:28px">${card('aT', '🧪', 'おためしバトル', '倒したボスと れんしゅう試合')}${card('aG', '👻', 'QRゴーストと対戦', '友だちの QRを読みこんで、<br>友だちの モンスターと 戦う')}</div>
+      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, '', 'arena');
+    $('#aT', el).onclick = () => trialMode();
+    $('#aG', el).onclick = () => ghostMode();
+    $('#bk', el).onclick = () => home();
+  }
+  let GH = null; // { pr, items, acc, mine, picked }
+  // ゴーストの 正解率（教科ごと）：解いた問題の すすみぐあい。卒業=100%・あと1回=95%・復習待ち=55%。まだ解いていない教科は 50%
+  function ghostAcc(pr) {
+    const W = { 4: 1, 3: 0.95, 2: 0.55 }, acc = {};
+    SUBJ.forEach(s => {
+      const ids = Object.keys(pr.qs || {}).filter(id => Q[id] && Q[id].s === s);
+      acc[s] = ids.length ? ids.reduce((a, id) => a + (W[pr.qs[id]] !== undefined ? W[pr.qs[id]] : 0.55), 0) / ids.length : 0.5;
+    });
+    return acc;
+  }
+  // ゴーストの そうび：おきにいり（4つまで）。おきにいりが なければ もっているアイテムから ランダム
+  function ghostItems(pr) {
+    const own = (pr.owned || []).filter(n => D.ITEM[n]);
+    const fav = (pr.fav || []).filter(n => own.includes(n));
+    return shuffle(fav.length ? fav : own).slice(0, 4);
+  }
+  async function ghostMode() {
+    for (;;) {
+      if (!GH) {
+        render('<div class="scr center"><div style="font-size:120px">👻</div></div>', 'btl');
+        const pr = await scanQR('👻 友だちの QRコードを 読みこんでね', '友だちが「QR」ボタンで 出したQRコードを、カメラに見せてね');
+        if (!pr) return arena();
+        const acc = ghostAcc(pr), items = ghostItems(pr), me = pr.pname === S.pname && pr.cname === S.cname;
+        const c = await dialog({ who: '👻', text: `${esc(pr.pname)}さんの ${esc(pr.cname)}（${typeOf(pr.st, pr.type)}タイプ・ステータス合計 ${total(pr.st)}）の ゴーストと 戦う？
+<span class="sm">正解率の めやす：${SUBJ.map(s => `${s} ${R0(acc[s] * 100)}%`).join('　')}</span>
+<span class="sm">そうび：${items.length ? items.map(n => artItem(n) + esc(n)).join('、') : 'なし'}</span>${me ? '\n<span class="red">⚠️ 自分のQRを 読みこんだかも？</span>' : ''}`,
+          choices: [{ label: 'たたかう！', val: 1, cls: 'btn-main' }, { label: 'QRを読みなおす', val: 0, cls: 'btn-gray' }] });
+        if (!c) continue;
+        GH = { pr, items, acc, mine: S.owned.filter(n => S.fav.includes(n)).slice(0, 4), picked: false };
+      }
+      if (!GH.picked) {
+        const it = await pickItems(S, GH.mine.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ もどる' });
+        if (!it) { GH = null; continue; }
+        GH.mine = it; GH.picked = true;
+      }
+      const res = await ghostBattle();
+      bgm('result');
+      const c = await dialog({ who: res === 'win' ? '🏆' : '💫', text: `${res === 'win' ? '🏆 勝った！' : '😢 負けちゃった……'}\n${esc(BT.P.name)} HP ${Math.max(0, R0(BT.P.hp))}／${BT.P.maxhp}　　${esc(BT.B.name)} HP ${Math.max(0, R0(BT.B.hp))}／${BT.B.maxhp}\n<span class="sm dim">（QRゴーストなので、ほうびはないよ）</span>`,
+        choices: [{ label: '🔁 同じそうびで もう一度', val: 'again', cls: 'btn-main' }, { label: '🎒 そうびを かえる', val: 'items', cls: 'btn-blue' }, { label: '👻 ちがう友だち', val: 'other', cls: 'btn-blue' }, { label: '🏠 ホームへ', val: 'home', cls: 'btn-gray' }] });
+      BT = null;
+      if (c === 'home') { GH.picked = false; return home(); }
+      if (c === 'items') GH.picked = false;
+      if (c === 'other') GH = null;
+    }
+  }
+  async function ghostBattle() {
+    const me = vsCfg(window.SAVECODE.decode(qrBytes()), GH.mine), gh = { ...vsCfg(GH.pr, GH.items), ghost: true, acc: GH.acc, name: GH.pr.cname };
+    BT = hydrate({ trial: true, ghost: true, bgVs: pick(Object.keys(D.BOSSES)), qn: K.VS_Q, cfg: { P: me, B: gh }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
+    BT.snap = dynAll();
+    battleScreen();
+    $('#turn').textContent = '👻 QRゴースト';
+    await vsIntro(['あなた', ''], ['QRゴースト', '']);
+    while (BT.phase === 'turn') await playTurn();
+    if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}の ゴーストに 勝った！`, 1500); }
     else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
     return BT.result;
   }
@@ -2613,10 +2687,10 @@
     });
   }
   // 対戦前の しょうかい：キャラ VS キャラ ＋ その下に そうびアイテム
-  function vsIntro() {
+  function vsIntro(la = ['プレイヤーA', 'この端末'], lb = ['プレイヤーB', 'あいて']) {
     const { P, B } = BT;
     const side = (f, k, who) => `<div class="vi-side ${k}">
-      <div class="vi-who">プレイヤー${k.toUpperCase()}<small>${who}</small></div>
+      <div class="vi-who">${who[0]}<small>${who[1]}</small></div>
       <div class="vi-pn">${esc(f.pname)}</div>
       ${f.title ? `<div class="vi-ttl">${titleBadge(f.title, 'sm')}</div>` : '<div class="vi-ttl"></div>'}
       <div class="vi-art ${f.aura || ''}">${f.art}</div>
@@ -2625,7 +2699,7 @@
       <div class="vi-items">${[...f.items].map(n => `<div class="vi-it">${artItem(n)}<div><b>${esc(n)}</b><small>${esc(D.ITEM[n].d)}</small></div></div>`).join('') || '<div class="vi-none">アイテムなし</div>'}</div>
     </div>`;
     return new Promise(res => {
-      const o = overlay(`<div class="panel vi">${side(P, 'a', 'この端末')}<div class="vi-vs">VS</div>${side(B, 'b', 'あいて')}
+      const o = overlay(`<div class="panel vi">${side(P, 'a', la)}<div class="vi-vs">VS</div>${side(B, 'b', lb)}
         <button class="btn-main vi-go" id="vgo">バトル スタート！</button></div>`);
       $('#vgo', o).onclick = () => { o.remove(); res(1); };
     });
@@ -2769,7 +2843,7 @@
 
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
-  const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
+  const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
   window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
