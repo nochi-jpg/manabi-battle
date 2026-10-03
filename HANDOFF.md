@@ -10,6 +10,7 @@
 | 公開 | nochi-jpg/manabi-battle（main） | プログラム・問題・仕様。絵文字だけで動く版（**世に出さないので手間をかけない**） |
 | 非公開 | nochi-jpg/manabi-battle-assets（main） | 画像・音・`assets.local.js`・`assets.local.css`・元素材 `src/`（作りなおし：`python3 tools/make_assets.py src`） |
 - 2つを となりのフォルダに clone し、公開側に `images` `sounds` `assets.local.js` `assets.local.css` の シンボリックリンクを はる（素材側を指す）
+- **1ファイル版（10/4）**：`python3 tools/build_html.py [kbps]` → `manabi-battle.html`（画像・音・フォントを中に入れる。BGMは32kbpsモノラルで 約17MB。ffmpeg 使用）。子どもは ダウンロードして開くだけ。セーブは ZIP版と共通（Chrome・Edge の file:// は同じ保存場所）
 - **Teams配信用ZIP**：`python3 tools/build_zip.py`（2つを合体）。**ZIPは 先生に たのまれたときだけ** 作って渡す（`manabi-battle.zip` は gitignore）
 - **変更したら 2つとも コミット＆プッシュ**
 - バージョン：`data.js` の `K.VERSION`（タイトル左下）。機能追加＝まん中、小さな直し＝右を上げる
