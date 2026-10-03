@@ -21,6 +21,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#000;overscroll-behavior:none;touch-action:manipulation}
 html.mob,html.mob body{position:fixed;inset:0;height:100dvh}
 #rotHint{display:none}
+.ver{position:absolute;left:18px;bottom:12px;font-size:16px;color:#fff;opacity:.75;text-shadow:0 1px 2px #000;pointer-events:none}
 #rotHint .rphone{width:44px;height:76px;border:4px solid #fff;border-radius:8px;animation:rph 2s ease-in-out infinite}
 @keyframes rph{0%,25%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 @media (orientation:portrait) and (max-width:600px){html.mob #rotHint{display:flex;position:fixed;inset:0;z-index:9999;background:#000;color:#fff;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:var(--f);font-size:22px;text-align:center}}

@@ -465,7 +465,8 @@
       ${logoHtml(72)}
       ${S ? `<div class="mid">${esc(S.pname)} の データ</div>` : '<div class="mid">&nbsp;</div>'}
       <button class="btn-main" id="go" data-se="start">${S && S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
-      <div class="sm dim">ブラウザに 自動でセーブしています</div></div>`, 'title');
+      <div class="sm dim">ブラウザに 自動でセーブしています</div>
+      <div class="ver">ver ${esc(K.VERSION)}</div></div>`, 'title');
     $('#go', el).onclick = () => { if (!S) return meetPartner(); dayCheck(); if (S.run) resumeRun(); else home(); };
   }
 
