@@ -16,8 +16,36 @@
   const clone = o => JSON.parse(JSON.stringify(o));
 
   // ---- 画面の拡大縮小 ----
-  function fit() { const s = Math.min(innerWidth / 1280, innerHeight / 720); $('#stage').style.transform = `translate(-50%,-50%) scale(${s})`; }
-  addEventListener('resize', fit); fit();
+  // 画面は 1280×720 のまま 拡大縮小するだけ（たて横の比率は かえない）
+  function fit() {
+    const v = window.visualViewport, w = v ? v.width : innerWidth, h = v ? v.height : innerHeight;
+    const s = Math.min(w / 1280, h / 720); $('#stage').style.transform = `translate(-50%,-50%) scale(${s})`;
+  }
+  addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300));
+  if (window.visualViewport) visualViewport.addEventListener('resize', fit);
+  document.addEventListener('fullscreenchange', fit); document.addEventListener('webkitfullscreenchange', fit);
+  fit();
+
+  // ---- スマホ・タブレット（iOS / Android）だけ 全画面 ----
+  // パソコン（Teamsの学習用PCなど）では なにもしない。せってい でオフにもできる
+  const UA = navigator.userAgent || '';
+  const IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const MOBILE = IOS || /Android/i.test(UA);
+  if (MOBILE) document.documentElement.classList.add('mob');
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  const fsCan = () => { const d = document.documentElement; return !!(d.requestFullscreen || d.webkitRequestFullscreen); };
+  const fsWant = () => MOBILE && !window.FAST && !(S && S.sel && S.sel.full === 'off');
+  function fsEnter() {
+    if (!fsWant() || fsEl() || !fsCan()) return;
+    const d = document.documentElement;
+    try {
+      const p = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen();
+      if (p && p.then) p.then(() => { try { const o = screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+  }
+  function fsExit() { try { if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+  // 全画面は「タップしたとき」にしか 始められない（ブラウザのきまり）→ タップのたびに 全画面でなければ もどす
+  if (MOBILE) document.addEventListener('pointerup', fsEnter, true);
 
   // ---- 画像（assets.js にパスがあれば画像、なければ絵文字）----
   function art(path, emoji) {
@@ -567,11 +595,13 @@
         <button id="sH">📖 ゲームのせつめい<small>まいにちの ながれ・すがた</small></button>
         <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
       </div>
+      ${MOBILE ? sec('全画面（スマホ・タブレット）', ['on', 'off'], S.sel.full === 'off' ? 'off' : 'on', 'full', x => (x === 'on' ? 'オン' : 'オフ')) : ''}
+      ${MOBILE && IOS && !fsCan() ? `<div class="sm" style="opacity:.8;margin-top:4px">iPhoneは、Safariの「共有」→「ホーム画面に追加」から ひらくと 全画面になります</div>` : ''}
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
       <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
-    o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); o.remove(); home(); settings(); }));
+    o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); if (b.dataset.k === 'full' && b.dataset.v === 'off') fsExit(); o.remove(); home(); settings(); }));
     $('#cl', o).onclick = () => o.remove();
     $('#sT', o).onclick = () => { o.remove(); titlePage(); };
     $('#sB', o).onclick = () => { o.remove(); bgPage(); };

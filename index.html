@@ -2,7 +2,13 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="まなびバトル">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="images/player/all_cute_1.png">
 <title>まなびバトル</title>
 <style>
 /* フォントは fonts/ に同梱（ネットなしで動く。ゲームで使う字＋かな＋JIS第1水準の漢字だけにしぼった版。OFL） */
@@ -12,7 +18,12 @@
 @font-face{font-family:"MBRound";font-weight:800 900;src:url("fonts/MPLUSRounded1c-ExtraBold.woff") format("woff")}
 :root{--f:"DotLocal","BIZ UDPGothic","Meiryo",monospace;--gold:#ffd54a;--panel:rgba(15,23,42,.88);--line:rgba(255,255,255,.18)}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100%;height:100%;overflow:hidden;background:#000}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;overscroll-behavior:none;touch-action:manipulation}
+html.mob,html.mob body{position:fixed;inset:0;height:100dvh}
+#rotHint{display:none}
+#rotHint .rphone{width:44px;height:76px;border:4px solid #fff;border-radius:8px;animation:rph 2s ease-in-out infinite}
+@keyframes rph{0%,25%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (max-width:600px){html.mob #rotHint{display:flex;position:fixed;inset:0;z-index:9999;background:#000;color:#fff;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:var(--f);font-size:22px;text-align:center}}
 body{font-family:var(--f);color:#fff;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 /* 日本語の改行：文節（ことばのまとまり）で折り返す・1〜2文字だけ次の行に落ちないように */
 body{word-break:auto-phrase;line-break:strict;overflow-wrap:break-word}
@@ -334,6 +345,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 </head>
 <body>
 <div id="stage"><div id="app"></div></div>
+<div id="rotHint"><div class="rphone"></div><div>スマホを よこむきに してね</div></div>
 <script src="lib/qrcode.js"></script>
 <script src="lib/jsQR.js"></script>
 <script src="questions.js"></script>
