@@ -25,6 +25,35 @@ button:disabled{opacity:.4;cursor:default}
 input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;border:2px solid #94a3b8;width:360px}
 #stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center;overflow:hidden;background:linear-gradient(160deg,#1e293b,#0f172a)}
 #app{position:absolute;inset:0}
+/* ---- リザルト：1つずつ ドンっ！ と出る ---- */
+.rsl .rpanel{padding:18px 26px!important}
+.rrow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.rcell{text-align:center;opacity:.35;transform:scale(.9);transition:opacity .15s}
+.rcell .rn{font-size:22px}.rcell .rv{font-size:30px;font-weight:900}
+.rup{display:block;font-size:44px;font-weight:900;color:#16a34a;line-height:1.1;opacity:0}
+.rup.zero{color:#94a3b8}
+.rcell.on,.rtot.on,.rcoin.on{opacity:1;transform:none}
+.rcell.on .rup,.rtot.on .rup{opacity:1;animation:don .5s cubic-bezier(.2,1.8,.4,1) both;text-shadow:0 0 12px #fff,0 0 24px rgba(74,222,128,.95),0 0 40px rgba(74,222,128,.7)}
+.rcell.on .rup.zero{animation:none;text-shadow:none}
+@keyframes don{0%{transform:scale(2.6);opacity:0;filter:brightness(2.5)}55%{transform:scale(.9);opacity:1}100%{transform:scale(1)}}
+.rtot{display:flex;align-items:baseline;justify-content:center;gap:16px;margin-top:10px;font-size:26px;opacity:.35}
+.rtot b{font-size:40px}.rtot .rup{display:inline;font-size:54px;color:#f59e0b}
+.rtot.on .rup{text-shadow:0 0 12px #fff,0 0 28px rgba(251,191,36,1),0 0 48px rgba(251,191,36,.8)}
+.rcoin{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:6px;font-size:26px;opacity:.35}
+.rcoin b{font-size:46px;color:#d97706}.rcoin.on b{text-shadow:0 0 14px rgba(251,191,36,.9)}
+.rsl.shake{animation:shk .28s ease}
+@keyframes shk{20%{transform:translate(-6px,4px)}45%{transform:translate(6px,-3px)}70%{transform:translate(-3px,2px)}100%{transform:none}}
+.rstamp{position:absolute;right:28px;top:340px;width:210px;height:210px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--f);font-weight:900;font-size:118px;line-height:.9;color:#fff;border:10px double rgba(255,255,255,.9);transform:rotate(-14deg) scale(3);opacity:0;z-index:5}
+.rstamp small{font-size:30px;letter-spacing:.15em}
+.rstamp.on{animation:stampin .35s cubic-bezier(.3,1.6,.5,1) forwards}
+@keyframes stampin{0%{transform:rotate(-14deg) scale(3);opacity:0}70%{transform:rotate(-14deg) scale(.92);opacity:1}100%{transform:rotate(-14deg) scale(1);opacity:1}}
+.rkS{background:conic-gradient(#ff5f7e,#ffcf3f,#43d6a2,#1ec8ea,#8b5cf6,#ff5f7e);text-shadow:0 4px 0 rgba(0,0,0,.35);box-shadow:0 0 30px 10px rgba(255,255,255,.8),0 0 60px 20px rgba(255,120,220,.6)}
+.rkS.on{animation:stampin .35s cubic-bezier(.3,1.6,.5,1) forwards,rkglow 1.6s linear .4s infinite}
+@keyframes rkglow{50%{filter:hue-rotate(180deg) brightness(1.15)}}
+.rkA{background:radial-gradient(circle,#ffe58a,#f5b301 70%,#b77900);color:#fff;text-shadow:0 4px 0 #8a5a00;box-shadow:0 0 30px 10px rgba(255,214,90,.85)}
+.rkB{background:#e0344b;text-shadow:0 4px 0 #7a1020;box-shadow:0 6px 0 rgba(0,0,0,.3)}
+.rkC{background:#64748b;text-shadow:0 4px 0 #1e293b;box-shadow:0 6px 0 rgba(0,0,0,.3)}
 .bpr button{width:150px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;border-width:4px}
 /* 窓は 画面に おさめる（中身が 多いときは 中で スクロール。ボタンは いつも見える） */
 .ov > .panel.evbox{max-height:680px!important;display:flex;flex-direction:column}
