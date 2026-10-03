@@ -2529,7 +2529,7 @@
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">⚔️ とうぎじょう</div>
       <div class="sm">スタミナは つかわないよ。ほうびは ないけど、何回でも 戦えるよ（1ターン${K.VS_Q}問×3ターン）</div>
-      <div class="row" style="gap:28px">${card('aT', '🧪', 'おためしバトル', '倒したボスと れんしゅう試合')}${card('aG', '👻', 'QRゴーストと対戦', '友だちの QRを読みこんで、<br>友だちの モンスターと 戦う')}</div>
+      <div class="row" style="gap:28px">${card('aT', '📖', 'おためしバトル', '倒したボスと れんしゅう試合')}${card('aG', '👻', 'QRゴーストと対戦', '友だちの QRを読みこんで、<br>友だちの モンスターと 戦う')}</div>
       <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, '', 'arena');
     $('#aT', el).onclick = () => trialMode();
     $('#aG', el).onclick = () => ghostMode();
