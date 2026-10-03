@@ -164,6 +164,7 @@ with sync_playwright() as p:
     for _ in range(8000):
         if pg.evaluate("MB.VS && MB.VS.phase === 'end' && !!document.querySelector('#app > .ov .choices')"): break
         audit()
+        if pg.query_selector('#vgo'): audit('対戦：しょうかい', True); pg.click('#vgo'); W(100); continue
         if pg.query_selector('#ok') and not pg.query_selector('#app > .ov'):
             try:  # 40秒で自動で進むことがあるので、まにあわなくてもOK
                 if len(pg.query_selector_all('.bk.sel')) < 2: pg.click('.bk:not(.none):not(.sel)', timeout=1500)

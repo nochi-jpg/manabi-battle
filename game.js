@@ -1757,7 +1757,8 @@
       const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">教科をえらぼう</span><span class="sm dim">（攻撃力の目安）</span>${BT.note || ''}</div>
         <div class="row" style="justify-content:center">${SUBJ.map(s => {
           let v = baseAtk(P, s) * recvMult(B, s); if (P.weakSubj === s) v *= P.weakMul;
-          const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : recvMult(B, s) < 1 ? '<span class="dim">効きづらい</span>' : '';
+          const rm = recvMult(B, s);
+          const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : rm > 1 ? '<span class="eff-up">こうか ばつぐん！</span>' : rm < 1 ? '<span class="dim">効きづらい</span>' : '';
           return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="sbn">${subjIc(s)}${s}</span><span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
@@ -2588,7 +2589,7 @@
         const cell = n => { const own = pr.owned.includes(n); return `<div class="bk ${own ? '' : 'none'} ${sel.includes(n) ? 'sel' : ''}" data-n="${esc(n)}">${artItem(n)}</div>`; };
         const el = render(`
           <div class="prog"><span class="mid">🎒 ${esc(pr.pname)}の そうび <span class="gold">${sel.length} / 4</span></span>
-            <span class="coin row">${noTimer ? '' : `<span class="mid">⏱️ <b class="gold" id="lt">${left}</b>秒</span>`}${back ? `<button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">${back}</button>` : ''}<button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
+            <span class="coin row">${noTimer ? '' : `<span class="vtimer" id="vt">⏱️ のこり <b id="lt">${left}</b>秒</span>`}${back ? `<button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">${back}</button>` : ''}<button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
           <div class="row" style="position:absolute;top:66px;left:24px;font-size:30px;gap:10px">${sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>'}</div>
           <div class="panel" style="position:absolute;top:112px;left:24px;right:24px;bottom:16px;overflow-y:auto">
             <div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
@@ -2608,15 +2609,26 @@
         }));
       };
       draw();
-      if (!noTimer) tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; if (left <= 0) finish(); }, T(1000));
+      if (!noTimer) tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; const vt = $('#vt'); if (vt) vt.classList.toggle('warn', left <= 10); if (left <= 0) finish(); }, T(1000));
     });
   }
-  async function vsIntro() {
+  // 対戦前の しょうかい：キャラ VS キャラ ＋ その下に そうびアイテム
+  function vsIntro() {
     const { P, B } = BT;
-    const side = (f, k) => `<div class="col" style="width:520px"><div class="mid">プレイヤー${k}：${esc(f.pname)}</div>
-      ${f.title ? `<div>${titleBadge(f.title, 'sm')}</div>` : ''}<div class="mid">${f.art} ${esc(f.name)} <span class="sm dim">${f.type}タイプ・HP ${f.maxhp}</span></div>
-      ${[...f.items].map(n => `<div class="xs">${artItem(n)} <b>${esc(n)}</b>：${esc(D.ITEM[n].d)}</div>`).join('') || '<div class="xs dim">アイテムなし</div>'}</div>`;
-    await dialog({ who: '🆚', text: '', body: `<div class="row" style="align-items:flex-start;gap:20px">${side(P, 'A')}${side(B, 'B')}</div>`, choices: [{ label: 'バトル スタート！', val: 1, cls: 'btn-main' }] });
+    const side = (f, k, who) => `<div class="vi-side ${k}">
+      <div class="vi-who">プレイヤー${k.toUpperCase()}<small>${who}</small></div>
+      <div class="vi-pn">${esc(f.pname)}</div>
+      ${f.title ? `<div class="vi-ttl">${titleBadge(f.title, 'sm')}</div>` : '<div class="vi-ttl"></div>'}
+      <div class="vi-art ${f.aura || ''}">${f.art}</div>
+      <div class="vi-nm">${esc(f.name)} <span>${f.type}タイプ</span></div>
+      <div class="vi-hp">HP <b>${f.maxhp}</b></div>
+      <div class="vi-items">${[...f.items].map(n => `<div class="vi-it">${artItem(n)}<div><b>${esc(n)}</b><small>${esc(D.ITEM[n].d)}</small></div></div>`).join('') || '<div class="vi-none">アイテムなし</div>'}</div>
+    </div>`;
+    return new Promise(res => {
+      const o = overlay(`<div class="panel vi">${side(P, 'a', 'この端末')}<div class="vi-vs">VS</div>${side(B, 'b', 'あいて')}
+        <button class="btn-main vi-go" id="vgo">バトル スタート！</button></div>`);
+      $('#vgo', o).onclick = () => { o.remove(); res(1); };
+    });
   }
   async function vsTurn() {
     const { P, B } = BT, turn = BT.turn;
