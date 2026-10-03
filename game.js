@@ -961,11 +961,11 @@
       </div>
       <div class="menuR">
         <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', S.run ? `つづきから（${S.run.i + 1} / ${S.run.plan.length}）` : `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
+        <button class="wide" id="vs">${mb('vs', '🆚', '対戦モード', '友だちと 2人で1台！ QRで しょうぶ')}</button>
         <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
         <button id="tow">${mb('tow', '🗼', '無限の塔', `きょうの のこり ${fmtTime(towerLeft)}`)}</button>
         <button id="tri">${mb('tri', '🧪', 'おためしバトル', '倒したボスと 練習試合')}</button>
-        <button id="vs">${mb('vs', '🆚', '対戦モード', '2人で1台')}</button>
-        <button id="grow" style="grid-column:span 2;height:84px">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナスポイント ${S.bonusPt} を ふれるよ！</span>` : growLine(t))}</button>
+        <button id="grow">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナス ${S.bonusPt}pt<br>ふれるよ！</span>` : growLine(t))}</button>
       </div>
       <div class="menuB">
         <button id="b1">${mb('b1', '🎰', 'ガチャ')}</button><button id="b2">${mb('b2', '🎒', 'もちもの')}</button><button id="b3">${mb('b3', '📋', '問題リスト')}</button><button id="b4">${mb('b4', '🔳', 'QR')}</button><button id="b5">${mb('b5', '🏆', 'アチーブメント')}</button>
@@ -1075,7 +1075,7 @@
   const nextSkill = t => D.SKILLS.filter(k => K.SKILL_LINE[k.n] && t < K.SKILL_LINE[k.n]).sort((a, b) => K.SKILL_LINE[a.n] - K.SKILL_LINE[b.n])[0] || null;
   function growLine(t) {
     const e = nextEvo(t), k = nextSkill(t);
-    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `次のスキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('　／　');
+    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `次のスキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
   }
   function growthPanel() {
     const t = total(S.st), stg = lookStage(t), e = nextEvo(t), sk = skillsOf(t);
@@ -2366,16 +2366,17 @@
   }
   // QRを読みこむ（カメラ。だめなら画像ファイルから）→ 中身をかえす（やめたら null）
   let scanHook = null;
-  function scanQR(title, sub = '') {
+  function scanQR(title, sub = '', opt = {}) {
     return new Promise(res => {
       const o = overlay(`<div class="panel center" style="width:900px;gap:10px">
         <div class="mid">${title}</div>${sub ? `<div class="sm dim">${sub}</div>` : ''}
         <video id="vd" playsinline muted style="width:560px;height:420px;background:#000;border-radius:10px;object-fit:cover"></video>
         <div class="sm gold" id="stt">カメラに QRコードを 見せてね</div>
         <div class="row"><label class="btn-blue" style="font-size:20px;padding:10px 16px;border-radius:12px;cursor:pointer">🖼️ 画像ファイルから読みこむ<input type="file" accept="image/*" id="fi" style="display:none"></label>
+        ${opt.myQr && S ? '<button class="btn-purple" id="mq" style="font-size:20px">🔳 自分のQRコードを表示</button>' : ''}
         <button class="btn-gray" id="cn">やめる</button></div></div>`);
       const vd = $('#vd', o), stt = $('#stt', o), cv = document.createElement('canvas');
-      let stream = null, stop = false;
+      let stream = null, stop = false, pause = false;
       const done = v => { if (stop) return; stop = true; scanHook = null; if (stream) stream.getTracks().forEach(t => t.stop()); o.remove(); res(v); };
       const tryBytes = bin => { try { done(window.SAVECODE.decode(bin)); return true; } catch (e) { stt.textContent = '⚠️ ' + e.message; return false; } };
       const scan = () => {
@@ -2385,6 +2386,17 @@
       };
       scanHook = tryBytes; // テスト用
       $('#cn', o).onclick = () => done(null);
+      const mq = $('#mq', o);
+      if (mq) mq.onclick = () => { // 相手に 自分のQRを 見せる（そのあいだ 読みこみは 止める）
+        pause = true;
+        const q = overlay(`<div class="panel center" style="gap:10px">
+          <div class="mid">🔳 ${esc(S.pname)} の QRコード</div>
+          <canvas id="qrm" style="background:#fff;border-radius:8px;width:500px;height:500px;image-rendering:pixelated"></canvas>
+          <div class="sm">相手のカメラに 見せてね</div>
+          <button class="btn-blue" id="qx">とじる（読みこみに もどる）</button></div>`);
+        drawQR($('#qrm', q), qrBytes());
+        $('#qx', q).onclick = () => { q.remove(); pause = false; };
+      };
       $('#fi', o).onchange = e => {
         const f = e.target.files[0]; if (!f) return;
         const img = new Image();
@@ -2402,7 +2414,7 @@
           stream = st; vd.srcObject = st; vd.play();
           const loop = () => {
             if (stop) return;
-            if (vd.readyState >= 2 && vd.videoWidth) { cv.width = vd.videoWidth; cv.height = vd.videoHeight; cv.getContext('2d').drawImage(vd, 0, 0); if (scan()) return; }
+            if (!pause && vd.readyState >= 2 && vd.videoWidth) { cv.width = vd.videoWidth; cv.height = vd.videoHeight; cv.getContext('2d').drawImage(vd, 0, 0); if (scan()) return; }
             setTimeout(loop, 150);
           };
           loop();
@@ -2520,7 +2532,7 @@
       if (V.phase === 'scanA' || V.phase === 'scanB') {
         const w = V.phase === 'scanA' ? 'a' : 'b';
         render('<div class="scr center"><div style="font-size:120px">🆚</div></div>', 'btl');
-        const pr = await scanQR(`🆚 プレイヤー${AB[w]}の QRコードを 読みこんでね`, '「QR」ボタンで 出したQRコードを、カメラに見せてね');
+        const pr = await scanQR(`🆚 プレイヤー${AB[w]}の QRコードを 読みこんでね`, '「QR」ボタンで 出したQRコードを、カメラに見せてね', { myQr: true });
         if (!pr) { clearVs(); return home(); }
         V.prof[w] = pr; V.phase = w === 'a' ? 'scanB' : 'confirm'; saveVs(); continue;
       }
