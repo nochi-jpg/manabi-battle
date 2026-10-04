@@ -13,6 +13,10 @@
 - **1ファイル版（10/4）**：`python3 tools/build_html.py [kbps]` → `manabi-battle.html`（画像・音・フォントを中に入れる。BGMは32kbpsモノラルで 約17MB。ffmpeg 使用）。子どもは ダウンロードして開くだけ。セーブは ZIP版と共通（Chrome・Edge の file:// は同じ保存場所）
 - **Teams配信用ZIP**：`python3 tools/build_zip.py`（2つを合体）。**ZIPは 先生に たのまれたときだけ** 作って渡す（`manabi-battle.zip` は gitignore）
 - **変更したら 2つとも コミット＆プッシュ**
+- **公開版（10/4〜）**：暗号化した1ファイル版を 公開リポジトリに出す。`python3 tools/publish.py battle` → nochi-jpg/manabato（https://nochi-jpg.github.io/manabato/）、`python3 tools/publish.py stadium` → nochi-jpg/manasuta。となりに manabato・manasuta を clone しておく
+  - `tools/encrypt_html.py`：HTML全体を gzip → XOR（xorshift）→ base64。ひらくと もとにもどして document.write（素材を むき出しにしない「隠す措置」。カギは中にあるので 完全ではない）
+  - 公開リポジトリは いつも 最新の1コミットだけ（force push）。素材の ファイルそのものは 公開リポジトリに 入れない
+  - 公開は 先生に たのまれたときだけ
 - バージョン：`data.js` の `K.VERSION`（タイトル左下）。機能追加＝まん中、小さな直し＝右を上げる
 
 ## ファイル
