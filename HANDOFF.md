@@ -14,6 +14,7 @@
 - **Teams配信用ZIP**：`python3 tools/build_zip.py`（2つを合体）。**ZIPは 先生に たのまれたときだけ** 作って渡す（`manabi-battle.zip` は gitignore）
 - **変更したら 2つとも コミット＆プッシュ**
 - **公開版（10/4〜）**：暗号化した1ファイル版を 公開リポジトリに出す。`python3 tools/publish.py battle` → nochi-jpg/manabato（https://nochi-jpg.github.io/manabato/）、`python3 tools/publish.py stadium` → nochi-jpg/manasuta。となりに manabato・manasuta を clone しておく
+  - 1ファイル版は ひらいたとき 画像・音の data: を blob: に かえて、画像を先に デコードする（innerHTML に 長い文字が入ると 画面の切りかえ・ルーレットが カクつくため。10/4）
   - `tools/encrypt_html.py`：HTML全体を gzip → XOR（xorshift）→ base64。ひらくと もとにもどして document.write（素材を むき出しにしない「隠す措置」。カギは中にあるので 完全ではない）
   - 公開リポジトリは いつも 最新の1コミットだけ（force push）。素材の ファイルそのものは 公開リポジトリに 入れない
   - 公開は 先生に たのまれたときだけ

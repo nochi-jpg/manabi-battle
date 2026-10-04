@@ -43,7 +43,7 @@ def exists(p):
     except FileNotFoundError: return False
 paths = sorted(set(PATH.findall(local_js)) | {p for p in PATH.findall((ROOT / 'assets.js').read_text()) if exists(p)})
 emb = {p: data_uri(p) for p in paths}
-fix = '''<script>(function(){const E=window.__EMB,w=o=>{for(const k in o){const v=o[k];if(typeof v==='string'&&E[v])o[k]=E[v];else if(v&&typeof v==='object')w(v);}};w(window.ASSETS||{});})();</script>'''
+fix = '<script>(function(){/* data: を blob: に（innerHTML に 長い文字が 入らないように＝画面の切りかえが かるくなる）。画像は 先に デコードしておく */const E=window.__EMB,K=window.__KEEP=[];for(const k in E){const v=E[k],c=v.indexOf(\',\'),t=v.slice(5,v.indexOf(\';\')),b=atob(v.slice(c+1)),u=new Uint8Array(b.length);for(let j=0;j<b.length;j++)u[j]=b.charCodeAt(j);E[k]=URL.createObjectURL(new Blob([u],{type:t}));if(t.startsWith(\'image/\')){const im=new Image();im.src=E[k];if(im.decode)im.decode().catch(()=>{});K.push(im);}}const w=o=>{for(const k in o){const v=o[k];if(typeof v==="string"&&E[v])o[k]=E[v];else if(v&&typeof v==="object")w(v);}};w(window.ASSETS||{});})();</script>'
 def script(m):
     name = m.group(1)
     if name == 'assets.local.js':
