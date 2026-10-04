@@ -177,3 +177,4 @@
   - ほうびなし・記録なし・1ターン5問×3ターン。BGM・背景は 対戦と同じ。テストは `tools/ghost_test.py`
 - **主人公をピクセルアート版に（10/4）**：K.nom さんが pixel-refiner で作ったもの（素材リポジトリ `src/player_px/<番号>.png`、64〜97px・16色）。`tools/px_player.py` が 反転（`NOFLIP` 例外あり）・透けうめ（`FILL_EYE`・`FILL_FUR`）・外がわのふちを いちばん暗い色に・100×100 に足もとそろえ（ドットの大きさは全員同じ。小さい子は小さく見える）・手直し `PATCH`・16色に まとめる → ×4 で images/player。make_assets.py が最後に呼ぶ
 - **第1段階は手描き（10/4）**：K.nom さんの手描き12体（素材リポジトリ `src/player_hand/<名前>.png`、500×500・左向き）。`px_player.py` の `hand()` が 反転・ごみ消し・長い辺280px・足もとそろえ。ゲームでは `handArt()` が第1段階に `.art-hd` をつけて なめらか表示（ドットにしない）。※`.hand` は もちものの別クラスなので使わない
+- **第1段階は 手描きのドット版（10/5）**：手描き12体を K.nom さんが pixel-refiner でドットに（素材リポジトリ `src/player_hand_px/<名前>.png`、白背景は切りぬき済み・80〜120px）。`px_player.py` の `hand_px()`：16色・ふち統一・反転・**2倍**で置く（ほかの段階は4倍 → ドットは半分の大きさ）。いちばん優先（→ player_hand → player_px の順）。なめらか表示（`.art-hd`）は `HAND_SMOOTH=false` で止めた

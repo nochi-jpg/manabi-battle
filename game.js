@@ -54,8 +54,9 @@
   }
   const g2 = (o, ...k) => k.reduce((x, y) => (x && x[y] !== undefined ? x[y] : ''), o);
   // p：せいかく・すがたの記録をもつもの（ふつうは S。対戦では QR の中身）
-  // 第1段階は K.nom さんの 手描き（なめらかな線）→ ドットにしない（.art.hand）
-  const handArt = (html, g) => (g === 0 ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
+  // 第1段階を なめらか表示にする しかけ（.art-hd）。10/5 から 第1段階も ドット（手描きを pixel-refiner）なので つかわない
+  const HAND_SMOOTH = false;
+  const handArt = (html, g) => (HAND_SMOOTH && g === 0 ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
   const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t)), lookOf(type, t, p)), lookStage(t));
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   const artZako = e => art(g2(A, 'zako', e), e);
