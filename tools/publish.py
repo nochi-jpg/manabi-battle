@@ -45,7 +45,7 @@ def main():
     # 最新の1コミットだけにする
     run('git', 'checkout', '-q', '--orphan', '_pub', cwd=pub)
     run('git', 'add', '-A', cwd=pub)
-    run('git', 'commit', '-q', '-m', f'{g["title"]} 公開版\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01UyezsEzAcL5UQdbjMzPpRp', cwd=pub)
+    run('git', 'commit', '-q', '-m', f'{g["title"]} 公開版\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01VSVSxW2cDN42XVaoPQurWi', cwd=pub)
     subprocess.run(['git', 'branch', '-D', 'main'], cwd=pub, capture_output=True)
     run('git', 'branch', '-m', 'main', cwd=pub)
     run('git', 'push', '-q', '--force', 'origin', 'main', cwd=pub)
