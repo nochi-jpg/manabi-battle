@@ -54,7 +54,9 @@
   }
   const g2 = (o, ...k) => k.reduce((x, y) => (x && x[y] !== undefined ? x[y] : ''), o);
   // p：せいかく・すがたの記録をもつもの（ふつうは S。対戦では QR の中身）
-  const artPlayer = (type, t, p = S) => art(g2(A, 'player', type, styleFor(p, t), lookStage(t)), lookOf(type, t, p));
+  // 第1段階は K.nom さんの 手描き（なめらかな線）→ ドットにしない（.art.hand）
+  const handArt = (html, g) => (g === 0 ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
+  const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t)), lookOf(type, t, p)), lookStage(t));
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   const artZako = e => art(g2(A, 'zako', e), e);
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
@@ -513,7 +515,7 @@
   // ---- せつめい（システムの窓。ホーム画面のまま ポップアップ）----
   // parts：cycle＝毎日の ながれ・スタミナ、home＝ボタン、grow＝すがた・ごはん・せいかく
   const btnPic = id => { const b = document.getElementById(id); return b ? `<div class="tut-btn"><div class="${b.parentElement.className}"><button class="${b.className}" id="tut-${id}">${b.innerHTML}</button></div></div>` : ''; };
-  const pimg = (type, st, g, sil) => `<span class="tut-mon${sil ? ' sil' : ''}">${art(g2(A, 'player', type, st, g), D.LOOK[type][st][g])}</span>`;
+  const pimg = (type, st, g, sil) => `<span class="tut-mon${sil ? ' sil' : ''}">${handArt(art(g2(A, 'player', type, st, g), D.LOOK[type][st][g]), g)}</span>`;
   function tutPages(parts) {
     const P = [];
     const row = (pic, t) => `<div class="tut-row"><div class="tut-pic">${pic}</div><div class="tut-t">${t}</div></div>`;
