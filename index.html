@@ -371,12 +371,21 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .arena-b{width:380px;height:250px;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:24px!important}
 .arena-b .art{font-size:84px;line-height:1}.arena-b b{font-size:30px}.arena-b small{font-size:17px;line-height:1.4;opacity:.85}
 .art.art-hd img,.meet-mon .art.art-hd img,.tut-mon .art.art-hd img,.who .art.art-hd img{image-rendering:auto!important}
+#vp{position:fixed;inset:0;pointer-events:none;z-index:-1}
+.scr.title,.scr.name{isolation:isolate}
+.scr-bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;image-rendering:auto}
+.scr-bgshade{position:absolute;inset:0;background:rgba(8,10,24,.3);z-index:-1;pointer-events:none}
+.fsbtn{position:absolute!important;right:18px;bottom:12px;font-size:16px!important;padding:6px 16px!important}
+.splash{background:#000!important;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.splash-t{font-size:40px;color:#fff;animation:spl 1.4s ease-in-out infinite alternate}
+@keyframes spl{from{opacity:.4}to{opacity:1}}
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">
 <link rel="icon" type="image/png" href="images/player/all_cute_1.png">
 </head>
 <body>
+<div id="vp"></div>
 <div id="stage"><div id="app"></div></div>
 <div id="rotHint"><div class="rphone"></div><div>スマホを よこむきに してね</div></div>
 <script src="lib/qrcode.js"></script>

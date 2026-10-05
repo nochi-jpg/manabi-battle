@@ -179,3 +179,11 @@
 - **第1段階は手描き（10/4）**：K.nom さんの手描き12体（素材リポジトリ `src/player_hand/<名前>.png`、500×500・左向き）。`px_player.py` の `hand()` が 反転・ごみ消し・長い辺280px・足もとそろえ。ゲームでは `handArt()` が第1段階に `.art-hd` をつけて なめらか表示（ドットにしない）。※`.hand` は もちものの別クラスなので使わない
 - **第1段階は 手描きのドット版（10/5）**：手描き12体を K.nom さんが pixel-refiner でドットに（素材リポジトリ `src/player_hand_px/<名前>.png`、白背景は切りぬき済み・80〜120px）。`px_player.py` の `hand_px()`：16色・ふち統一・反転・**2倍**で置く（ほかの段階は4倍 → ドットは半分の大きさ）。いちばん優先（→ player_hand → player_px の順）。なめらか表示（`.art-hd`）は `HAND_SMOOTH=false` で止めた
 - **Canva ホームページ版（10/5）**：子どもは Canva のドメインだけ開ける → まなびバトルは Canva ホームページ（1つのHTMLだけ・**10MBまで**）で運用。`python3 tools/build_html.py --canva` → `manabi-battle-canva.html`（約9.5MB）：BGM 20kbps・22kHz・モノラル、フォントは ゲームの文＋問題で使う字だけ（めずらしい漢字の名前は パソコンの字）、背景JPGは WebP(75)。セーブは Canva 上でも動く（先生 確認ずみ）
+- **Canva の落とし穴 対策（10/5・まなびドラゴンの HANDOFF より）**：
+  1. 画面の下が切れる → iframe の中なら IntersectionObserver（`#vp`）で 見えている範囲を取り `fit()` を そこに合わせる（`IN_FRAME`・`VIS`）
+  2. タイトルの背景が出ない → タイトル・名前画面は 背景を `<img class="scr-bgimg">` でも いちばん後ろに置く（render）
+  3. 1画面目が不安定 → iframe の中なら 黒い「画面を おしてね」（`splash()`）を はさむ
+  4. 全画面 → iframe の中（PC）では タイトル右下に「全画面」ボタン。できなければ「F11 を おしてね」
+  5. フォント → 埋めこみ・使う字だけ（--canva）
+  6. どの版か → タイトル・スプラッシュに `ver 1.1.0（作った日時 Canva）`（build_html.py が `window.__VER` を入れる）
+  7. 保存 → まなびドラゴンは `manabiDragon.v1`、まなびバトルは `manabi_battle_save` で別（同じ my.canva.site でも ぶつからない）

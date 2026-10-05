@@ -71,6 +71,10 @@ def script(m):
         return '<script>window.__EMB=' + js(json.dumps(emb, ensure_ascii=False)) + ';</script>\n<script>' + js(local_js) + '</script>\n' + fix
     return '<script>' + js(src(name).read_text()) + '</script>'
 html = re.sub(r'<script src="([^"]+)"></script>', script, html)
+# いつ作った版かを タイトルに出す（Canva で 差しかえが 反映されたか ひと目でわかるように）
+import datetime
+ver = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%-m/%-d %H:%M')
+html = html.replace('<script>', f'<script>window.__VER={json.dumps(ver + (" Canva" if CANVA else ""))};</script>\n<script>', 1)
 left = [p for p in PATH.findall(re.sub(r'data:[^"\')]+', '', html)) if p not in emb and exists(p)]
 OUT.write_text(html)
 print(f'{OUT}（{OUT.stat().st_size / 1e6:.1f} MB・BGM {KBPS}kbps モノラル・埋めこみ {len(emb)} ファイル）')

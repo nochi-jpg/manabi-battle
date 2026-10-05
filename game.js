@@ -17,14 +17,28 @@
 
   // ---- 画面の拡大縮小 ----
   // 画面は 1280×720 のまま 拡大縮小するだけ（たて横の比率は かえない）
+  // Canva サイトの枠（iframe）の中では、枠が 画面より縦に長いことがある（まなびドラゴンで 下が切れた）
+  // → IntersectionObserver で「じっさいに見えている範囲」を取って、そこに合わせる
+  const IN_FRAME = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  let VIS = null;
+  if (IN_FRAME && window.IntersectionObserver) {
+    try {
+      new IntersectionObserver(es => { const r = es[es.length - 1].intersectionRect; VIS = r.width > 50 && r.height > 50 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null; fit(); },
+        { threshold: Array.from({ length: 101 }, (_, i) => i / 100) }).observe(document.getElementById('vp'));
+    } catch (e) {}
+  }
   function fit() {
-    const v = window.visualViewport, w = v ? v.width : innerWidth, h = v ? v.height : innerHeight;
-    const s = Math.min(w / 1280, h / 720); $('#stage').style.transform = `translate(-50%,-50%) scale(${s})`;
+    const v = window.visualViewport, W = v ? v.width : innerWidth, H = v ? v.height : innerHeight;
+    let x = 0, y = 0, w = W, h = H;
+    if (VIS && (VIS.h < H - 2 || VIS.w < W - 2)) ({ x, y, w, h } = VIS);
+    const s = Math.min(w / 1280, h / 720), st = $('#stage');
+    st.style.left = (x + w / 2) + 'px'; st.style.top = (y + h / 2) + 'px';
+    st.style.transform = `translate(-50%,-50%) scale(${s})`;
   }
   addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300));
   if (window.visualViewport) visualViewport.addEventListener('resize', fit);
   document.addEventListener('fullscreenchange', fit); document.addEventListener('webkitfullscreenchange', fit);
-  fit();
+  fit(); setTimeout(fit, 100);
 
   // ---- スマホ・タブレット（iOS / Android）だけ 全画面 ----
   // パソコン（Teamsの学習用PCなど）では なにもしない。せってい でオフにもできる
@@ -254,6 +268,8 @@
     if (cls === 'btl' && BT && (BT.vs || BT.ghost)) bg = g2(A, 'dunBoss', BT.bgVs) || g2(A, 'scrBg', 'arena');
     bg = bg || g2(A, 'bg', BG[cls]);
     if (bg) el.style.background = `${shade(cls === 'btl' || cls === 'dun' ? 0.2 : 0.35)}, url("${bg}") center/cover`;
+    // Canva サイトでは タイトル画面の CSS 背景が出ないことがある（まなびドラゴン）→ いちばん後ろに <img> でも置く
+    if (bg && (cls === 'title' || cls === 'name')) el.insertAdjacentHTML('afterbegin', `<img class="scr-bgimg" src="${esc(bg)}" alt=""><div class="scr-bgshade"></div>`);
     return el;
   }
   function overlay(html, cls = '') { const el = document.createElement('div'); el.className = 'ov ' + cls; el.innerHTML = html; app.appendChild(el); return el; }
@@ -469,7 +485,16 @@
       ${S ? `<div class="mid">${esc(S.pname)} の データ</div>` : '<div class="mid">&nbsp;</div>'}
       <button class="btn-main" id="go" data-se="start">${S && S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
       <div class="sm dim">ブラウザに 自動でセーブしています</div>
-      <div class="ver">ver ${esc(K.VERSION)}</div></div>`, 'title');
+      <div class="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div>
+      ${IN_FRAME && !MOBILE ? '<button class="btn-gray fsbtn" id="fsb">全画面</button>' : ''}</div>`, 'title');
+    const fb = $('#fsb', el);
+    if (fb) fb.onclick = () => {
+      const d = document.documentElement, req = d.requestFullscreen || d.webkitRequestFullscreen;
+      if (fsEl()) { fsExit(); return; }
+      let p = null; try { p = req ? req.call(d) : null; } catch (e) {}
+      if (!p) return tip('全画面にするには、キーボードの F11 を おしてね');
+      p.catch(() => tip('ここでは 全画面に できないよ。キーボードの F11 を おしてね'));
+    };
     $('#go', el).onclick = () => { if (!S) return meetPartner(); dayCheck(); if (S.run) resumeRun(); else home(); };
   }
 
@@ -2906,8 +2931,14 @@
     // 8秒たっても おわらなければ、そのまま はじめる（とちゅうの画像は あとから出る）
     await Promise.race([Promise.all(list.map(one)), new Promise(r => setTimeout(r, 8000))]);
   }
+  // Canva サイトでは ひらいた直後の1画面目が不安定（背景が出ない・二重に見える）→ 黒い「画面を おしてね」を1枚はさむ
+  function splash(next) {
+    app.innerHTML = `<div class="scr splash"><div class="splash-t">画面を おしてね</div><div class="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div></div>`;
+    app.firstElementChild.onclick = () => next();
+  }
   preload().then(() => {
     S = load();
-    if (S) titleScreen(); else startNew();
+    const go = () => { if (S) titleScreen(); else startNew(); };
+    if (IN_FRAME && !window.FAST) splash(go); else go();
   });
 })();
