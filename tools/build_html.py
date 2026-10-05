@@ -1,12 +1,16 @@
 # 1つのHTMLにまとめた版を作る（子どもが「解凍 → index.html」をしなくていいように）
 # 使い方: python3 tools/build_html.py [BGMのビットレート kbps（ふつう32）]
+#         python3 tools/build_html.py --canva  → manabi-battle-canva.html（Canva の ホームページ用・10MB以内）
+#           BGM 20kbps・22kHz・モノラル／フォントは ゲームで使う字だけ／背景は WebP
 #   素材リポジトリは となりのフォルダ（../manabi-battle-assets）。ffmpeg が必要（BGMを軽くする）
 #   画像・音・フォントは data: URI にして中に入れる。同じ画像は1回だけ入れて、読みこんだあとに パスを置きかえる
 import base64, json, mimetypes, pathlib, re, subprocess, sys, tempfile
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ASSETS = ROOT.parent / 'manabi-battle-assets'
-KBPS = int(sys.argv[1]) if len(sys.argv) > 1 else 32
-OUT = ROOT / 'manabi-battle.html'
+CANVA = '--canva' in sys.argv
+args = [a for a in sys.argv[1:] if not a.startswith('--')]
+KBPS = 20 if CANVA else int(args[0]) if args else 32
+OUT = ROOT / ('manabi-battle-canva.html' if CANVA else 'manabi-battle.html')
 TMP = pathlib.Path(tempfile.mkdtemp())
 MIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.woff': 'font/woff', '.woff2': 'font/woff2'}
 
@@ -14,12 +18,29 @@ def src(rel):  # 公開リポジトリ → なければ素材リポジトリ
     for b in (ROOT, ASSETS):
         if (b / rel).exists(): return b / rel
     raise FileNotFoundError(rel)
+CHARS = TMP / 'chars.txt'
+if CANVA:  # フォントに入れる字：ゲームの文と問題で使う字（めずらしい漢字の名前は パソコンの字で出る）
+    ch = set()
+    for f in ['game.js', 'data.js', 'questions.js', 'index.html', 'savecode.js', 'assets.js']: ch |= set((ROOT / f).read_text())
+    ch |= set((ASSETS / 'assets.local.css').read_text())
+    ch |= {chr(c) for c in list(range(0x20, 0x7f)) + list(range(0x3040, 0x3100)) + list(range(0x30A0, 0x3100)) + list(range(0xFF01, 0xFF5F))}
+    CHARS.write_text(''.join(sorted(c for c in ch if ord(c) >= 0x20 and not 0xD800 <= ord(c) < 0xE000)))
 def data_uri(rel):
     p = src(rel)
     if rel.startswith('sounds/bgm/'):  # BGM は モノラル・低いビットレートに
         q = TMP / p.name
         if not q.exists():
-            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(p), '-ac', '1', '-b:a', f'{KBPS}k', str(q)], check=True)
+            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(p), '-ac', '1'] + (['-ar', '22050'] if CANVA else []) + ['-b:a', f'{KBPS}k', str(q)], check=True)
+        p = q
+    elif CANVA and rel.startswith('fonts/'):
+        q = TMP / p.name
+        if not q.exists():
+            subprocess.run(['pyftsubset', str(p), f'--text-file={CHARS}', '--flavor=woff', '--layout-features=*', f'--output-file={q}'], check=True, capture_output=True)
+        p = q
+    elif CANVA and p.suffix.lower() in ('.jpg', '.jpeg'):  # 背景は WebP に（同じくらいの見た目で 半分）
+        from PIL import Image
+        q = TMP / (p.stem + '_' + str(abs(hash(rel))) + '.webp')
+        if not q.exists(): Image.open(p).convert('RGB').save(q, quality=75, method=6)
         p = q
     return f'data:{MIME[p.suffix.lower()]};base64,' + base64.b64encode(p.read_bytes()).decode()
 PATH = re.compile(r'(?:images|sounds|fonts)/[\w./%-]+\.(?:png|jpg|jpeg|gif|webp|svg|mp3|woff2?)')
