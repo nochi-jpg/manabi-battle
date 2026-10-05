@@ -122,7 +122,11 @@
     const { rnd, usedQ, ...rest } = R;
     return { ...rest, rs: rnd.state(), usedQ: [...usedQ], bt: BT ? packBT() : rest.bt || null };
   }
-  function unpackRun(o) { const { rs, usedQ, ...rest } = o; R = { ...rest, rnd: makeRng(rs), usedQ: new Set(usedQ || []) }; }
+  function unpackRun(o) {
+    const { rs, usedQ, ...rest } = o; R = { ...rest, rnd: makeRng(rs), usedQ: new Set(usedQ || []) };
+    if (!R.gain) R.gain = Object.fromEntries(SUBJ.map(s => [s, 0])); // 1.1 までの とちゅうの回（上がった分は もう本ステータスに 入っている）
+    R.qlog = R.qlog || {}; R.qrev = R.qrev || {}; delete R.qpre; delete R.qptr;
+  }
   function save() {
     if (!S) return;
     if (checkAch()) rawSave();
@@ -175,6 +179,8 @@
     if (s.run) {
       const r = s.run;
       for (const k in r.qpre || {}) r.qpre[k] = r.qpre[k].map(x => ({ ...x, id: C.mapId(x.id, from) })).filter(x => x.id);
+      for (const k in r.qlog || {}) r.qlog[k] = C.remapList(r.qlog[k], from);
+      if (r.qrev) r.qrev = C.remapKeys(r.qrev, from);
       r.usedQ = C.remapList(r.usedQ, from);
       if (r.bt) r.bt.used = C.remapList(r.bt.used, from);
     }
@@ -184,6 +190,8 @@
 
   // ---- ステータスの計算 ----
   const total = st => SUBJ.reduce((a, s) => a + st[s], 0);
+  // ダンジョンの中の 仮ステータス（本ステータス＋この回で 上がった分）。ダンジョンの外では 本ステータス
+  const curSt = () => (R && R.gain ? Object.fromEntries(SUBJ.map(s => [s, S.st[s] + (R.gain[s] || 0)])) : S.st);
   function luckOf(st) {
     const v = SUBJ.map(s => st[s]), m = v.reduce((a, b) => a + b) / 5;
     const cv = Math.sqrt(v.reduce((a, x) => a + (x - m) ** 2, 0) / 5) / m;
@@ -412,10 +420,10 @@
 
   // ---- 問題をえらぶ ----
   // 新しい問題：4年→5年→6年（教科ごと）。得意な教科は上の学年もまぜる。ぜんぶ解いたらおさらい
-  function drawNewQs(subj, n, rnd) {
-    const taken = new Set(), out = [];
-    const others = SUBJ.filter(s => s !== subj).reduce((a, s) => a + S.st[s], 0) / 4;
-    const ratio = S.st[subj] / others;
+  function drawNewQs(subj, n, rnd, ex = null) {
+    const taken = new Set(ex || []), out = [];
+    const st = curSt(), others = SUBJ.filter(s => s !== subj).reduce((a, s) => a + st[s], 0) / 4;
+    const ratio = st[subj] / others;
     const mix = ratio >= 2 ? 0.3 : ratio >= 1.5 ? 0.2 : ratio >= 1.25 ? 0.1 : 0;
     for (let k = 0; k < n; k++) {
       const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id));
@@ -436,7 +444,49 @@
     }
     return out;
   }
-  // 解いたことのある問題（ボス戦・イベント）。足りなければ新しい問題で補う（記録はしない）
+  // ---- 育成ダンジョンの 道中・ボス戦の 問題（10/5）----
+  // 1. 復習まち（同じ教科の ほかの問題を 3問 はさむ・この回は 1回まで。出なければ 次の回へ）
+  // 2. 新しい問題　3. おさらい
+  // R.qlog[教科]：この回に 出した問題（順番）。R.qrev[番号]：復習まちとして 出した回数
+  function pickQ(subj) {
+    const log = (R.qlog || {})[subj] || [], recent = new Set(log.slice(-3)), qrev = R.qrev || {};
+    const rv = QBY[subj].filter(q => S.qs[q.id] === 2 && !recent.has(q.id) && !qrev[q.id]);
+    if (rv.length) return { id: pick(rv, R.rnd).id, kind: 'rev' };
+    const asked = new Set(log);
+    const fresh = QBY[subj].filter(q => !S.qs[q.id] && !asked.has(q.id));
+    if (fresh.length) { const p = drawNewQs(subj, 1, R.rnd, asked)[0]; return { id: p.id, kind: p.osarai ? 'osarai' : 'new' }; }
+    let pool = QBY[subj].filter(q => (S.qs[q.id] === 3 || S.qs[q.id] === 4) && !asked.has(q.id));
+    if (!pool.length) pool = QBY[subj].filter(q => !recent.has(q.id) && S.qs[q.id] !== 2);
+    if (!pool.length) pool = QBY[subj];
+    return { id: pick(pool, R.rnd).id, kind: 'osarai' };
+  }
+  // 答えた結果を 記録する。ステータスは 仮（R.gain）に、コインは すぐ 本物に
+  // 正解でも「あと1回」まで。卒業は 別の日の 復習ダンジョンで
+  function applyQ(subj, pre, ok, rare = false) {
+    const id = pre.id;
+    R.qlog = R.qlog || {}; (R.qlog[subj] = R.qlog[subj] || []).push(id);
+    if (pre.kind === 'rev') { R.qrev = R.qrev || {}; R.qrev[id] = (R.qrev[id] || 0) + 1; }
+    let gain = 0, c = K.COIN_NG;
+    if (ok) {
+      if (pre.kind === 'osarai') { gain = K.GAIN_OSARAI; c = K.COIN_OSARAI; }
+      else if (pre.kind === 'rev') { gain = K.GAIN_REVIEW1; c = K.COIN_REVIEW; }
+      else { gain = K.GAIN; c = K.COIN_OK; }
+      if (pre.kind !== 'osarai' && (S.qs[id] || 0) < 3) { S.qs[id] = 3; S.qd[id] = today(); }
+    } else if (pre.kind === 'new') { S.qs[id] = 2; S.miss[id] = 1; }
+    if (rare) c += K.COIN_RARE;
+    R.gain[subj] += gain; S.coins += c; R.coins += c;
+    return { gain, c };
+  }
+  // イベントの問題：いつも 新しい問題（記録はしない。イベントだから むずかしめ）
+  function drawEventQ() {
+    const asked = new Set([...R.usedQ, ...Object.values(R.qlog || {}).flat()]);
+    let pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id));
+    if (!pool.length) pool = QBY_ALL().filter(q => !asked.has(q.id));
+    if (!pool.length) pool = QBY_ALL();
+    const q = pick(pool, R.rnd); R.usedQ.add(q.id); return q;
+  }
+  const QBY_ALL = () => SUBJ.flatMap(s => QBY[s]);
+  // 解いたことのある問題（おためし・QRゴースト・対戦）。足りなければ新しい問題で補う（記録はしない）
   function drawSolvedQ(subj, used, qs = S.qs) {
     const subjs = subj ? [subj] : SUBJ;
     let all = subjs.flatMap(s => QBY[s]).filter(q => !used.has(q.id));
@@ -450,7 +500,7 @@
   function reqOK(it, hand) {
     if (!it.req) return true;
     const has = n => S.owned.includes(n) || hand.includes(n);
-    const sk = skillsOf(total(S.st));
+    const sk = skillsOf(total(curSt()));
     if (it.req === 'status') return Object.keys(D.INFLICT).some(has) || has('嵐の羽');
     if (it.req === 'ct2') return ['カウンター', 'パワーシュート', 'ふういん'].some(k => sk.includes(k));
     if (it.req.startsWith('skill:')) return sk.includes(it.req.slice(6));
@@ -463,7 +513,7 @@
     return 5;
   }
   function drawItem(rnd, { cat = null, unowned = false, exclude = [], hand = [], minR = 1, rarity = 0 } = {}) {
-    const luck = luckOf(S.st);
+    const luck = luckOf(curSt());
     const pool = D.ITEMS.filter(it => reqOK(it, hand) && !hand.includes(it.n) && !exclude.includes(it.n) && (!unowned || !S.owned.includes(it.n)));
     if (!pool.length) return null;
     const r = rarity || rollRarity(rnd, luck, minR);
@@ -778,14 +828,17 @@
     const sk = () => { const v = +o.querySelector('[data-pk="seikaku"]').value; $('#dps', o).textContent = `せいかく：${seikakuName(Math.max(0, Math.min(K.SEIKAKU_MAX, v)))}`; };
     o.querySelector('[data-pk="seikaku"]').oninput = sk; sk();
     $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
-    $('#ok', o).onclick = () => {
+    $('#ok', o).onclick = async () => {
+      const st0 = { ...S.st }, type0 = S.type;
       o.querySelectorAll('[data-pk]').forEach(inp => {
         const k = inp.dataset.pk, f = F.find(x => x[0] === k), v = Math.max(f[2], Math.min(f[3], Math.round(+inp.value || 0)));
         if (SUBJ.includes(k)) { if (b.st) b.st[k] = v; else S.st[k] = v; }
         else if ((k === 'stamina' || k === 'coins') && b[k] !== undefined) b[k] = v;
         else S[k] = v;
       });
-      refreshType(); save(); o.remove(); backToSettings(); tip('数値を かえました', 2000);
+      refreshType(); save(); o.remove();
+      await evolution(st0, type0, 'OK');
+      backToSettings(); tip('数値を かえました', 2000);
     };
   }
   function debugSection() {
@@ -1044,23 +1097,26 @@
   }
 
 
-  // ---- ボーナスポイント（ダブりで +3）を すきな教科に ふる。3ずつ ----
-  function bonusAlloc() {
-    return new Promise(res => {
+  // ---- ボーナスポイント（ダブりで +5）を すきな教科に ふる。5ずつ（5より少ない のこりは まとめて）----
+  // evo：ふりおわったら 進化演出（リザルトの中では リザルトが まとめて出す）
+  async function bonusAlloc({ evo = true } = {}) {
+    const st0 = { ...S.st }, type0 = S.type;
+    await new Promise(res => {
       const draw = () => {
         const o = overlay(`<div class="panel" style="width:900px"><div class="big">ボーナスポイントを ふる</div>
-          <div class="mid">のこり <b class="gold">${S.bonusPt || 0}</b>　（1回 タップで +${D.DUP_BONUS}）</div>
-          <div class="row bpr" style="gap:10px;margin:14px 0;justify-content:center">${SUBJ.map(s => `<button data-bs="${s}" style="border-color:${D.SUBJ_COLOR[s]}" ${(S.bonusPt || 0) < D.DUP_BONUS ? 'disabled' : ''}><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('')}</div>
+          <div class="mid">のこり <b class="gold">${S.bonusPt || 0}</b>　（1回 タップで +${Math.min(D.DUP_BONUS, S.bonusPt || 0) || D.DUP_BONUS}）</div>
+          <div class="row bpr" style="gap:10px;margin:14px 0;justify-content:center">${SUBJ.map(s => `<button data-bs="${s}" style="border-color:${D.SUBJ_COLOR[s]}" ${(S.bonusPt || 0) <= 0 ? 'disabled' : ''}><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('')}</div>
           <div class="sm dim">あとで「せいちょう・スキル」や ガチャの画面から ふることも できるよ</div>
           <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn-blue" id="cl">とじる</button></div></div>`);
         o.querySelectorAll('[data-bs]').forEach(b => (b.onclick = () => {
-          if ((S.bonusPt || 0) < D.DUP_BONUS) return;
-          S.bonusPt -= D.DUP_BONUS; S.st[b.dataset.bs] += D.DUP_BONUS; refreshType(); save(); o.remove(); draw();
+          const v = Math.min(D.DUP_BONUS, S.bonusPt || 0); if (v <= 0) return;
+          S.bonusPt -= v; S.st[b.dataset.bs] += v; refreshType(); save(); o.remove(); draw();
         }));
         $('#cl', o).onclick = () => { o.remove(); res(); };
       };
       draw();
     });
+    if (evo) await evolution(st0, type0, 'OK');
   }
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
@@ -1143,12 +1199,12 @@
     const ev = shuffle(EVENTS, rnd);
     const forks = shuffle(['coin', 'item', 'event'], rnd).slice(0, 2);
     const plan = ['z', 'z', 'z', 'e1', 'z', 'z', 'f', 'z', 'z', 'z', 'e2', 'z', 'z', 't', 'b'];
-    const luck = luckOf(S.st);
+    const luck = luckOf(curSt());
     const zako = plan.filter(p => p === 'z').map(() => { const k = Math.floor(rnd() * D.ZAKO.length); return { k, e: pick(D.ZAKO[k].e, rnd), re: pick(D.RARE_ZAKO.e, rnd), rare: rnd() < K.RARE_RATE * luck / 1000 * 1.2, drop: rnd() < K.DROP_RATE }; });
-    const qpre = {}; SUBJ.forEach(s => (qpre[s] = drawNewQs(s, 10, rnd)));
+    // gain：この回で 上がった ステータス（仮）。本ステータスに 足すのは リザルトで（10/5）
     R = {
       seed, rnd, boss, plan, i: 0, zi: 0, zako, ev1: ev[0], ev2: ev[1], ev2on: rnd() < 0.5, forks,
-      qpre, qptr: Object.fromEntries(SUBJ.map(s => [s, 0])), hand: [], coins: 0,
+      qlog: {}, qrev: {}, gain: Object.fromEntries(SUBJ.map(s => [s, 0])), hand: [], coins: 0,
       startSt: { ...S.st }, startType: S.type, flags: {}, usedQ: new Set(), ns: {}, pend: [], bt: null,
     };
     save();
@@ -1264,33 +1320,25 @@
     if (R.ns.ans) { await flushPend(); return; } // 答えたあとに閉じた → 結果はもう出ている
     msg(`${rare ? `${esc(fname)}があらわれた！ <span class="gold">レアモンスターだ！ いいことありそう</span>` : `${esc(fname)}があらわれた！`}<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
     if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
+    const st = curSt();
     const subj = await new Promise(res => {
-      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}"><span class="sbn">${subjIc(s)}${s}</span><small>${S.st[s]}</small></button>`).join('');
+      $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}"><span class="sbn">${subjIc(s)}${s}</span><small>${st[s]}</small></button>`).join('');
       $('#subj').querySelectorAll('button').forEach(b => (b.onclick = () => res(b.dataset.s)));
       homeBtn(true);
     });
     homeBtn(false);
     $('#subj').innerHTML = '';
-    const pre = R.qpre[subj][R.qptr[subj]] || drawNewQs(subj, 1, R.rnd)[0];
+    const pre = pickQ(subj);
     const q = Q[pre.id];
     let out = null;
     await ask(q, {
-      head: pre.osarai ? '（おさらい）' : '',
+      head: pre.kind === 'osarai' ? '（おさらい）' : pre.kind === 'rev' ? '（復習まち）' : '',
       onAnswer: ok => { // 押した瞬間に結果を決めてセーブ
         qaCount(ok);
-        R.qptr[subj]++;
-        if (ok) {
-          const gain = pre.osarai ? K.GAIN_OSARAI : K.GAIN;
-          S.st[subj] += gain; if (!pre.osarai) { S.qs[q.id] = 3; S.qd[q.id] = today(); } // 正解 → あと1回
-          const c = (pre.osarai ? K.COIN_OSARAI : K.COIN_OK) + (rare ? K.COIN_RARE : 0); S.coins += c; R.coins += c;
-          if (drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${fname}は アイテムを落としていった……`);
-          out = { ok, subj, gain, c };
-        } else {
-          if (!pre.osarai) { S.qs[q.id] = 2; S.miss[q.id] = 1; } // 不正解 → 復習待ち（一発でまちがえた記録も残す）
-          S.coins += K.COIN_NG; R.coins += K.COIN_NG;
-          out = { ok, subj, c: K.COIN_NG, osarai: pre.osarai };
-        }
-        refreshType(); R.ns.ans = out; save();
+        const r = applyQ(subj, pre, ok, ok && rare);
+        if (ok && drop) queuePick(drawItem(R.rnd, { cat: rare ? null : foe.cat, hand: R.hand }), `${fname}は アイテムを落としていった……`);
+        out = { ok, subj, gain: r.gain, c: r.c, kind: pre.kind };
+        R.ns.ans = out; save();
       },
     });
     const foeEl = $('#foe');
@@ -1298,11 +1346,11 @@
       se('hit'); foeEl.classList.add('bye');
       floatAt(820, 180, `${subj} +${out.gain}`, D.SUBJ_COLOR[subj]);
       setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
-      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${rare ? `<br><span class="gold">コインを たくさん 手に入れた！（🪙+${out.c}）</span>` : out.osarai ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ</span>'}`);
+      msg(`⭕ たおした！ ${subj}が <b>${out.gain}</b> 上がった！${rare ? `<br><span class="gold">コインを たくさん 手に入れた！（🪙+${out.c}）</span>` : out.kind === 'osarai' ? '' : '<br><span class="sm">この問題は 復習ダンジョンで もう1回 正解すると 卒業だよ（あした以降）</span>'}`);
     } else {
       foeEl.style.transition = 'transform .6s,opacity .6s'; foeEl.style.transform = 'translateX(300px)'; foeEl.style.opacity = 0;
       if (out.c) floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
-      msg(out.osarai ? '💨 にげられた…' : '💨 にげられた… この問題は <b>復習ダンジョン</b> に入ったよ');
+      msg(out.kind === 'new' ? '💨 にげられた… この問題は <b>復習まち</b> に入ったよ（あとで また出るよ）' : '💨 にげられた…');
       if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで もう一度 挑戦できるよ'); }
     }
     drawHand();
@@ -1348,7 +1396,7 @@
     for (let i = 0; i < k; i++) {
       const key = 'quiz' + i;
       if (!(key in R.ns)) {
-        const q = drawSolvedQ(null, R.usedQ);
+        const q = drawEventQ();
         await ask(q, { head: head + (k > 1 ? `（${i + 1}/${k}）` : ''), onAnswer: ok => { qaCount(ok); R.ns[key] = ok; save(); } });
       }
       if (!R.ns[key]) return false;
@@ -1356,7 +1404,7 @@
     return true;
   }
   async function eventNode(id) {
-    const luck = luckOf(S.st);
+    const luck = luckOf(curSt());
     const coin = c => { S.coins += c; R.coins += c; floatAt(860, 240, `🪙+${c}`, '#ffd54a'); drawHand(); };
     if (firstRun() && !R.flags.tipEv) { R.flags.tipEv = 1; tip('イベントでは、いいことが起きたり、問題で挑戦できたりするよ'); }
     const npc = artNpc;
@@ -1528,6 +1576,7 @@
     return { ...pk, P, B, used: new Set(pk.used || []) };
   }
   const btSave = () => (BT && BT.vs ? saveVs() : save());
+  const dunBoss = () => !!(R && R.bt && BT && !BT.vs); // 育成ダンジョンの ボス戦（記録する）
   function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
 
   function cutRate(f) {
@@ -1795,6 +1844,7 @@
   // えらんだときに起きること（先攻のふういん など）。開きなおしたときも同じように当てなおす
   function applyActStart(x, act, turn, first) {
     x.cursubj = act.subj;
+    if (act.st) x.st = { ...act.st };
     if (act.sk === 'ふういん' && first) { const y = x.opp, top = topSubj(y); y.seal[top] = turn + (x.has('ふういんの鍵') ? 1 : 0); }
     if (act.meg !== undefined) x.megane = act.meg;
   }
@@ -1802,21 +1852,32 @@
   async function playerAct(P, B, turn, first, n = K.BOSS_Q) {
     let act = BT.acts[P.side];
     if (!act) {
+      if (dunBoss()) P.st = curSt(); // 攻撃力は スキルを えらぶ ときの 仮ステータスで 決まる
       const sk = await playerSkill(P);
       const subj = await playerSubj(P, B, turn);
-      act = { sk, subj, ans: [] }; BT.acts[P.side] = act; btSave();
+      act = { sk, subj, ans: [] }; if (dunBoss()) act.st = { ...P.st };
+      BT.acts[P.side] = act; btSave();
       if (sk === 'ふういん' && first) tip(`🔒 ${B.name}の ${topSubj(B)}を ふういん！`);
     }
     applyActStart(P, act, turn, first);
     const st = newGauge();
     act.ans.forEach(ok => gaugeStep(P, st, ok));
     showGauge(P, st, n);
+    const dun = dunBoss();
     while (act.ans.length < n) {
-      const q = drawSolvedQ(act.subj, BT.used, P.qs || S.qs);
+      // 育成ダンジョンの ボス戦：道中と同じ えらび方・同じ ごほうび（上がった分は 次のターンから）
+      const pre = dun ? pickQ(act.subj) : null;
+      const q = pre ? Q[pre.id] : drawSolvedQ(act.subj, BT.used, P.qs || S.qs);
+      let got = null;
       await ask(q, {
-        head: `（${act.ans.length + 1}/${n}問目）`, fighter: P, gauge: () => ({ m: gaugeMult(P, st, n), n }),
-        onAnswer: ok => { if (R && R.bt && !BT.vs && BT.phase !== 'cheer') qaCount(ok); gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; btSave(); },
+        head: `（${act.ans.length + 1}/${n}問目）${pre && pre.kind === 'rev' ? '（復習まち）' : pre && pre.kind === 'osarai' ? '（おさらい）' : ''}`, fighter: P, gauge: () => ({ m: gaugeMult(P, st, n), n }),
+        onAnswer: ok => {
+          if (dun && BT.phase !== 'cheer') qaCount(ok);
+          if (pre) got = applyQ(act.subj, pre, ok);
+          gaugeStep(P, st, ok); act.ans.push(ok); act.meg = P.megane; btSave();
+        },
       });
+      if (got && got.gain) floatAt(260, 120, `${act.subj} +${got.gain}`, D.SUBJ_COLOR[act.subj]);
       showGauge(P, st, n);
       if (st.eraserUsed) { st.eraserUsed = false; tip('🧽 やり直し消しゴム！ まちがいのマイナスなし'); }
     }
@@ -1882,6 +1943,7 @@
 
   async function playTurn() {
     const { P, B } = BT, turn = BT.turn;
+    if (dunBoss()) P.st = BT.acts.P && BT.acts.P.st ? { ...BT.acts.P.st } : curSt(); // 前のターンで 上がった分は ここから
     hideGauges();
     $('#turn').textContent = `ターン ${turn} / 3`;
     await cutin(`ターン ${turn}`, 900, false);
@@ -1925,14 +1987,15 @@
 
   // ボス戦の2人（育成ダンジョンと おためしバトルで共通）
   // look：見た目（ダンジョンでは 入ったときの すがた。進化はリザルトで）
+  // look.st：ダンジョンでは 仮ステータス。タイプ（look.type）は 入ったときのまま
   function bossCfg(boss, stg, hand, flags = {}, look = null) {
-    const t = total(S.st), bd = D.BOSSES[boss];
+    const pst = (look && look.st) || S.st, t = total(pst), bd = D.BOSSES[boss];
     // ボスのステータス（プレイヤーの合計に合わせる）
     const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
     const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
     const skills = skillsOf(t);
     const lt = look || { type: S.type, t };
-    const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...S.st }, items: [...hand], prevType: S.type, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
+    const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...pst }, items: [...hand], prevType: S.type, type: look && look.st ? lt.type : undefined, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
     const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
     // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
     const wk = D.WEAK[boss];
@@ -2025,9 +2088,9 @@
 
   async function bossNode() {
     if ('boss' in R.ns) return result_(); // ボス戦はもう終わっている
-    const stg = stageOf(total(S.st));
+    const stg = stageOf(total(curSt()));
     if (!R.bt) {
-      R.bt = { cfg: bossCfg(R.boss, stg, R.hand, R.flags, { type: R.startType, t: total(R.startSt) }), snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
+      R.bt = { cfg: bossCfg(R.boss, stg, R.hand, R.flags, { type: R.startType, t: total(R.startSt), st: curSt() }), snap: null, turn: 1, firstId: null, acts: {}, used: [], cont: false, phase: 'intro', result: null };
       save();
     }
     BT = hydrate(R.bt);
@@ -2076,9 +2139,13 @@
   // =====================================================================
   async function result_() {
     const beat = R.ns.boss === 'win', cont = R.ns.cont;
-    const t0 = total(R.startSt), t1 = total(S.st), stg = stageOf(t1);
     const rw = await once('reward', () => {
       let bossItem = null, bossCoin = 0;
+      // 仮ステータスで 上がった分を 本ステータスに 足す（ふりわけは しない。負けても 足す。10/5）
+      const st0 = { ...S.st }, type0 = S.type, gain = { ...R.gain };
+      SUBJ.forEach(s => (S.st[s] += gain[s] || 0));
+      R.gain = Object.fromEntries(SUBJ.map(s => [s, 0]));
+      const stg = stageOf(total(S.st));
       if (beat) {
         bossCoin = K.COIN_BOSS * (stg + 1); S.coins += bossCoin; R.coins += bossCoin;
         const g = newOk(); bossItem = (g && drawItem(R.rnd, { unowned: true, hand: R.hand, minR: cont ? 1 : 3 })) || drawItem(R.rnd, { hand: R.hand, minR: cont ? 1 : 3 });
@@ -2091,31 +2158,34 @@
         if (stg === 2) S.boss3[R.boss] = 1;
         if (!cont) S.nocont++;
       }
-      return { bossItem, bossCoin };
+      return { bossItem, bossCoin, st0, type0, gain };
     });
     window.MB_LAST = { beat, cont };
-    // ランク（クリアしたときだけ。記録しない・ごほうびも かわらない）
+    const st0 = rw.st0 || R.startSt, gain = rw.gain || Object.fromEntries(SUBJ.map(s => [s, 0])), type0 = rw.type0 || R.startType;
+    const st1 = Object.fromEntries(SUBJ.map(s => [s, st0[s] + (gain[s] || 0)]));
+    const t0 = total(st0), t1 = total(st1);
+    // ランク（記録しない・ごほうびも かわらない）。負けたときは「—」
     const qa = R.qa || [0, 0], rate = qa[1] ? qa[0] / qa[1] : 0;
-    const rank = !beat ? '' : cont ? 'C' : rate >= 1 ? 'S' : rate >= 0.9 ? 'A' : 'B';
+    const rank = !beat ? 'N' : cont ? 'C' : rate >= 1 ? 'S' : rate >= 0.9 ? 'A' : 'B';
     const el = render(`<div class="scr center rsl" style="gap:12px">
       <div class="big gold">${beat ? '🏆 ダンジョン クリア！' : '🌙 ダンジョン おわり'}</div>
       <div class="panel rpanel" style="width:900px">
-        <div class="rrow">${SUBJ.map(s => { const d = S.st[s] - R.startSt[s]; return `<div class="rcell" data-s="${s}"><div class="rn">${subjIc(s)} ${s}</div><div class="rv">${R.startSt[s]}</div><div class="rup ${d ? '' : 'zero'}">+${d}</div></div>`; }).join('')}</div>
+        <div class="rrow">${SUBJ.map(s => { const d = gain[s] || 0; return `<div class="rcell" data-s="${s}"><div class="rn">${subjIc(s)} ${s}</div><div class="rv">${st0[s]}</div><div class="rup ${d ? '' : 'zero'}">+${d}</div></div>`; }).join('')}</div>
         <div class="rtot"><span>ごうけい</span><b id="rtv">${t0}</b><span class="rup" id="rtu">+${t1 - t0}</span></div>
         <div class="rcoin"><span>${ic('coin', '🪙')} まなびコイン</span><b id="rcv">+0</b><span class="sm" id="rch"></span></div>
-        ${beat ? `<div class="sm" style="text-align:center;margin-top:4px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : 'ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}（ごうけい ${qa[0]} / ${qa[1]}問 正解）</div>` : ''}
-      </div>${rank ? `<div class="rstamp rk${rank}" id="rstamp"><small>RANK</small>${rank}</div>` : ''}</div>`, 'res', 'result');
+        ${beat ? `<div class="sm" style="text-align:center;margin-top:4px">${cont ? 'ボス撃破ボーナス 🪙' + rw.bossCoin : 'ノーコンティニュー！ レアなアイテムをゲット　🪙' + rw.bossCoin}（ごうけい ${qa[0]} / ${qa[1]}問 正解）</div>` : '<div class="sm" style="text-align:center;margin-top:4px">上がった ステータスと コインは もらえるよ（ボスの ごほうび・持ち帰りは なし）</div>'}
+      </div><div class="rstamp rk${rank}" id="rstamp"><small>RANK</small>${rank === 'N' ? '—' : rank}</div></div>`, 'res', 'result');
     // ドンっ！ ドンっ！ と 1つずつ
     const pop = async (cell, hit = true) => { cell.classList.add('on'); if (hit) { se('statup'); el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); } await wait(520); };
-    for (const s of SUBJ) { const c = $(`.rcell[data-s="${s}"]`, el); $('.rv', c).textContent = S.st[s]; await pop(c, S.st[s] > R.startSt[s]); }
+    for (const s of SUBJ) { const c = $(`.rcell[data-s="${s}"]`, el); $('.rv', c).textContent = st1[s]; await pop(c, st1[s] > st0[s]); }
     $('#rtv', el).textContent = t1; await pop($('.rtot', el)); await wait(150);
     const cc = $('.rcoin', el); cc.classList.add('on'); se('money');
     const tot = R.coins; for (let k = 1; k <= 20; k++) { $('#rcv', el).textContent = '+' + Math.round(tot * k / 20); await wait(40); }
     $('#rch', el).textContent = `（もっている ${S.coins}）`; await wait(400);
-    if (rank) { se('stamp'); $('#rstamp', el).classList.add('on'); await wait(900); }
+    se('stamp'); $('#rstamp', el).classList.add('on'); await wait(900);
     await msgWait(900);
-    // 持ち帰り（未取得のものから 1回に1個。1日の上限は なし（10/3）。ボス撃破報酬も候補にまぜる）
-    const taken = await once('take', async () => {
+    // 持ち帰り（クリアしたときだけ。未取得のものから 1回に1個。ボス撃破報酬も候補にまぜる）
+    const taken = !beat ? null : await once('take', async () => {
       const cands = [...new Set([...R.hand, ...(rw.bossItem ? [rw.bossItem] : [])])];
       if (rw.bossItem) { se('chest'); } if (rw.bossItem) await chooseItem('👑 ボス撃破のごほうび！ 持ち帰りの候補に入ったよ', [rw.bossItem], { labels: ['見た！'] });
       if (!cands.length) { await dialog({ who: '🎒', text: '持ち帰れる アイテムは なかった……' }); return null; }
@@ -2125,15 +2195,16 @@
       S.takeHome++;
       return dup ? 'dup' : took;
     });
-    if (taken === 'dup' && !R.ns.alloc) { R.ns.alloc = 1; save(); await bonusAlloc(); }
-    await evolution(R.startSt, R.startType);
+    if (taken === 'dup' && !R.ns.alloc) { R.ns.alloc = 1; save(); await bonusAlloc({ evo: false }); }
+    await evolution(st0, type0);
     R = null; BT = null; S.run = null; save();
     home();
     if (!S.tutItem) { S.tutItem = 1; save(); await tutorial(['item']); } // はじめて ダンジョンから 帰ったら アイテムの せつめい
   }
 
   // 進化演出（新スキル・タイプ変化・見た目の成長）
-  async function evolution(st0, type0) {
+  // 本ステータスが かわったら いつも これ（リザルト・ボーナス・デバッグ・引きつぎ）。見た目が かわるときだけ 演出（何段階 とんでも 1回）
+  async function evolution(st0, type0, label = 'ホームへ') {
     const t0 = total(st0), t1 = total(S.st);
     const newSk = skillsOf(t1).filter(k => !skillsOf(t0).includes(k));
     const p0 = { seikaku: S.seikaku, style: S.style, styleStg: S.styleStg };
@@ -2155,7 +2226,7 @@
       $('#evt', o).innerHTML = `✨ 新しいスキル <span class="gold">「${k}」</span> を おぼえた！<div class="sm">${D.SKILLS.find(s => s.n === k).d}</div>`;
       await msgWait(2200);
     }
-    $('#evb', o).innerHTML = '<button class="btn-main">ホームへ</button>';
+    $('#evb', o).innerHTML = `<button class="btn-main">${label}</button>`;
     await new Promise(r => ($('#evb button', o).onclick = r));
     o.remove();
   }
@@ -2167,7 +2238,8 @@
   // =====================================================================
   function dueList() {
     const t = today();
-    return Object.entries(S.qs).filter(([id, v]) => (v === 2 || v === 3) && S.qd[id] !== t).map(([id]) => +id).filter(id => Q[id]);
+    // 復習まち：いつでも（日の しばりなし。10/5）／あと1回：あと1回に なった日の 次の日から
+    return Object.entries(S.qs).filter(([id, v]) => v === 2 || (v === 3 && S.qd[id] !== t)).map(([id]) => +id).filter(id => Q[id]);
   }
   async function reviewDungeon() {
     const due = dueList();
@@ -2796,8 +2868,16 @@
     if (!c1) return debugRoom();
     const c2 = await dialog({ who: '⚠️', text: had ? `このPCには すでに「${esc(had.pname)}」のセーブがあります。\n上書きして 消えてしまいますが、ほんとうに いいですか？` : 'もういちど確認します。ほんとうに 引きつぎますか？', choices: [{ label: 'はい、引きつぐ', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
     if (!c2) return debugRoom();
+    const rg = pr.runGain; delete pr.runGain;
     S = migrate(pr); S.debug = null; R = null; BT = null; S.run = null; rawSave(); // 引きついだら デバッグモードは必ずオフ
     await dialog({ who: '✅', text: `引きつぎました！\n${esc(S.pname)} さんの データで はじめられます` });
+    // ダンジョンの とちゅうで 上がった分は 本ステータスに 足す（ダンジョンの つづき・拾ったアイテムは 引きつがない）
+    if (rg) {
+      const st0 = { ...S.st }, type0 = S.type;
+      SUBJ.forEach(s => (S.st[s] += rg[s] || 0)); refreshType(); rawSave();
+      await dialog({ who: '⚔️', text: `ダンジョンの とちゅうで 上がった ステータス（ごうけい +${total(rg)}）も 入れたよ` });
+      await evolution(st0, type0, 'OK');
+    }
     titleScreen();
   }
   // ---- 先生用ページ ----
@@ -2874,7 +2954,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;

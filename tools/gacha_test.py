@@ -1,4 +1,4 @@
-# ガチャ（200・10回目ごとに★4以上・1日50回・ダブりはボーナス+3）と 未入手確定（1日1回）のテスト
+# ガチャ（200・10回目ごとに★4以上・1日50回・ダブりはボーナス+5）と 未入手確定（1日1回）のテスト
 import pathlib
 from playwright.sync_api import sync_playwright
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'index.html').as_uri() + '?test'
@@ -14,10 +14,19 @@ with sync_playwright() as p:
     check(pg.evaluate('MB.D.GACHA_COST') == 200, 'ガチャは 200')
     st0 = pg.evaluate("Object.values(MB.S.st).reduce((a,b)=>a+b)")
     pg.click('#pull'); W(150); pg.click('#gr button'); W(100)
-    check(pg.evaluate('MB.S.bonusPt') == 3 and 'ボーナス' in pg.inner_text('#app'), 'ダブりで ボーナスポイント +3（すぐには 上がらない）')
+    check(pg.evaluate('MB.S.bonusPt') == 5 and 'ボーナス' in pg.inner_text('#app'), 'ダブりで ボーナスポイント +5（すぐには 上がらない）')
+    pg.evaluate("MB.S.bonusPt = 8"); pg.evaluate("void MB.go.gacha()"); W(100)
     pg.click('#bpa'); W(100); pg.click('[data-bs="算数"]'); W(100)
-    check(pg.evaluate("MB.S.bonusPt") == 0 and pg.evaluate("MB.S.st['算数']") == 103, 'すきな教科に ふれる（算数 +3）')
+    check(pg.evaluate("MB.S.bonusPt") == 3 and pg.evaluate("MB.S.st['算数']") == 105, 'すきな教科に ふれる（算数 +5）')
+    pg.click('[data-bs="算数"]'); W(100)
+    check(pg.evaluate("MB.S.bonusPt") == 0 and pg.evaluate("MB.S.st['算数']") == 108, '5より少ない のこりは まとめて（算数 +3）')
     pg.click('.ov #cl'); W(100)
+    # 見た目が かわる ボーナスなら 進化の演出（10/5）
+    pg.evaluate("MB.S.bonusPt = 5; const L=MB.D.K.LOOK_LINE[0], t=Object.values(MB.S.st).reduce((a,b)=>a+b); MB.S.st['国語'] += L - t - 2"); pg.evaluate("void MB.go.gacha()"); W(100)
+    pg.click('#bpa'); W(100); pg.click('[data-bs="国語"]'); W(100); pg.click('.ov #cl'); W(100)
+    pg.wait_for_selector('#evb button', timeout=8000)
+    check('進化' in pg.inner_text('.ov'), 'ボーナスで 見た目が かわったら 進化の演出')
+    pg.click('#evb button'); W(150)
     for _ in range(60):
         if pg.locator('#pull').is_disabled(): break
         pg.click('#pull'); W(60); pg.click('#gr button'); W(60)

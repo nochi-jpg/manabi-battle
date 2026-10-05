@@ -11,7 +11,7 @@ window.DATA = (function () {
 
   // ---- 数字（【仮】④で調整）----
   const K = {
-    VERSION: '1.1.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
+    VERSION: '1.2.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
     START_STAT: 100,
     // ステータス：ダンジョンで正解（または復習まちを復習で正解）＋8 → あと1回を復習で正解＋2（合計10）
     // コイン　　：同じく ＋40 → ＋10（合計50）。不正解は0
@@ -23,10 +23,10 @@ window.DATA = (function () {
     BOSS_Q: 3, VS_Q: 5, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
     BOSS_HP: [1.7, 1.6, 1.4],           // ボスのHP倍率（★1・★2・★3）。ノーコンティニュー勝率：アイテムあり全問正解≒90%・アイテムなし正答80%≒50% をねらう（tools/boss_balance.py）
     COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 10 * 60 * 1000, /* 塔：1日10分（10/2 先生） */ TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
-    STAGE_LINE: [1500, 3500],           // ステータス合計でボスの段階が変わる
-    LOOK_LINE: [1050, 2450, 5450],      // 見た目の進化（4段階）。1日約+200（ダンジョン2回＋復習・正答率80%の実測）で 3日目・10日目・25日目
+    STAGE_LINE: [2200, 5600],           // ステータス合計でボスの段階が変わる（10/5：1日の のびに 合わせて 1500・3500 から 上げた。5日目・15日目くらい）
+    LOOK_LINE: [2000, 3700, 7200],      // 見た目の進化（4段階）。1日約+340（ダンジョン2回＋復習・正答率80%。10/5 tools/growth_sim.py の実測）で 5日目・10日目・20日目
     SEIKAKU_START: 1000, SEIKAKU_MAX: 2000,
-    SKILL_LINE: { 連続攻撃: 650, ガードバッシュ: 800, ドレイン: 1300, かんつう: 1800, カウンター: 2500, パワーシュート: 3200, ふういん: 4200 },
+    SKILL_LINE: { 連続攻撃: 750, ガードバッシュ: 1000, ドレイン: 1850, かんつう: 2700, カウンター: 3900, パワーシュート: 5100, ふういん: 6800 }, // 10/5：1日の のびに 合わせて 上げた（もとは 650・800・1300・1800・2500・3200・4200。同じ 日数で おぼえる）
   };
 
   // ---- スキル ----
@@ -294,7 +294,7 @@ window.DATA = (function () {
   // ---- 図鑑の並び（効果別）----
   const CAT_ORDER = ['atk', 'q', 'st', 'def', 'sk'];
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
-  const GACHA_COST = 200, GACHA_PITY = 10, GACHA_DAY = 50, DUP_BONUS = 3; // ガチャ：1回200・10回目ごとに★4以上・1日50回まで・ダブりはボーナス+3（10/3）
+  const GACHA_COST = 200, GACHA_PITY = 10, GACHA_DAY = 50, DUP_BONUS = 5; // ガチャ：1回200・10回目ごとに★4以上・1日50回まで・ダブりはボーナス+5（10/5。もとは+3）
 
   return { SAY, STAFF, CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
 })();

@@ -39,6 +39,10 @@ with sync_playwright() as p:
     pg.click('.ov #ok'); pg.wait_for_timeout(150)
     v = pg.evaluate("[MB.S.st['国語'], MB.S.stamina, MB.S.coins, MB.S.seikaku]")
     check(v == [1234, 555, 777, 1800], f'数値を 自由に かえられる {v}')
+    # 見た目が かわる 数値なら 進化の演出（10/5）
+    pg.wait_for_selector('#evb button', timeout=8000)
+    check(pg.locator('#evo').count() > 0, 'デバッグで 見た目が かわったら 進化の演出')
+    pg.click('#evb button'); pg.wait_for_timeout(150)
     pg.evaluate("MB.S.st['国語']=100; MB.S.stamina=77; MB.S.coins=123; MB.S.seikaku=1000"); pg.click('#set') if not pg.locator('#dbp').count() else None; pg.wait_for_timeout(100)
     for k in ['st', 'stamina', 'coins', 'items', 'allq', 'tower']:
         pg.click(f'[data-dbg="{k}"]'); pg.wait_for_timeout(80)

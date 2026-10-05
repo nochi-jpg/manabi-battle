@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'index.html').as_uri() + '?test'
 HP = [float(x) for x in sys.argv[1:4]] if len(sys.argv) > 3 else [float(sys.argv[1])] * 3 if len(sys.argv) > 1 else None
 N = 3000
-# 段階ごとの ステータス（合計 1000 / 2500 / 5000。得意・苦手のばらつきあり）
+# 段階ごとの ステータス（合計 1350 / 3900 / 8150（10/5 の ライン。もとは 1000 / 2500 / 5000）。得意・苦手のばらつきあり）
 def stats(t):
     return [{s: round(t / 5 * m) for s, m in zip(['国語', '算数', '理科', '社会', '英語'], ms)}
             for ms in ([1, 1, 1, 1, 1], [1.3, 1.1, 1, 0.9, 0.7], [0.8, 1.4, 1, 1, 0.8])]
@@ -18,7 +18,7 @@ with sync_playwright() as p:
     pg.fill('#pn', 'テスト'); pg.fill('#cn', 'モン'); pg.click('#go'); pg.wait_for_timeout(100)
     print('ボスHP倍率:', HP or pg.evaluate('MB.D.K.BOSS_HP'))
     tot = {'item': [], 'none': []}
-    for t in (1000, 2500, 5000):
+    for t in (1350, 3900, 8150):
         for st in stats(t):
             a = pg.evaluate('([st,n,hp]) => MB.simBoss({st, n, bossHp: hp, acc: 1, items: () => MB.simHand()})', [st, N, HP])
             c = pg.evaluate('([st,n,hp]) => MB.simBoss({st, n, bossHp: hp, acc: 0.8, items: []})', [st, N, HP])
