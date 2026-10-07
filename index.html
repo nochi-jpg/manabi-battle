@@ -202,7 +202,9 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .ov.ovb{align-items:flex-end;padding-bottom:16px;background:rgba(0,0,0,.25);pointer-events:none}.ov.ovb>*{pointer-events:auto} /* うしろの 状態異常アイコンを タップできるように */
 .selp{padding:12px 18px}.selh{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;flex-wrap:wrap}.selh .mid{font-size:24px}.selh>div{margin:0!important}
 .hprow{display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;min-height:30px}.hprow .stt{display:flex;gap:8px;font-size:18px}
-.skgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.skgrid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:8px} /* 上の段と下の段で 同じ大きさ */
+.fighter .itrow{min-height:40px;align-items:center} /* アイテムがなくても 高さは同じ（ゲージの位置を そろえる） */
+.sjtag{display:block;min-height:1.4em;line-height:1.4em} /* 弱点・効きづらい が なくても 同じ高さ */
 .skb{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:3px;text-align:left;padding:7px 12px;min-height:0}
 .skb .skh{display:flex;align-items:center;gap:6px;font-size:20px;line-height:1.2;white-space:nowrap}
 .skb .skh .skic{flex:none;width:30px;height:30px;margin:0;font-size:30px;display:flex;align-items:center;justify-content:center}

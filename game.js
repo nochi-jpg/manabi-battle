@@ -1766,9 +1766,9 @@
   function battleScreen() {
     const { P, B } = BT;
     const side = (f, left) => `<div class="fighter" id="${left ? 'fP' : 'fB'}" style="${left ? 'left:40px' : 'right:40px'}">
-      <div class="emo ${f.aura || ''}">${f.art}</div>${f.title ? `<div class="ttlrow">${titleBadge(f.title, 'sm')}</div>` : ''}<div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
+      <div class="emo ${f.aura || ''}">${f.art}</div><div class="ttlrow">${f.title ? titleBadge(f.title, 'sm') : ''}</div><div class="nm">${esc(f.name)}${f.pname ? `<span class="sm">（${esc(f.pname)}）</span>` : ''} <span class="sm dim">${f.isBoss ? f.el + '属性' : f.type + 'タイプ'}</span></div>
       <div class="hpbar"><i></i></div><div class="hprow"><span class="sm hpt"></span><span class="stt"></span></div>
-      <div class="row" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
+      <div class="row itrow" style="justify-content:center;font-size:30px">${[...f.items].map(n => `<span class="it" data-n="${esc(n)}" style="cursor:pointer">${artItem(n)}</span>`).join('')}</div>
       <div class="gauge" style="visibility:hidden"><i></i></div><div class="sm gtxt"></div></div>`;
     const el = render(`<div class="turnlbl" id="turn"></div>${side(P, true)}${side(B, false)}
       <div class="blog panel" id="blog"></div>`, 'btl');
@@ -1839,7 +1839,7 @@
   function playerSkill(P) {
     return new Promise(res => {
       const frozen = 'こおり' in P.status;
-      const o = overlay(`<div class="panel selp" style="width:1100px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}${canPass() ? '<button class="btn-gray passb" data-pass="1">🏳️ こうさん</button>' : ''}</div>
+      const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}${canPass() ? '<button class="btn-gray passb" data-pass="1">🏳️ こうさん</button>' : ''}</div>
         <div class="skgrid">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = ct > 0 || (frozen && k !== '通常攻撃');
@@ -1865,7 +1865,7 @@
           let v = baseAtk(P, s) * recvMult(B, s); if (P.weakSubj === s) v *= P.weakMul;
           const rm = recvMult(B, s);
           const tag = P.weakSubj === s ? '<span class="gold">✨弱点</span>' : rm > 1 ? '<span class="eff-up">こうか ばつぐん！</span>' : rm < 1 ? '<span class="dim">効きづらい</span>' : '';
-          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="sbn">${subjIc(s)}${s}</span><span class="sm">攻撃 ${R0(v)}</span><span class="xs">${ban.includes(s) ? '🔒ふういん中' : tag}</span></button>`;
+          return `<button data-s="${s}" ${ban.includes(s) ? 'disabled' : ''} style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="sbn">${subjIc(s)}${s}</span><span class="sm">攻撃 ${R0(v)}</span><span class="xs sjtag">${ban.includes(s) ? '🔒ふういん中' : tag || '&nbsp;'}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
     });
