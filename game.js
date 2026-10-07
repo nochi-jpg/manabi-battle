@@ -109,7 +109,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: 'まなびタウン' }, fav: [], gachaN: 0 };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: 'まなびタウン' }, fav: [], gachaN: 0, qgrade: { 国語: 4, 算数: 4, 理科: 4, 社会: 4, 英語: 4 } };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -419,25 +419,23 @@
   }
 
   // ---- 問題をえらぶ ----
-  // 新しい問題：4年→5年→6年（教科ごと）。得意な教科は上の学年もまぜる。ぜんぶ解いたらおさらい
+  // ---- 出題範囲（せってい。教科ごとに 4・5・6年。さいしょは 4年。10/7）----
+  const QGRADE_ORDER = ['国語', '算数', '社会', '理科', '英語'];
+  const gradeOf = subj => { const g = (S.qgrade || {})[subj]; return g === 5 || g === 6 ? g : 4; };
+  const inRange = q => dbg('allq') || q.g === gradeOf(q.s); // デバッグ：学年に関係なく出す
+  // 新しい問題：出題範囲の 学年だけ。ぜんぶ解いたら おさらい（その学年 → ほかの学年）
   function drawNewQs(subj, n, rnd, ex = null) {
     const taken = new Set(ex || []), out = [];
-    const st = curSt(), others = SUBJ.filter(s => s !== subj).reduce((a, s) => a + st[s], 0) / 4;
-    const ratio = st[subj] / others;
-    const mix = ratio >= 2 ? 0.3 : ratio >= 1.5 ? 0.2 : ratio >= 1.25 ? 0.1 : 0;
     for (let k = 0; k < n; k++) {
-      const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id));
+      const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id) && inRange(q));
       let q = null, osarai = false;
-      if (fresh.length && dbg('allq')) q = pick(fresh, rnd); // デバッグ：学年の順番に関係なく出す
-      else if (fresh.length) {
-        const gmin = Math.min(...fresh.map(q => q.g));
-        let pool = fresh.filter(q => q.g === gmin);
-        const upper = fresh.filter(q => q.g > gmin);
-        if (upper.length && rnd() < mix) pool = upper.filter(q => q.g === Math.min(...upper.map(q => q.g)));
-        q = pick(pool, rnd);
-      } else {
-        let pool = QBY[subj].filter(q => (S.qs[q.id] === 3 || S.qs[q.id] === 4) && !taken.has(q.id));
-        if (!pool.length) pool = QBY[subj].filter(q => !taken.has(q.id));
+      if (fresh.length) q = pick(fresh, rnd);
+      else {
+        const done = q => S.qs[q.id] === 3 || S.qs[q.id] === 4;
+        let pool = QBY[subj].filter(q => done(q) && !taken.has(q.id) && inRange(q));
+        if (!pool.length) pool = QBY[subj].filter(q => done(q) && !taken.has(q.id));
+        if (!pool.length) pool = QBY[subj].filter(q => !taken.has(q.id) && S.qs[q.id] !== 2);
+        if (!pool.length) pool = QBY[subj];
         q = pick(pool, rnd); osarai = true;
       }
       taken.add(q.id); out.push({ id: q.id, osarai });
@@ -452,13 +450,8 @@
     const log = (R.qlog || {})[subj] || [], recent = new Set(log.slice(-3)), qrev = R.qrev || {};
     const rv = QBY[subj].filter(q => S.qs[q.id] === 2 && !recent.has(q.id) && !qrev[q.id]);
     if (rv.length) return { id: pick(rv, R.rnd).id, kind: 'rev' };
-    const asked = new Set(log);
-    const fresh = QBY[subj].filter(q => !S.qs[q.id] && !asked.has(q.id));
-    if (fresh.length) { const p = drawNewQs(subj, 1, R.rnd, asked)[0]; return { id: p.id, kind: p.osarai ? 'osarai' : 'new' }; }
-    let pool = QBY[subj].filter(q => (S.qs[q.id] === 3 || S.qs[q.id] === 4) && !asked.has(q.id));
-    if (!pool.length) pool = QBY[subj].filter(q => !recent.has(q.id) && S.qs[q.id] !== 2);
-    if (!pool.length) pool = QBY[subj];
-    return { id: pick(pool, R.rnd).id, kind: 'osarai' };
+    const p = drawNewQs(subj, 1, R.rnd, log)[0]; // 新しい問題（出題範囲の 学年）→ おさらい
+    return { id: p.id, kind: p.osarai ? 'osarai' : 'new' };
   }
   // 答えた結果を 記録する。ステータスは 仮（R.gain）に、コインは すぐ 本物に
   // 正解でも「あと1回」まで。卒業は 別の日の 復習ダンジョンで
@@ -477,10 +470,11 @@
     R.gain[subj] += gain; S.coins += c; R.coins += c;
     return { gain, c };
   }
-  // イベントの問題：いつも 新しい問題（記録はしない。イベントだから むずかしめ）
+  // イベントの問題：いつも 新しい問題（出題範囲の 学年。記録はしない。イベントだから むずかしめ）
   function drawEventQ() {
     const asked = new Set([...R.usedQ, ...Object.values(R.qlog || {}).flat()]);
-    let pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id));
+    let pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id) && inRange(q));
+    if (!pool.length) pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id));
     if (!pool.length) pool = QBY_ALL().filter(q => !asked.has(q.id));
     if (!pool.length) pool = QBY_ALL();
     const q = pick(pool, R.rnd); R.usedQ.add(q.id); return q;
@@ -492,7 +486,7 @@
     let all = subjs.flatMap(s => QBY[s]).filter(q => !used.has(q.id));
     if (!all.length) { used.clear(); all = subjs.flatMap(s => QBY[s]); }
     let pool = all.filter(q => qs[q.id]);
-    if (!pool.length) { const g = Math.min(...all.map(q => q.g)); pool = all.filter(q => q.g === g); }
+    if (!pool.length) { pool = all.filter(inRange); if (!pool.length) pool = all; }
     const q = pick(pool); used.add(q.id); return q;
   }
 
@@ -674,6 +668,7 @@
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
         <button id="sH">📖 ゲームのせつめい<small>まいにちの ながれ・すがた</small></button>
         <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
+        <button id="sQ">📚 出題範囲<small>${QGRADE_ORDER.map(s => s[0] + gradeOf(s)).join(' ')}</small></button>
       </div>
       ${MOBILE ? sec('全画面（スマホ・タブレット）', ['on', 'off'], S.sel.full === 'off' ? 'off' : 'on', 'full', x => (x === 'on' ? 'オン' : 'オフ')) : ''}
       ${MOBILE && IOS && !fsCan() ? `<div class="sm" style="opacity:.8;margin-top:4px">iPhoneは、Safariの「共有」→「ホーム画面に追加」から ひらくと 全画面になります</div>` : ''}
@@ -688,6 +683,7 @@
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
     $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
     $('#sV', o).onclick = () => { o.remove(); volumePage(); };
+    $('#sQ', o).onclick = () => { o.remove(); gradePage(); };
     $('#sH', o).onclick = () => { o.remove(); tutorial(['cycle', 'item', 'grow']).then(backToSettings); };
     if (dbgOn()) bindDebug(o);
     $('#rs', o).onclick = async () => {
@@ -720,6 +716,20 @@
       S.sel[b.dataset.vk] = +b.dataset.v; save();
       if (b.dataset.vk === 'vbgm') bgm(SND.want || 'menu'); else setTimeout(() => se('ok'), 50);
       o.remove(); volumePage();
+    }));
+    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
+  }
+
+  // ---- 出題範囲：教科ごとに 4・5・6年（育成ダンジョンの 新しい問題・イベントの問題）----
+  function gradePage() {
+    const left = (s, g) => QBY[s].filter(q => q.g === g && !S.qs[q.id]).length;
+    const row = s => `<div class="row" style="gap:10px;margin-top:8px;align-items:center"><span class="mid" style="width:150px">${subjIc(s)} ${s}</span>${[4, 5, 6].map(g =>
+      `<button data-gs="${s}" data-g="${g}" class="${gradeOf(s) === g ? 'btn-main' : ''}" style="width:170px;padding:6px 0">${g}年<small style="display:block;font-size:15px">まだ ${left(s, g)}問</small></button>`).join('')}</div>`;
+    const o = overlay(`<div class="panel" style="width:900px"><div class="row" style="justify-content:space-between"><span class="big">📚 出題範囲</span><button class="btn-blue" id="cl">とじる</button></div>
+      <div class="sm dim">育成ダンジョンで 出る 新しい問題の 学年だよ。ぜんぶ 解いたら おさらいの問題が 出るよ<br>（まちがえた問題は 学年に 関係なく 出るよ）</div>
+      ${QGRADE_ORDER.map(row).join('')}</div>`);
+    o.querySelectorAll('[data-gs]').forEach(b => (b.onclick = () => {
+      S.qgrade = { ...(S.qgrade || {}), [b.dataset.gs]: +b.dataset.g }; save(); o.remove(); gradePage();
     }));
     $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
   }
@@ -2954,7 +2964,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;

@@ -112,6 +112,7 @@ with sync_playwright() as p:
     pg.click('.ttl[data-t]:not([data-t=""]) >> nth=0'); W(100); audit('称号えらび：えらんだ', True)
     pg.click('#bk'); W(150); pg.click('#sB'); W(150); audit('背景えらび', True); pg.click('.bgc.lock >> nth=0'); W(100); audit('背景：手に入れかた', True); pg.evaluate(close)
     pg.click('#bk'); W(150); pg.click('#sN'); W(150); audit('名前をかえる', True); pg.evaluate(close)
+    pg.evaluate(close); pg.click('#set'); W(100); pg.click('#sQ'); W(150); audit('出題範囲', True); pg.evaluate(close)
     pg.evaluate(close); pg.click('#set'); W(100); pg.click('#sC'); W(150); audit('クレジット', True); pg.click('.cred #cl'); W(150); pg.evaluate(close)
     pg.evaluate("MB.S.debug={on:true,bak:{}}; MB.S.ach['boss_all']='x'"); go('home()'); pg.evaluate(close); pg.click('#set'); W(100); audit('せってい（デバッグ）', True); pg.evaluate(close)
     pg.evaluate("MB.S.debug=null"); go('home()'); pg.evaluate(close)

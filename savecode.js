@@ -72,6 +72,8 @@ window.SAVECODE = (function () {
     w.vu(S.bonusPt || 0); w.u8(Math.min(255, S.gachaToday || 0)); w.u8(S.newDay === S.day ? 1 : 0);
     // 育成ダンジョンの とちゅうで 上がった分（仮ステータス。本ステータスとは 別。10/5）
     const rg = (S.run && S.run.gain) || {}; SUBJ.forEach(s => w.vu(Math.max(0, rg[s] || 0)));
+    // 出題範囲（教科ごとの 学年 4〜6。10/7）
+    SUBJ.forEach(s => w.u8((S.qgrade || {})[s] || 4));
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -116,6 +118,7 @@ window.SAVECODE = (function () {
     if (r.i < body.length) { o.bonusPt = r.vu(); o.gachaToday = r.u8(); if (r.u8() & 1) o.newDay = o.day; }
     o.runGain = null;
     if (r.i < body.length) { const g = {}; SUBJ.forEach(s => (g[s] = r.vu())); if (SUBJ.some(s => g[s])) o.runGain = g; }
+    if (r.i < body.length) { o.qgrade = {}; SUBJ.forEach(s => { const g = r.u8(); o.qgrade[s] = g >= 4 && g <= 6 ? g : 4; }); }
     o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;

@@ -112,5 +112,21 @@ with sync_playwright() as p:
     check(saw_rank is not None and '—' in saw_rank, f'負けても リザルト・ランクは「—」 {saw_rank!r}')
     v = pg.evaluate("[Object.values(MB.S.st).reduce((a,b)=>a+b), MB.S.owned.length, MB.S.run]")
     check(v[0] > t0 and v[1] == owned0 and v[2] is None, f'負け：ステータスは 足す・持ち帰りなし {t0} → {v}')
+
+    # ---- 出題範囲（10/7）：さいしょは 4年・せっていで 教科ごとに かえる・QRに入る ----
+    pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove()); MB.S.stamina = 2000; MB.S.run = null; MB.S.qs = {}; delete MB.S.qgrade"); pg.evaluate("void MB.go.home()"); W(100)
+    pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove())")
+    pg.evaluate("void MB.go.settings()"); W(100); pg.click('#sQ'); W(100)
+    pg.click('[data-gs="算数"][data-g="6"]'); W(100); pg.click('[data-gs="英語"][data-g="5"]'); W(100)
+    check(pg.evaluate("MB.S.qgrade['算数']") == 6 and 'btn-main' in pg.get_attribute('[data-gs="算数"][data-g="6"]', 'class'), 'せってい → 出題範囲で 算数を 6年に')
+    pg.click('.ov #cl'); W(100); pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove())")
+    pg.click('#dun'); W(50); pg.click('.ov .choices button'); W(150)
+    g = pg.evaluate("""(() => { const T = MB.T, out = {}; for (const s of ['国語','算数','英語']) { out[s] = []; for (let i = 0; i < 15; i++) { const x = T.pickQ(s); out[s].push(MB.Q[x.id].g); T.applyQ(s, x, true); } }
+      out.ev = []; for (let i = 0; i < 30; i++) { const q = T.drawEventQ(); out.ev.push([q.s, q.g]); } return out; })()""")
+    check(set(g['国語']) == {4} and set(g['算数']) == {6} and set(g['英語']) == {5}, f"新しい問題は えらんだ学年だけ（得意な教科でも まぜない）国{set(g['国語'])} 算{set(g['算数'])} 英{set(g['英語'])}")
+    want = {'国語': 4, '算数': 6, '理科': 4, '社会': 4, '英語': 5}
+    check(all(want[s] == gr for s, gr in g['ev']), 'イベントの問題も えらんだ学年')
+    q = pg.evaluate("SAVECODE.decode(MB.qrBytes()).qgrade")
+    check(q == want, f'QRに 出題範囲 {q}')
     b.close()
 print('errors:', errors or 'なし'); print('NG:', fails or 'なし')
