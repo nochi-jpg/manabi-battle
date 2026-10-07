@@ -58,8 +58,10 @@ with sync_playwright() as p:
                 if A.query_selector('#go'): A.click('#go'); A.wait_for_timeout(80)
                 A.click('#vs'); A.wait_for_timeout(80); A.click('.ov .choices button'); reloads += 1; continue
             if A.query_selector('#ok') and not A.query_selector('.ov'):
-                if len(A.query_selector_all('.bk.sel')) < 2: A.click('.bk:not(.none):not(.sel)')
-                else: A.click('#ok')
+                try:  # 画面が かわる とちゅうだと おせないことがある → つぎの まわりで もう一度
+                    if len(A.query_selector_all('.bk.sel')) < 2: A.click('.bk:not(.none):not(.sel)', timeout=2000)
+                    else: A.click('#ok', timeout=2000)
+                except Exception: pass
                 A.wait_for_timeout(30); continue
             if A.evaluate("document.body.innerText.includes('画面を見てください')") and not A.query_selector('.ov'):
                 A.click('.scr'); A.wait_for_timeout(30); continue

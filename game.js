@@ -1839,12 +1839,12 @@
   function playerSkill(P) {
     return new Promise(res => {
       const frozen = 'こおり' in P.status;
-      const o = overlay(`<div class="panel selp" style="width:1100px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}</div>
+      const o = overlay(`<div class="panel selp" style="width:1100px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}${canPass() ? '<button class="btn-gray passb" data-pass="1">🏳️ こうさん</button>' : ''}</div>
         <div class="skgrid">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = ct > 0 || (frozen && k !== '通常攻撃');
           return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
-        }).join('')}</div>${canPass() ? '<div class="passrow"><button class="btn-gray passb" data-pass="1">🏳️ こうさん</button></div>' : ''}</div>`, 'ovb');
+        }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = async () => {
         if (b.dataset.pass) { // こうさん（対戦・とうぎじょう だけ。10/7）
           o.style.display = 'none';
