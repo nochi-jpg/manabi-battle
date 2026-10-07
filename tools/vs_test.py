@@ -77,8 +77,15 @@ with sync_playwright() as p:
     A.click('.scr'); A.wait_for_timeout(200)
     sel = A.evaluate("[...document.querySelectorAll('.bk.sel')].map(e=>e.dataset.n)")
     check(len(picks['a']) == 2 and sorted(set(sel)) == sorted(set(picks['a'])), f'再戦は前のそうびが入っている {picks["a"]}')
+    # こうさん（10/7）：わざをえらぶ画面の ボタン → かくにん → その人の 負け
+    play("!!document.querySelector('.passb')")
+    who = A.evaluate("MB.BT.acts.P ? 'B' : 'P'")
+    A.click('.passb'); A.wait_for_timeout(100); A.click('.ov .choices button >> nth=0'); A.wait_for_timeout(100)
     play("MB.VS && MB.VS.phase === 'end'")
-    A.wait_for_selector('.ov .choices button >> nth=1')   # 勝敗の窓が出るまで待つ
+    v = A.evaluate("[MB.VS.pass, MB.VS.result]")
+    check(v[0] in ('P', 'B') and v[1] == ('B' if v[0] == 'P' else 'P'), f'対戦：こうさんすると その人の負け {v}')
+    A.wait_for_selector('.ov .choices button >> nth=1')
+    check('こうさん' in A.inner_text('.ov'), '勝ちの画面に「あいての こうさん」')   # 勝敗の窓が出るまで待つ
     btns = A.query_selector_all('.ov .choices button'); btns[1].click(); A.wait_for_timeout(200)
     check(A.evaluate("localStorage.getItem('manabi_battle_vs') === null") and A.query_selector('#dun') is not None, 'タイトルにもどる → 対戦のデータは消える')
     b.close()

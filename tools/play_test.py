@@ -28,7 +28,7 @@ BOT = """
     return 'wait';
   }
   const ov = [...document.querySelectorAll('.ov')].pop();
-  if (ov) { const bs = [...ov.querySelectorAll('button')].filter(vis); if (bs.length) { (Math.random() < 0.7 ? bs[0] : bs[Math.floor(Math.random() * bs.length)]).click(); return 'ov'; } return 'wait'; }
+  if (ov) { const bs = [...ov.querySelectorAll('button')].filter(vis).filter(b => !b.dataset.pass); if (bs.length) { (Math.random() < 0.7 ? bs[0] : bs[Math.floor(Math.random() * bs.length)]).click(); return 'ov'; } return 'wait'; }
   const nx2 = document.querySelector('#nx'); if (vis(nx2)) { nx2.click(); return 'next'; }
   const sb = [...document.querySelectorAll('#subj button')].filter(vis).filter(b => b.id !== 'rbk'); // 復習の「ホームへ」は おさない
   if (sb.length) { sb[Math.floor(Math.random() * sb.length)].click(); return 'subj'; }

@@ -88,12 +88,14 @@ with sync_playwright() as p:
         pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove())")
         pg.click('#dun'); W(50); pg.click('.ov .choices button'); W(100)
     fresh_dungeon()
-    locked = []
+    locked = []; nopass = True
     for i in range(6000):
         if pg.query_selector('#dun') and not pg.query_selector('.ov'): break
         info = pg.evaluate("(() => { const BT = MB.BT; if (!BT || !BT.P || !BT.acts || !BT.acts.P || BT.acts.P === 'skip' || !BT.acts.P.st) return null; return { act: BT.acts.P.st, P: BT.P.st, cur: MB.T.curSt(), n: BT.acts.P.ans.length }; })()")
         if info and info['n'] >= 2: locked.append(info['act'] == info['P'] and info['cur'] != info['act'])
+        if pg.query_selector('.passb'): nopass = False
         pg.evaluate(BOT, 1.0); W(25)
+    check(nopass, 'ダンジョンの ボス戦には こうさんボタンが ない')
     check(len(locked) > 0 and all(locked), f'ボス戦：攻撃力は スキルを えらんだ ときの 仮ステータス・そのターンの 正解ぶんは 次のターンから（{sum(locked)}/{len(locked)}）')
     check(pg.evaluate("Object.values(MB.S.qs).every(v => v !== 4)"), 'ボス戦で 正解しても 卒業しない')
 
@@ -105,7 +107,7 @@ with sync_playwright() as p:
         rk = pg.evaluate("(() => { const e = document.querySelector('#rstamp'); return e ? e.textContent : null; })()")
         if rk: saw_rank = rk
         if pg.evaluate("!!(MB.BT && MB.BT.P)"):
-            pg.evaluate("MB.BT.P.hp = 1; (() => { const b = [...document.querySelectorAll('.ov button')].find(x => x.textContent.includes('リザルト')); if (b) b.click(); })()")
+            pg.evaluate("MB.BT.P.hp = 1; MB.BT.B.hp = MB.BT.B.maxhp; (() => { const b = [...document.querySelectorAll('.ov button')].find(x => x.textContent.includes('リザルト')); if (b) b.click(); })()")
         pg.evaluate(BOT, 1.0); W(25)
     last = pg.evaluate("window.MB_LAST")
     check(last and not last['beat'], f'負けて おわり {last}')
@@ -126,6 +128,13 @@ with sync_playwright() as p:
     check(set(g['国語']) == {4} and set(g['算数']) == {6} and set(g['英語']) == {5}, f"新しい問題は えらんだ学年だけ（得意な教科でも まぜない）国{set(g['国語'])} 算{set(g['算数'])} 英{set(g['英語'])}")
     want = {'国語': 4, '算数': 6, '理科': 4, '社会': 4, '英語': 5}
     check(all(want[s] == gr for s, gr in g['ev']), 'イベントの問題も えらんだ学年')
+    # 解き終わったら 自動で つぎの学年へ（10/7）：4→5→6／5→6→4／6→5→4
+    a = pg.evaluate("""(() => { const S = MB.S, Q = Object.values(MB.Q), T = MB.T, out = [];
+      const fin = g => Q.filter(q => q.s === '算数' && q.g === g).forEach(q => (S.qs[q.id] = 3));
+      const reset = () => Q.filter(q => q.s === '算数').forEach(q => delete S.qs[q.id]);
+      for (const [c, done] of [[5, [5]], [5, [5, 6]], [6, [6]], [6, [6, 5]], [4, [4]], [4, [4, 5]]]) { reset(); S.qgrade['算数'] = c; done.forEach(fin); out.push(T.gradeOf('算数')); }
+      reset(); S.qgrade['算数'] = 6; return out; })()""")
+    check(a == [6, 4, 5, 4, 5, 6], f'解き終わったら 自動で つぎの学年へ（5→6→4・6→5→4・4→5→6）{a}')
     q = pg.evaluate("SAVECODE.decode(MB.qrBytes()).qgrade")
     check(q == want, f'QRに 出題範囲 {q}')
     b.close()

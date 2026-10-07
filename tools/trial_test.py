@@ -63,9 +63,17 @@ with sync_playwright() as p:
     # もう一度（同じそうび）
     pg.click('.ov .choices button >> nth=0'); pg.wait_for_timeout(200)
     check(pg.evaluate("MB.BT && [...MB.BT.P.items].length") == 2, 'もう一度：同じそうびで すぐ始まる')
-    for _ in range(15000):
-        if pg.evaluate(end): break
+    # こうさん（10/7）
+    for _ in range(3000):
+        if pg.query_selector('.passb'): break
         pg.evaluate(BOT, 0.8); pg.wait_for_timeout(20)
+    pg.click('.passb'); pg.wait_for_timeout(100); pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(100)
+    check(pg.query_selector('.skgrid') is not None, 'こうさん：「やめる」で スキルえらびに もどる')
+    pg.click('.passb'); pg.wait_for_timeout(100); pg.click('.ov .choices button >> nth=0'); pg.wait_for_timeout(200)
+    for _ in range(3000):
+        if pg.evaluate(end): break
+        pg.wait_for_timeout(30)
+    check(pg.evaluate("[MB.BT.pass, MB.BT.result]") == ['P', 'lose'], 'おためしバトル：こうさんすると 負け')
     # そうびをかえる
     pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(200)
     check(pg.locator('#ok').count() == 1 and pg.locator('.bk.sel').count() >= 2, 'そうびをかえる：前のそうびが入った状態')

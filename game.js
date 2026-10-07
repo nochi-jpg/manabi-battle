@@ -421,18 +421,27 @@
   // ---- 問題をえらぶ ----
   // ---- 出題範囲（せってい。教科ごとに 4・5・6年。さいしょは 4年。10/7）----
   const QGRADE_ORDER = ['国語', '算数', '社会', '理科', '英語'];
-  const gradeOf = subj => { const g = (S.qgrade || {})[subj]; return g === 5 || g === 6 ? g : 4; };
-  const inRange = q => dbg('allq') || q.g === gradeOf(q.s); // デバッグ：学年に関係なく出す
+  const chosenGrade = subj => { const g = (S.qgrade || {})[subj]; return g === 5 || g === 6 ? g : 4; };
+  // えらんだ学年を 解き終わったら 自動で つぎへ：4年→5年→6年／5年→6年→4年／6年→5年→4年（10/7）
+  const GRADE_NEXT = { 4: [4, 5, 6], 5: [5, 6, 4], 6: [6, 5, 4] };
+  const hasFresh = (subj, g) => QBY[subj].some(q => q.g === g && !S.qs[q.id]);
+  function gradeOf(subj) {
+    const c = chosenGrade(subj);
+    return GRADE_NEXT[c].find(g => hasFresh(subj, g)) || c;
+  }
+  // q が いまの 出題範囲か（g：教科ごとの 学年を 先に 計算したもの）
+  const inRange = (q, g = null) => dbg('allq') || q.g === (g ? g[q.s] : gradeOf(q.s)); // デバッグ：学年に関係なく出す
+  const gradeMap = () => Object.fromEntries(SUBJ.map(s => [s, gradeOf(s)]));
   // 新しい問題：出題範囲の 学年だけ。ぜんぶ解いたら おさらい（その学年 → ほかの学年）
   function drawNewQs(subj, n, rnd, ex = null) {
-    const taken = new Set(ex || []), out = [];
+    const taken = new Set(ex || []), out = [], gm = { [subj]: gradeOf(subj) };
     for (let k = 0; k < n; k++) {
-      const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id) && inRange(q));
+      const fresh = QBY[subj].filter(q => !S.qs[q.id] && !taken.has(q.id) && inRange(q, gm));
       let q = null, osarai = false;
       if (fresh.length) q = pick(fresh, rnd);
       else {
         const done = q => S.qs[q.id] === 3 || S.qs[q.id] === 4;
-        let pool = QBY[subj].filter(q => done(q) && !taken.has(q.id) && inRange(q));
+        let pool = QBY[subj].filter(q => done(q) && !taken.has(q.id) && inRange(q, gm));
         if (!pool.length) pool = QBY[subj].filter(q => done(q) && !taken.has(q.id));
         if (!pool.length) pool = QBY[subj].filter(q => !taken.has(q.id) && S.qs[q.id] !== 2);
         if (!pool.length) pool = QBY[subj];
@@ -473,7 +482,8 @@
   // イベントの問題：いつも 新しい問題（出題範囲の 学年。記録はしない。イベントだから むずかしめ）
   function drawEventQ() {
     const asked = new Set([...R.usedQ, ...Object.values(R.qlog || {}).flat()]);
-    let pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id) && inRange(q));
+    const gm = gradeMap();
+    let pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id) && inRange(q, gm));
     if (!pool.length) pool = QBY_ALL().filter(q => !S.qs[q.id] && !asked.has(q.id));
     if (!pool.length) pool = QBY_ALL().filter(q => !asked.has(q.id));
     if (!pool.length) pool = QBY_ALL();
@@ -486,7 +496,7 @@
     let all = subjs.flatMap(s => QBY[s]).filter(q => !used.has(q.id));
     if (!all.length) { used.clear(); all = subjs.flatMap(s => QBY[s]); }
     let pool = all.filter(q => qs[q.id]);
-    if (!pool.length) { pool = all.filter(inRange); if (!pool.length) pool = all; }
+    if (!pool.length) { const gm = gradeMap(); pool = all.filter(q => inRange(q, gm)); if (!pool.length) pool = all; }
     const q = pick(pool); used.add(q.id); return q;
   }
 
@@ -668,7 +678,7 @@
         <button id="sN">✏️ モンスターの名前をかえる<small>いま：${esc(S.cname)}</small></button>
         <button id="sH">📖 ゲームのせつめい<small>まいにちの ながれ・すがた</small></button>
         <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
-        <button id="sQ">📚 出題範囲<small>${QGRADE_ORDER.map(s => s[0] + gradeOf(s)).join(' ')}</small></button>
+        <button id="sQ">📚 出題範囲<small>${QGRADE_ORDER.map(s => s[0] + chosenGrade(s)).join(' ')}</small></button>
       </div>
       ${MOBILE ? sec('全画面（スマホ・タブレット）', ['on', 'off'], S.sel.full === 'off' ? 'off' : 'on', 'full', x => (x === 'on' ? 'オン' : 'オフ')) : ''}
       ${MOBILE && IOS && !fsCan() ? `<div class="sm" style="opacity:.8;margin-top:4px">iPhoneは、Safariの「共有」→「ホーム画面に追加」から ひらくと 全画面になります</div>` : ''}
@@ -724,9 +734,9 @@
   function gradePage() {
     const left = (s, g) => QBY[s].filter(q => q.g === g && !S.qs[q.id]).length;
     const row = s => `<div class="row" style="gap:10px;margin-top:8px;align-items:center"><span class="mid" style="width:150px">${subjIc(s)} ${s}</span>${[4, 5, 6].map(g =>
-      `<button data-gs="${s}" data-g="${g}" class="${gradeOf(s) === g ? 'btn-main' : ''}" style="width:170px;padding:6px 0">${g}年<small style="display:block;font-size:15px">まだ ${left(s, g)}問</small></button>`).join('')}</div>`;
+      `<button data-gs="${s}" data-g="${g}" class="${chosenGrade(s) === g ? 'btn-main' : ''}" style="width:170px;padding:6px 0">${g}年<small style="display:block;font-size:15px">まだ ${left(s, g)}問</small></button>`).join('')}${gradeOf(s) !== chosenGrade(s) ? `<span class="sm gold">→ いまは ${gradeOf(s)}年</span>` : ''}</div>`;
     const o = overlay(`<div class="panel" style="width:900px"><div class="row" style="justify-content:space-between"><span class="big">📚 出題範囲</span><button class="btn-blue" id="cl">とじる</button></div>
-      <div class="sm dim">育成ダンジョンで 出る 新しい問題の 学年だよ。ぜんぶ 解いたら おさらいの問題が 出るよ<br>（まちがえた問題は 学年に 関係なく 出るよ）</div>
+      <div class="sm dim">育成ダンジョンで 出る 新しい問題の 学年だよ。ぜんぶ 解いたら 自動で つぎの学年へ（4→5→6年／5→6→4年／6→5→4年）<br>（まちがえた問題は 学年に 関係なく 出るよ）</div>
       ${QGRADE_ORDER.map(row).join('')}</div>`);
     o.querySelectorAll('[data-gs]').forEach(b => (b.onclick = () => {
       S.qgrade = { ...(S.qgrade || {}), [b.dataset.gs]: +b.dataset.g }; save(); o.remove(); gradePage();
@@ -1586,6 +1596,7 @@
     return { ...pk, P, B, used: new Set(pk.used || []) };
   }
   const btSave = () => (BT && BT.vs ? saveVs() : save());
+  const canPass = () => !!(BT && (BT.vs || BT.trial) && !dunBoss()); // こうさん：対戦・おためしバトル・QRゴースト（ダンジョンの ボス戦は なし）
   const dunBoss = () => !!(R && R.bt && BT && !BT.vs); // 育成ダンジョンの ボス戦（記録する）
   function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
 
@@ -1833,8 +1844,16 @@
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = ct > 0 || (frozen && k !== '通常攻撃');
           return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
-        }).join('')}</div></div>`, 'ovb');
-      o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.k); }));
+        }).join('')}</div>${canPass() ? '<div class="passrow"><button class="btn-gray passb" data-pass="1">🏳️ こうさん</button></div>' : ''}</div>`, 'ovb');
+      o.querySelectorAll('button').forEach(b => (b.onclick = async () => {
+        if (b.dataset.pass) { // こうさん（対戦・とうぎじょう だけ。10/7）
+          o.style.display = 'none';
+          const c = await dialog({ who: '🏳️', text: `${BT.vs ? esc(P.pname) + 'さん、' : ''}ほんとうに こうさんする？\n<span class="sm">こうさんすると、この試合は 負けになるよ</span>`, choices: [{ label: '🏳️ こうさんする', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
+          if (!c) { o.style.display = ''; return; }
+          o.remove(); res('__pass'); return;
+        }
+        o.remove(); res(b.dataset.k);
+      }));
     });
   }
   function playerSubj(P, B, turn) {
@@ -1864,6 +1883,7 @@
     if (!act) {
       if (dunBoss()) P.st = curSt(); // 攻撃力は スキルを えらぶ ときの 仮ステータスで 決まる
       const sk = await playerSkill(P);
+      if (sk === '__pass') return { pass: true };
       const subj = await playerSubj(P, B, turn);
       act = { sk, subj, ans: [] }; if (dunBoss()) act.st = { ...P.st };
       BT.acts[P.side] = act; btSave();
@@ -1977,7 +1997,8 @@
       if (x === P) {
         const ba = BT.acts.B;
         BT.note = i === 1 && ba && ba !== 'skip' ? `<div class="sm gold" style="margin-bottom:6px">👀 ${esc(B.name)}は「${ba.sk}」・${ba.subj} をえらんだ。どうする？</div>` : '';
-        await playerAct(P, B, turn, i === 0, BT.qn || K.BOSS_Q);
+        const pa = await playerAct(P, B, turn, i === 0, BT.qn || K.BOSS_Q);
+        if (pa && pa.pass) { hideGauges(); BT.acts = {}; BT.phase = 'end'; BT.result = 'lose'; BT.pass = 'P'; save(); await cutin(`🏳️ ${esc(P.name)}は こうさんした！`, 1500); return; }
       } else await bossAct(B, P, turn, i === 0);
     }
     hideGauges();
@@ -2627,7 +2648,7 @@
     blog(`<span class="sm dim">${weakText(TR.boss)}</span>`); await msgWait(1200);
     while (BT.phase === 'turn') await playTurn();
     if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}を たおした！`, 1500); }
-    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
+    else if (!BT.pass) { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
     return BT.result;
   }
 
@@ -2701,7 +2722,7 @@
     await vsIntro(['あなた', ''], ['QRゴースト', '']);
     while (BT.phase === 'turn') await playTurn();
     if (BT.result === 'win') { const fb = $('#fB'); if (fb) fb.classList.add('bye'); await cutin(`🏆 ${esc(BT.B.name)}の ゴーストに 勝った！`, 1500); }
-    else { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
+    else if (!BT.pass) { blog(`${esc(BT.P.name)}は たおれてしまった……`); await msgWait(1200); }
     return BT.result;
   }
 
@@ -2751,16 +2772,16 @@
         if (!BT) BT = hydrate(V.bt);
         battleScreen();
         while (BT.phase === 'turn') await vsTurn();
-        V.result = BT.result; V.phase = 'end'; saveVs(); continue;
+        V.result = BT.result; V.pass = BT.pass || null; V.phase = 'end'; saveVs(); continue;
       }
       if (V.phase === 'end') {
         if (!BT) BT = hydrate(V.bt);
         const { P, B } = BT, res = V.result;
         bgm('vsResult');
-        const msgT = res === 'draw' ? '🤝 引き分け！' : `🏆 プレイヤー${res === 'P' ? 'A' : 'B'}（${esc((res === 'P' ? P : B).pname)}）の 勝ち！`;
+        const msgT = res === 'draw' ? '🤝 引き分け！' : `🏆 プレイヤー${res === 'P' ? 'A' : 'B'}（${esc((res === 'P' ? P : B).pname)}）の 勝ち！${V.pass ? '（🏳️ あいての こうさん）' : ''}`;
         const c = await dialog({ who: res === 'draw' ? '🤝' : (res === 'P' ? P : B).art, text: `${msgT}\n${esc(P.name)} HP ${Math.max(0, R0(P.hp))}／${P.maxhp}　　${esc(B.name)} HP ${Math.max(0, R0(B.hp))}／${B.maxhp}`, choices: [{ label: '🔁 再戦する', val: 1, cls: 'btn-main' }, { label: '🏠 タイトルにもどる', val: 0, cls: 'btn-gray' }] });
         if (!c) { clearVs(); return home(); }
-        V.last = { a: V.picks.a, b: V.picks.b }; V.picks = { a: [], b: [] }; V.bt = null; V.result = null; BT = null; V.phase = 'pickA'; saveVs(); continue;
+        V.last = { a: V.picks.a, b: V.picks.b }; V.picks = { a: [], b: [] }; V.bt = null; V.result = null; V.pass = null; BT = null; V.phase = 'pickA'; saveVs(); continue;
       }
       clearVs(); return home();
     }
@@ -2836,7 +2857,8 @@
       }
       if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
       BT.note = `<div class="sm" style="margin-bottom:6px"><b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
-      await playerAct(x, x.opp, turn, i === 0, K.VS_Q);
+      const pa = await playerAct(x, x.opp, turn, i === 0, K.VS_Q);
+      if (pa && pa.pass) { hideGauges(); BT.acts = {}; BT.phase = 'end'; BT.result = x.opp.side; BT.pass = x.side; saveVs(); const el = $(x.side === 'P' ? '#fP' : '#fB'); if (el) el.classList.add('bye'); await cutin(`🏳️ ${esc(x.pname)}さん（${esc(x.name)}）は こうさんした！`, 1800); return; }
     }
     hideGauges();
     const ev = resolveTurn(order, turn, false);
