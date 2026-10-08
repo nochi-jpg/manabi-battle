@@ -69,9 +69,10 @@
   const g2 = (o, ...k) => k.reduce((x, y) => (x && x[y] !== undefined ? x[y] : ''), o);
   // p：せいかく・すがたの記録をもつもの（ふつうは S。対戦では QR の中身）
   // 第1段階を なめらか表示にする しかけ（.art-hd）。10/5 から 第1段階も ドット（手描きを pixel-refiner）なので つかわない
-  const HAND_SMOOTH = false;
-  const handArt = (html, g) => (HAND_SMOOTH && g === 0 ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
-  const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t)), lookOf(type, t, p)), lookStage(t));
+  // 主人公の絵：単細胞（第0段階）・第1・第2段階は K.nom さんの なめらかな手描き（10/8）。第3・第4段階は まだ ドット絵（仮）
+  const SMOOTH_G = new Set([0, 1, 2]);
+  const handArt = (html, g) => (SMOOTH_G.has(g) ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
+  const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t, p)), lookOf(type, t, p)), lookStage(t, p));
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   const artZako = e => art(g2(A, 'zako', e), e);
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
@@ -109,7 +110,7 @@
   function newState(pname, cname) {
     const st = {}; SUBJ.forEach(s => (st[s] = K.START_STAT));
     return { v: SAVE_V, pname, cname, st, type: '全教科', coins: 0, stamina: K.STAMINA_START, day: today(), owned: [], qs: {}, qd: {}, miss: {}, takeHome: 0, lastBoss: null, dungeons: 0, created: Date.now(), run: null, qv: window.QDB_VERSION || 1, tower: {}, towerBest: {}, towerMs: 0, towerTicket: {}, hidden: [], seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0, fedDay: '',
-      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: 'まなびタウン' }, fav: [], gachaN: 0, qgrade: { 国語: 4, 算数: 4, 理科: 4, 社会: 4, 英語: 4 } };
+      playDays: 1, clears: 0, bossWin: {}, boss3: {}, bossStg: {}, nocont: 0, typeChanged: false, ach: {}, sel: { title: '', aura: '', bg: 'まなびタウン' }, fav: [], gachaN: 0, qgrade: { 国語: 4, 算数: 4, 理科: 4, 社会: 4, 英語: 4 }, lookV: 2 };
   }
   function dayCheck() {
     const t = today(); if (S.day === t) return;
@@ -165,6 +166,8 @@
     if (s.sel && TITLE_RENAME[s.sel.title]) s.sel.title = TITLE_RENAME[s.sel.title]; // 称号の名前を かえた（10/3）
     if (s.sel && s.sel.bg === '学園の町') s.sel.bg = 'まなびタウン';
     if (s.sel && !(s.sel.bg in D.BGS)) s.sel.bg = 'まなびタウン'; // 背景を 入れかえた（10/3）。いまは ない背景は さいしょの背景に
+    // 見た目の段階を 0〜4 に（10/8。単細胞＝0 を 足した）。前の styleStg（0〜3）は 1つ ずらす
+    if (!s.lookV) { s.styleStg = (s.styleStg || 0) + 1; s.lookV = 2; }
     const base = newState(s.pname || '', s.cname || '');
     return Object.assign(base, s);
   }
@@ -207,16 +210,18 @@
   const stageOf = t => (t < K.STAGE_LINE[0] ? 0 : t < K.STAGE_LINE[1] ? 1 : 2);
   const skillsOf = t => D.SKILLS.filter(k => !K.SKILL_LINE[k.n] || t >= K.SKILL_LINE[k.n]).map(k => k.n);
   // ---- 見た目：タイプ × かわいい系・かっこいい系 × 4段階 ----
-  const lookStage = t => K.LOOK_LINE.filter(x => t >= x).length; // 0〜3
+  // 見た目の段階 0〜4：0＝単細胞（まだ ダンジョンに 行っていない）→ さいしょの ダンジョンの リザルトで 第1段階 → LOOK_LINE で 第2〜4段階（10/8）
+  const lookStage = (t, p = S) => (p && p.dungeons > 0 ? 1 + K.LOOK_LINE.filter(x => t >= x).length : 0);
   const styleOf = v => ((v === undefined || v === null ? K.SEIKAKU_START : v) <= 1000 ? 'cute' : 'cool');
   const seikakuName = v => D.SEIKAKU.find(([x]) => (v === undefined ? K.SEIKAKU_START : v) <= x)[1];
-  // 1〜3段階目：進化したときの せいかくで決まる（styleStg に記録）。4段階目：いまの せいかくで すぐ変わる
+  // 第1〜3段階：進化したときの せいかくで決まる（styleStg に記録）。第4段階：いまの せいかくで すぐ変わる
   function styleFor(p, t) {
-    const g = lookStage(t);
-    if (g < 3 && p && p.styleStg === g && p.style) return p.style;
+    const g = lookStage(t, p);
+    if (g === 0) return 'cute'; // 単細胞は みんな 同じ
+    if (g < 4 && p && p.styleStg === g && p.style) return p.style;
     return styleOf(p && p.seikaku);
   }
-  const lookOf = (type, t, p = S) => D.LOOK[type][styleFor(p, t)][lookStage(t)];
+  const lookOf = (type, t, p = S) => D.LOOK[type][styleFor(p, t)][lookStage(t, p)];
   function refreshType() { S.type = typeOf(S.st, S.type); if (S.type !== '全教科') S.typeChanged = true; }
 
   // ---- 音（BGM・効果音）。assets の bgm・se。テスト（?test・FAST）では 鳴らさない ----
@@ -622,14 +627,14 @@
         + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは<br>対戦モードで つかうことが できるよ<br>（とうぎじょうでも つかえます）')]);
     }
     if (parts.includes('grow')) {
-      P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">ステータスの ごうけいが ふえると<br><b>4だんかい</b>に 進化します</div>
-        <div class="tut-mons">${[0, 1, 2, 3].map(g => pimg('全教科', 'cute', g, g > 0)).join('<span class="tut-ar">▶</span>')}</div>`]);
+      P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">さいしょの ダンジョンから かえると 進化！<br>そのあとは ステータスの ごうけいが ふえると <b>4だんかい</b>まで 進化します</div>
+        <div class="tut-mons">${[0, 1, 2, 3, 4].map(g => pimg('全教科', 'cute', g, g > 0)).join('<span class="tut-ar">▶</span>')}</div>`]);
       P.push(['タイプ', `<div class="tut-t" style="text-align:center">いちばん 高い教科で <b>タイプ</b>が きまります<br>（ばらばらなら 全教科タイプ）</div>
-        <div class="tut-mons">${['国語', '算数', '理科', '社会', '英語', '全教科'].map(t => pimg(t, pick(['cute', 'cool']), 3, true)).join('')}</div>`]);
+        <div class="tut-mons">${['国語', '算数', '理科', '社会', '英語', '全教科'].map(t => pimg(t, pick(['cute', 'cool']), 4, true)).join('')}</div>`]);
       P.push(['ごはんと せいかく', row(art(g2(A, 'emo', '🍽'), '🍽️'), '毎日 1回 <b>ごはん</b>を あげます')
         + row(`${art(g2(A, 'emo', '🍬'), '🍬')}${art(g2(A, 'emo', '🍖'), '🍖')}`, 'キャンディは かわいく、<br>肉は かっこよく せいかくが かわる')
         + `<div class="tut-t" style="text-align:center;margin-top:6px">進化したときの せいかくで すがたが きまります</div>
-        <div class="tut-mons">${pimg(S.type, 'cute', 3, true)}<span class="tut-ar">or</span>${pimg(S.type, 'cool', 3, true)}</div>`]);
+        <div class="tut-mons">${pimg(S.type, 'cute', 4, true)}<span class="tut-ar">or</span>${pimg(S.type, 'cool', 4, true)}</div>`]);
     }
     return P;
   }
@@ -1181,18 +1186,22 @@
   const nextSkill = t => D.SKILLS.filter(k => K.SKILL_LINE[k.n] && t < K.SKILL_LINE[k.n]).sort((a, b) => K.SKILL_LINE[a.n] - K.SKILL_LINE[b.n])[0] || null;
   function growLine(t) {
     const e = nextEvo(t), k = nextSkill(t);
-    return [e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `スキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
+    return [!(S.dungeons > 0) ? 'ダンジョンに 行くと 進化！' : e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `スキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
   }
   function growthPanel() {
     const t = total(S.st), stg = lookStage(t), e = nextEvo(t), sk = skillsOf(t);
-    const prev = stg === 0 ? 0 : K.LOOK_LINE[stg - 1];
+    const prev = stg <= 1 ? 0 : K.LOOK_LINE[stg - 2];
+    const s0 = stg === 0; // 単細胞：さいしょの ダンジョンの リザルトで 進化
     const bar = (a, b) => `<div class="hpbar" style="width:100%;height:16px;margin:6px 0"><i style="width:${Math.min(100, (a / b) * 100)}%;background:linear-gradient(90deg,#22c55e,#a3e635)"></i></div>`;
-    const evo = e
+    const evo = s0
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${artPlayer(S.type, t, { ...S, dungeons: 1 })}</span>
+           <div style="flex:1"><div class="mid">さいしょの <b class="gold">ダンジョン</b>から かえると 進化！</div><div class="xs dim">とくいな教科・せいかく（かわいい系／かっこいい系）で すがたが きまるよ</div></div></div>`
+      : e
       ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${artPlayer(S.type, e)}</span>
            <div style="flex:1"><div class="mid">進化まで あと <b class="gold">${e - t}</b></div>${bar(t - prev, e - prev)}<div class="xs dim">ステータスの ごうけい ${t} ／ ${e} で 進化</div></div></div>`
       : `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><div class="mid gold">さいごの すがたまで 進化した！</div></div>`;
     const sty = D.STYLE_NAME[styleOf(S.seikaku)];
-    const sei = `<div class="sm" style="margin-top:8px">🍽️ せいかく：<b class="gold">${seikakuName(S.seikaku)}</b>　${e ? `いまの せいかくで 進化すると <b>${sty}</b> になるよ` : `せいかくが かわると、すがたも すぐ かわるよ（いまは ${sty}）`}<br><span class="xs dim">せいかくは 毎日の ごはん（🍬キャンディ・🍖肉）で かわる</span></div>`;
+    const sei = `<div class="sm" style="margin-top:8px">🍽️ せいかく：<b class="gold">${seikakuName(S.seikaku)}</b>　${e || s0 ? `いまの せいかくで 進化すると <b>${sty}</b> になるよ` : `せいかくが かわると、すがたも すぐ かわるよ（いまは ${sty}）`}<br><span class="xs dim">せいかくは 毎日の ごはん（🍬キャンディ・🍖肉）で かわる</span></div>`;
     const rows = D.SKILLS.map(k => {
       const line = K.SKILL_LINE[k.n] || 0, has = sk.includes(k.n);
       return `<div class="skrow ${has ? '' : 'lock'}"><span class="mid">${has ? '✅' : '🔒'} ${esc(k.n)}</span>
@@ -2173,7 +2182,7 @@
     const rw = await once('reward', () => {
       let bossItem = null, bossCoin = 0;
       // 仮ステータスで 上がった分を 本ステータスに 足す（ふりわけは しない。負けても 足す。10/5）
-      const st0 = { ...S.st }, type0 = S.type, gain = { ...R.gain };
+      const st0 = { ...S.st }, type0 = S.type, gain = { ...R.gain }, d0 = S.dungeons;
       SUBJ.forEach(s => (S.st[s] += gain[s] || 0));
       R.gain = Object.fromEntries(SUBJ.map(s => [s, 0]));
       const stg = stageOf(total(S.st));
@@ -2189,7 +2198,7 @@
         if (stg === 2) S.boss3[R.boss] = 1;
         if (!cont) S.nocont++;
       }
-      return { bossItem, bossCoin, st0, type0, gain };
+      return { bossItem, bossCoin, st0, type0, gain, d0 };
     });
     window.MB_LAST = { beat, cont };
     const st0 = rw.st0 || R.startSt, gain = rw.gain || Object.fromEntries(SUBJ.map(s => [s, 0])), type0 = rw.type0 || R.startType;
@@ -2227,7 +2236,7 @@
       return dup ? 'dup' : took;
     });
     if (taken === 'dup' && !R.ns.alloc) { R.ns.alloc = 1; save(); await bonusAlloc({ evo: false }); }
-    await evolution(st0, type0);
+    await evolution(st0, type0, 'ホームへ', rw.d0 !== undefined ? rw.d0 : S.dungeons - 1);
     R = null; BT = null; S.run = null; save();
     home();
     if (!S.tutItem) { S.tutItem = 1; save(); await tutorial(['item']); } // はじめて ダンジョンから 帰ったら アイテムの せつめい
@@ -2235,11 +2244,12 @@
 
   // 進化演出（新スキル・タイプ変化・見た目の成長）
   // 本ステータスが かわったら いつも これ（リザルト・ボーナス・デバッグ・引きつぎ）。見た目が かわるときだけ 演出（何段階 とんでも 1回）
-  async function evolution(st0, type0, label = 'ホームへ') {
+  // d0：かわる前の ダンジョンの回数（さいしょの ダンジョンで 単細胞 → 第1段階）
+  async function evolution(st0, type0, label = 'ホームへ', d0 = S.dungeons) {
     const t0 = total(st0), t1 = total(S.st);
     const newSk = skillsOf(t1).filter(k => !skillsOf(t0).includes(k));
-    const p0 = { seikaku: S.seikaku, style: S.style, styleStg: S.styleStg };
-    const g0 = lookStage(t0), g1 = lookStage(t1);
+    const p0 = { seikaku: S.seikaku, style: S.style, styleStg: S.styleStg, dungeons: d0 };
+    const g0 = lookStage(t0, p0), g1 = lookStage(t1);
     // 進化した段階の すがた（かわいい系・かっこいい系）は、いまの せいかくで決まる
     const evolved = g1 > g0;
     if (evolved) { S.style = styleOf(S.seikaku); S.styleStg = g1; save(); }

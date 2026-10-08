@@ -50,22 +50,23 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.seikaku = 0; MB.S.style='cute'; MB.S.styleStg=0; MB.go.home()"); W(50)
     l0 = pg.evaluate(look)
     pg.evaluate("MB.S.seikaku = 2000; MB.go.home()"); W(50)
-    check(pg.evaluate(look) == l0 and l0 in ('🐣', 'all_cute_1.png'), '1段階目：せいかくが かわっても すがたは そのまま')
-    # 2段階目へ（かっこいい系で進化）：ダンジョンのあとの 進化演出で決まる
-    pg.evaluate("(()=>{const v=Math.round((MB.D.K.LOOK_LINE[0]-40)/5); MB.S.st = {国語:v,算数:v,理科:v,社会:v,英語:v}; MB.S.stamina=100})()")
+    check(pg.evaluate(look) == l0 and l0 in ('🦠', 'tansaibou.png'), f'単細胞（第0段階）：せいかくが かわっても 同じ（{l0}）')
+    # さいしょの ダンジョンの リザルトで 第1段階へ（かっこいい系で 進化）（10/8）
+    pg.evaluate("MB.S.stamina=100")
     pg.click('#dun'); W(50); pg.click('.ov .choices button'); W(200)
     BOT = (ROOT / 'tools' / 'play_test.py').read_text().split('BOT = """')[1].split('"""')[0]
     for _ in range(15000):
         if pg.evaluate("!!document.querySelector('#evt') && /進化/.test(document.querySelector('#evt').innerText)"): break
         pg.evaluate(BOT, 0.9); W(15)
-    check('かっこいい系' in pg.inner_text('#evt'), f'2段階目に かっこいい系で 進化（{pg.inner_text("#evt")[:30]}）')
+    check('かっこいい系' in pg.inner_text('#evt'), f'さいしょの ダンジョンで かっこいい系に 進化（{pg.inner_text("#evt")[:30]}）')
     for _ in range(3000):
         if pg.evaluate("!!document.querySelector('#dun') && !document.querySelector('.ov')"): break
         pg.evaluate(BOT, 0.9); W(15)
-    check(S('style') == 'cool' and S('styleStg') == 1, 'すがたを記録（かっこいい系・2段階目）')
+    check(S('style') == 'cool' and S('styleStg') == 1, 'すがたを記録（かっこいい系・第1段階）')
     l1 = pg.evaluate(look)
+    check(l1 != l0, f'第1段階の すがた（{l1}）')
     pg.evaluate("MB.S.seikaku = 0; MB.go.home()"); W(50)
-    check(pg.evaluate(look) == l1, '2段階目：せいかくを かわいい側にしても すがたは そのまま')
+    check(pg.evaluate(look) == l1, '第1段階：せいかくを かわいい側にしても すがたは そのまま')
     # 4段階目：すぐ変わる
     pg.evaluate("(()=>{const v=Math.round(MB.D.K.LOOK_LINE[2]/5)+100; MB.S.st = {国語:v,算数:v,理科:v,社会:v,英語:v}; MB.S.seikaku = 1000; MB.go.home()})()"); W(50)
     cute4 = pg.evaluate(look)
@@ -74,7 +75,7 @@ with sync_playwright() as p:
     check(cute4 in ('🧚', 'all_cute_4.png') and cool4 in ('🦸', 'all_cool_4.png') and 'すがたが かわった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
     # QR で せいかく・すがたを 引きつぐ
     q = pg.evaluate("(()=>{const o=SAVECODE.decode(MB.qrBytes());return [o.seikaku,o.style,o.styleStg]})()")
-    check(q == [1200, 'cool', 1], f'QRに せいかく・すがた {q}')
+    check(q == [1200, 'cool', 1], f'QRに せいかく・すがた（段階 0〜4）{q}')
 
     # ---- せってい：称号・背景・名前 ----
     pg.evaluate("MB.S.ach = {}; MB.S.ach['solved1'] = '2026-01-01'; MB.S.sel.title=''; MB.go.home()"); W(50)
