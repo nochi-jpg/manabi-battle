@@ -1159,7 +1159,7 @@
     let txt = `${esc(S.cname)}は ${food.n}を おいしそうに 食べた！`;
     if (name1 !== name0) txt += `\nせいかくが「<span class="gold">${name1}</span>」に なった！`;
     else txt += `\n（せいかく：${name1}）`;
-    if (look1 !== look0) txt += `\n✨ すがたが かわった！（${D.STYLE_NAME[styleFor(S, t)]}）`;
+    if (look1 !== look0) txt += `\n✨ ${esc(S.cname)}は 姿が変わった！`;
     if (look1 !== look0) se('kira');
     await dialog({ who: look1 !== look0 ? artPlayer(S.type, t) : food.e, text: txt });
     feeding = false;
@@ -2260,7 +2260,8 @@
       const e = $('#evo', o);
       se('heart'); for (let i = 0; i < 8; i++) { e.style.filter = i % 2 ? 'brightness(3)' : 'none'; await wait(180 - i * 15); }
       e.innerHTML = artPlayer(S.type, t1); e.style.filter = 'drop-shadow(0 0 40px #fde047)'; se('kira');
-      $('#evt', o).innerHTML = `<span class="gold">${esc(S.cname)}</span>が ${evolved ? `<span class="gold">${D.STYLE_NAME[styleFor(S, t1)]}</span>に ` : ''}進化した！${type0 !== S.type ? `<div class="mid">${S.type}タイプになった！</div>` : ''}`;
+      // 段階が 上がった → 進化した！／せいかく・教科（タイプ）で すがただけ かわった → 姿が変わった！（10/8）
+      $('#evt', o).innerHTML = `<span class="gold">${esc(S.cname)}</span>は ${evolved ? '進化した！' : '姿が変わった！'}${type0 !== S.type ? `<div class="mid">${S.type}タイプになった！</div>` : ''}`;
       await msgWait(2200);
     }
     for (const k of newSk) {

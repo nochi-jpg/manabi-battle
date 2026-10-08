@@ -22,10 +22,16 @@ with sync_playwright() as p:
     check(pg.evaluate("MB.S.bonusPt") == 0 and pg.evaluate("MB.S.st['算数']") == 108, '5より少ない のこりは まとめて（算数 +3）')
     pg.click('.ov #cl'); W(100)
     # 見た目が かわる ボーナスなら 進化の演出（10/5）
-    pg.evaluate("MB.S.bonusPt = 5; const L=MB.D.K.LOOK_LINE[0], t=Object.values(MB.S.st).reduce((a,b)=>a+b); MB.S.st['国語'] += L - t - 2"); pg.evaluate("void MB.go.gacha()"); W(100)
+    pg.evaluate("MB.S.dungeons = 1; MB.S.bonusPt = 5; const L=MB.D.K.LOOK_LINE[0], t=Object.values(MB.S.st).reduce((a,b)=>a+b); MB.S.st['国語'] += L - t - 2"); pg.evaluate("void MB.go.gacha()"); W(100)
     pg.click('#bpa'); W(100); pg.click('[data-bs="国語"]'); W(100); pg.click('.ov #cl'); W(100)
     pg.wait_for_selector('#evb button', timeout=8000)
-    check('進化' in pg.inner_text('.ov'), 'ボーナスで 見た目が かわったら 進化の演出')
+    check('は 進化した！' in pg.inner_text('#evt'), 'ボーナスで 段階が 上がったら「進化した！」')
+    pg.click('#evb button'); W(150)
+    # 段階は そのまま・タイプだけ かわる →「姿が変わった！」（10/8）
+    pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove()); MB.S.st = {国語:370,算数:300,理科:300,社会:300,英語:300}; MB.S.type='全教科'; MB.S.bonusPt = 5"); pg.evaluate("void MB.go.gacha()"); W(100)
+    pg.click('#bpa'); W(100); pg.click('[data-bs="国語"]'); W(100); pg.click('.ov #cl'); W(100)
+    pg.wait_for_selector('#evb button', timeout=8000)
+    check('は 姿が変わった！' in pg.inner_text('#evt'), f"タイプだけ かわったら「姿が変わった！」（{pg.inner_text('#evt')[:30]}）")
     pg.click('#evb button'); W(150)
     for _ in range(60):
         if pg.locator('#pull').is_disabled(): break

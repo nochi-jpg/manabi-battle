@@ -58,7 +58,7 @@ with sync_playwright() as p:
     for _ in range(15000):
         if pg.evaluate("!!document.querySelector('#evt') && /進化/.test(document.querySelector('#evt').innerText)"): break
         pg.evaluate(BOT, 0.9); W(15)
-    check('かっこいい系' in pg.inner_text('#evt'), f'さいしょの ダンジョンで かっこいい系に 進化（{pg.inner_text("#evt")[:30]}）')
+    check('は 進化した！' in pg.inner_text('#evt') and '系' not in pg.inner_text('#evt'), f'さいしょの ダンジョンで「○○は 進化した！」（系の名前は 出さない）（{pg.inner_text("#evt")[:30]}）')
     for _ in range(3000):
         if pg.evaluate("!!document.querySelector('#dun') && !document.querySelector('.ov')"): break
         pg.evaluate(BOT, 0.9); W(15)
@@ -72,7 +72,7 @@ with sync_playwright() as p:
     cute4 = pg.evaluate(look)
     t = feed('肉')
     cool4 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)
-    check(cute4 in ('🧚', 'all_cute_4.png') and cool4 in ('🦸', 'all_cool_4.png') and 'すがたが かわった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
+    check(cute4 in ('🧚', 'all_cute_4.png') and cool4 in ('🦸', 'all_cool_4.png') and '姿が変わった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
     # QR で せいかく・すがたを 引きつぐ
     q = pg.evaluate("(()=>{const o=SAVECODE.decode(MB.qrBytes());return [o.seikaku,o.style,o.styleStg]})()")
     check(q == [1200, 'cool', 1], f'QRに せいかく・すがた（段階 0〜4）{q}')
