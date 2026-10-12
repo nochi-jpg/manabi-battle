@@ -11,7 +11,7 @@ window.DATA = (function () {
 
   // ---- 数字（【仮】④で調整）----
   const K = {
-    VERSION: '1.9.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
+    VERSION: '1.10.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
     START_STAT: 100,
     // ステータス：ダンジョンで正解（または復習まちを復習で正解）＋8 → あと1回を復習で正解＋2（合計10）
     // コイン　　：同じく ＋40 → ＋10（合計50）。不正解は0
@@ -195,6 +195,8 @@ window.DATA = (function () {
     社会: { cute: ['🦠', '🐤', '🐧', '🦢', '🕊️'], cool: ['🦠', '🐦', '🦜', '🦉', '🦅'] },
     英語: { cute: ['🦠', '🐱', '🐈', '🦝', '🐼'], cool: ['🦠', '🐈‍⬛', '🐆', '🐯', '🦁'] },
   };
+  // ログインボーナス（通算ログイン。7日で 1しゅう。7日目は アイテムを 3つから えらぶ。10/13）
+  const LOGIN = [{ c: 10 }, { c: 10 }, { c: 10 }, { c: 10 }, { c: 10 }, { c: 150 }, { item: 3 }];
   const STYLE_NAME = { cute: 'かわいい系', cool: 'かっこいい系' };
 
   // ---- せいかく（ごはんだけで変わる。0〜2000。1000以下＝かわいい系、1001以上＝かっこいい系）----
@@ -297,5 +299,5 @@ window.DATA = (function () {
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
   const GACHA_COST = 200, GACHA_PITY = 10, GACHA_DAY = 50, DUP_BONUS = 5; // ガチャ：1回200・10回目ごとに★4以上・1日50回まで・ダブりはボーナス+5（10/5。もとは+3）
 
-  return { SAY, STAFF, CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
+  return { LOGIN, SAY, STAFF, CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W };
 })();

@@ -400,6 +400,41 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .splash{background:#000!important;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .splash-t{font-size:40px;color:#fff;animation:spl 1.4s ease-in-out infinite alternate}
 @keyframes spl{from{opacity:.4}to{opacity:1}}
+
+/* ログインボーナス（10/13）：7まいの カードは 同じ大きさ */
+.ov .panel.lb{width:1040px;padding:0 0 18px;overflow:hidden}
+.lb-h{display:flex;align-items:center;gap:10px;height:64px;padding:0 24px;font-size:34px;font-weight:900;background:linear-gradient(180deg,#38bdf8,#0284c7);color:#fff;text-shadow:0 2px 0 #075985}
+.lb-h .ic{width:44px;height:44px}
+.lb-top{display:flex;align-items:center;justify-content:space-between;height:150px;padding:0 28px;background:repeating-linear-gradient(135deg,rgba(56,189,248,.10) 0 18px,rgba(56,189,248,.18) 18px 36px)}
+.lb-n{display:flex;align-items:center;height:56px;padding:0 26px;border-radius:28px;background:#0284c7;color:#fff;font-size:26px;font-weight:800;white-space:nowrap}
+.lb-n b{font-size:36px;margin:0 6px;color:#fde047}
+.lb-k{display:flex;align-items:center;gap:0;height:140px}
+.lb-ko{display:flex;align-items:center;justify-content:center;width:140px;height:140px;font-size:120px;line-height:1}
+.lb-ko img{height:140px!important;width:140px!important;object-fit:contain}
+.lb-say{position:relative;display:flex;align-items:center;height:64px;padding:0 24px;background:#fff;color:#1e293b;border:3px solid #0284c7;border-radius:18px;font-size:26px;font-weight:800;white-space:nowrap}
+.lb-say::before{content:'';position:absolute;left:-14px;top:50%;margin-top:-10px;border:10px solid transparent;border-right:14px solid #0284c7;border-left:0}
+.lb-row{display:grid;grid-template-columns:repeat(7,128px);gap:12px;justify-content:center;margin:20px 0 10px}
+.lb-c{position:relative;display:grid;grid-template-rows:36px 76px 36px;align-items:center;justify-items:center;width:128px;height:160px;box-sizing:border-box;border:3px solid #7dd3fc;border-radius:12px;background:#e0f2fe;color:#0c4a6e}
+.lb-c.sp{border-color:#f9a8d4;background:#fce7f3;color:#831843}
+.lb-c.now{border-color:#f59e0b;background:#fef3c7;color:#78350f;box-shadow:0 0 0 4px rgba(245,158,11,.35);animation:lbp 1s ease-in-out infinite alternate}
+.lb-c.done{filter:grayscale(.6) brightness(.8)}
+.lb-d{font-size:20px;font-weight:800;line-height:36px}
+.lb-i{display:flex;align-items:center;justify-content:center;width:64px;height:64px;font-size:60px;line-height:1}
+.lb-v{font-size:22px;font-weight:900;line-height:36px}
+.lb-ok{position:absolute;right:-12px;top:-12px;width:32px;height:32px;border-radius:50%;background:#22c55e;color:#fff;font-size:20px;line-height:32px;text-align:center;font-weight:900;display:none}
+.lb-c.done .lb-ok,.lb-c.got .lb-ok{display:block}
+.lb-c.got .lb-ok{animation:lbs .35s ease-out}
+.lb-msg{text-align:center;font-size:28px;font-weight:800;height:44px;line-height:44px}
+.lb-f{display:flex;justify-content:flex-end;padding:0 24px}
+@keyframes lbp{to{transform:translateY(-4px)}}
+@keyframes lbs{from{transform:scale(2.4);opacity:0}to{transform:scale(1);opacity:1}}
+/* かくしコマンドの 復元画面（真っ白）*/
+#ver{pointer-events:auto;user-select:none;-webkit-user-select:none}
+.scr.rst{background:#fff !important;color:#1e293b;gap:28px}
+.rst-w{font-size:120px;line-height:1}
+.rst-t{font-size:30px;font-weight:800;line-height:1.7;text-align:center}
+.rst-b{display:flex;flex-direction:column;gap:16px;align-items:center}
+.rst-b>button,.rst-b>label{display:flex;align-items:center;justify-content:center;width:560px;height:84px;box-sizing:border-box;font-size:28px;border-radius:14px;cursor:pointer;border:2px solid var(--line);color:#fff}
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">

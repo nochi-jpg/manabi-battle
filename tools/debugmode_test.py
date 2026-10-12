@@ -22,6 +22,7 @@ with sync_playwright() as p:
                 pg.click('#mb'); pg.wait_for_timeout(40)
             pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(100)
     start('せんせい', 'テスト')
+    pg.wait_for_selector('#lbok'); pg.click('#lbok'); pg.wait_for_timeout(120)  # ログインボーナス（10/13）
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     def to_reset(taps):
@@ -34,6 +35,7 @@ with sync_playwright() as p:
     to_reset(9)
     check(pg.query_selector('#go') is not None and pg.evaluate('MB.S') is None, '9回タッチでは ふつうに「さいしょから」になる（タイトル）')
     start('せんせい', 'テスト')
+    pg.wait_for_selector('#lbok'); pg.click('#lbok'); pg.wait_for_timeout(120)  # ログインボーナス（10/13）
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     to_reset(10)

@@ -547,7 +547,7 @@
       ${S ? `<div class="mid">${esc(S.pname)} の データ</div>` : '<div class="mid">&nbsp;</div>'}
       <button class="btn-main" id="go" data-se="start">${S && S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
       <div class="sm dim">ブラウザに 自動でセーブしています</div>
-      <div class="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div>
+      <div class="ver" id="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div>
       ${IN_FRAME && !MOBILE ? '<button class="btn-gray fsbtn" id="fsb">全画面</button>' : ''}</div>`, 'title');
     const fb = $('#fsb', el);
     if (fb) fb.onclick = () => {
@@ -557,6 +557,8 @@
       if (!p) return tip('全画面にするには、キーボードの F11 を おしてね');
       p.catch(() => tip('ここでは 全画面に できないよ。キーボードの F11 を おしてね'));
     };
+    // かくしコマンド：バージョンを 10回 タップ → QRで セーブを 復元する（先生が そうさ。10/13）
+    let verN = 0; $('#ver', el).onclick = () => { if (++verN >= 10) restoreScreen(); };
     $('#go', el).onclick = () => { if (!S) return meetPartner(); dayCheck(); if (S.run) resumeRun(); else home(); };
   }
 
@@ -1127,6 +1129,8 @@
     $('#grow', el).onclick = () => growthPanel();
     $('#b4', el).onclick = () => qrScreen();
     if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'item', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
+    if (S.loginPend && !logining) { loginItem().then(() => home()); return; } // 7日目の アイテムを まだ えらんでいない（とちゅうで 閉じた）
+    if (S.loginDay !== today() && loginOn()) { loginBonus().then(ok => { if (ok) home(); }); return; } // ログインボーナス（ごはんの前。10/13）
     if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); if (fed && S.tutorial === 2) { S.tutorial = 0; save(); dialog({ who: artKoku(), name: KOKU, text: 'まずは ダンジョンに 行こう！' }); } }); return; }
     if (S.dungeons === 0) tip('まずは「育成ダンジョン」に 行ってみよう！', 3500, true);
   }
@@ -1175,6 +1179,46 @@
       draw();
     });
     if (evo) await evolution(st0, type0, 'OK');
+  }
+
+  // ---- ログインボーナス（通算ログイン。1日の さいしょに 1回。7日で 1しゅう：1〜5日目 コイン10・6日目 コイン150・7日目 アイテム。10/13）----
+  // 連続ログインは 記録しない。表記は 通算（2しゅう目は 8日目〜14日目）
+  const loginOn = () => !/[?&]test/.test(location.search) || /[?&]login/.test(location.search); // テストでは 出さない（?login で 出す）
+  let logining = false;
+  async function loginBonus() {
+    if (logining || S.loginDay === today()) return false;
+    logining = true;
+    S.loginN = (S.loginN || 0) + 1; S.loginDay = today();
+    const n = S.loginN, c = (n - 1) % D.LOGIN.length, base = n - 1 - c, rw = D.LOGIN[c];
+    if (rw.c) S.coins += rw.c;
+    if (rw.item) { const pool = shuffle(D.ITEMS.map(it => it.n)); S.loginPend = pool.slice(0, rw.item); } // 完全ランダム（持っているものも 出る）
+    save();
+    const o = overlay(`<div class="panel lb">
+      <div class="lb-h">${ic('treasure', '🎁')}ログインボーナス</div>
+      <div class="lb-top"><div class="lb-n">通算ログイン <b>${n}</b> 日目</div>
+        <div class="lb-k"><span class="lb-ko">${artKoku()}</span><div class="lb-say">いつも がんばってるね</div></div></div>
+      <div class="lb-row">${D.LOGIN.map((x, i) => `<div class="lb-c${i < c ? ' done' : i === c ? ' now' : ''}${x.item ? ' sp' : ''}">
+        <div class="lb-d">${base + i + 1}日目</div>
+        <div class="lb-i">${x.c ? artUi('coin', '🪙') : artUi('treasure', '🎁')}</div>
+        <div class="lb-v">${x.c ? '×' + x.c : 'アイテム'}</div><div class="lb-ok">✔</div></div>`).join('')}</div>
+      <div class="lb-msg">${rw.c ? `まなびコイン <b class="gold">${rw.c}</b> ゲット！` : 'アイテムを 3つの 中から 1つ えらべるよ！'}</div>
+      <div class="lb-f"><button class="btn-main" id="lbok">OK</button></div></div>`);
+    se(rw.c ? 'money' : 'chest');
+    setTimeout(() => { const e = $('.lb-c.now', o); if (e) { e.classList.add('got'); se('stamp'); } }, window.FAST ? 50 : 600);
+    await new Promise(r => ($('#lbok', o).onclick = r));
+    o.remove();
+    if (S.loginPend) await loginItem();
+    logining = false;
+    return true;
+  }
+  async function loginItem() {
+    const names = (S.loginPend || []).filter(n => D.ITEM[n]);
+    if (!names.length) { delete S.loginPend; save(); return; }
+    const n = await chooseItem(`${artUi('treasure', '🎁')} ログインボーナス！ 1つ えらんでね\n<span class="sm">もう持っている アイテムは ボーナスポイント +${D.DUP_BONUS} に なるよ</span>`, names, { labels: names.map(x => (S.owned.includes(x) ? `ボーナス+${D.DUP_BONUS}` : 'もらう')) });
+    const dup = S.owned.includes(n);
+    if (dup) S.bonusPt = (S.bonusPt || 0) + D.DUP_BONUS; else S.owned.push(n);
+    delete S.loginPend; save();
+    if (dup) await bonusAlloc();
   }
 
   // ---- ごはん（1日1回。キャンディ＝せいかく−200／肉＝＋200。0〜2000）----
@@ -2949,6 +2993,11 @@
     if (!c1) return debugRoom();
     const c2 = await dialog({ who: '⚠️', text: had ? `このPCには すでに「${esc(had.pname)}」のセーブがあります。\n上書きして 消えてしまいますが、ほんとうに いいですか？` : 'もういちど確認します。ほんとうに 引きつぎますか？', choices: [{ label: 'はい、引きつぐ', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
     if (!c2) return debugRoom();
+    await applyTransfer(pr);
+    titleScreen();
+  }
+  // QRの 中身を この本体の セーブに する（デバッグルーム・かくしコマンド の 引きつぎ）
+  async function applyTransfer(pr) {
     const rg = pr.runGain; delete pr.runGain;
     S = migrate(pr); S.debug = null; R = null; BT = null; S.run = null; rawSave(); // 引きついだら デバッグモードは必ずオフ
     await dialog({ who: '✅', text: `引きつぎました！\n${esc(S.pname)} さんの データで はじめられます` });
@@ -2959,6 +3008,47 @@
       await dialog({ who: '⚔️', text: `ダンジョンの とちゅうで 上がった ステータス（ごうけい +${total(rg)}）も 入れたよ` });
       await evolution(st0, type0, 'OK');
     }
+  }
+  // ---- かくしコマンドの 復元画面（真っ白・BGMなし）----
+  function stopBgm() { SND.want = null; if (SND.el) { SND.el.pause(); SND.el = null; SND.cur = null; } }
+  function restoreScreen(step = 0) {
+    stopBgm();
+    app.innerHTML = `<div class="scr center rst">${step === 0 ? `
+      <div class="rst-w">⚠️</div>
+      <div class="rst-t">QRコードから、セーブデータを復元します。<br>この本体に残されていたセーブデータはなくなります。<br>この作業はやり直せません。よろしいですか？</div>
+      <div class="rst-b"><button class="btn-blue" id="rs1">QRコード引き継ぎを行う</button><button class="btn-gray" id="rsx">タイトルに戻る</button></div>` : `
+      <div class="rst-w">📲</div>
+      <div class="rst-t">QRコードを 読みこんでください</div>
+      <div class="rst-b"><button class="btn-blue" id="rsc">QR読み込みモード（カメラ）</button>
+        <label class="btn-blue" id="rsi">画像から読み込み<input type="file" accept="image/*" id="rsf" style="display:none"></label>
+        <button class="btn-gray" id="rsx">タイトルに戻る</button></div>`}</div>`;
+    const el = app.firstElementChild;
+    $('#rsx', el).onclick = () => { S = load(); titleScreen(); };
+    if (step === 0) { $('#rs1', el).onclick = () => restoreScreen(1); return; }
+    $('#rsc', el).onclick = async () => { const pr = await scanQR('📲 QRコードを カメラに 見せてください'); if (pr) restoreGo(pr); };
+    $('#rsf', el).onchange = e => {
+      const f = e.target.files[0]; if (!f) return;
+      const img = new Image(), cv = document.createElement('canvas');
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        cv.width = R0(img.width * k); cv.height = R0(img.height * k);
+        const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(img.src); e.target.value = '';
+        const r = window.jsQR(c.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height);
+        if (!r || !r.binaryData) return dialog({ who: '⚠️', text: 'QRコードが 見つかりませんでした' });
+        restoreBytes(r.binaryData);
+      };
+      img.src = URL.createObjectURL(f);
+    };
+  }
+  function restoreBytes(bin) { // テストからも よぶ
+    let pr; try { pr = window.SAVECODE.decode(bin); } catch (e) { return dialog({ who: '⚠️', text: e.message }); }
+    return restoreGo(pr);
+  }
+  async function restoreGo(pr) {
+    const c = await dialog({ who: '📲', text: `このデータで 復元しますか？\n${summary(pr)}`, choices: [{ label: '復元する', val: 1, cls: 'btn-main' }, { label: 'やめる', val: 0, cls: 'btn-gray' }] });
+    if (!c) return;
+    await applyTransfer(pr);
     titleScreen();
   }
   // ---- 先生用ページ ----
@@ -3035,7 +3125,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
