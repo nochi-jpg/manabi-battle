@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 ASSETS = ROOT.parent / 'manabi-battle-assets'
 CANVA = '--canva' in sys.argv
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
-KBPS = 20 if CANVA else int(args[0]) if args else 32
+KBPS = 16 if CANVA else int(args[0]) if args else 32
 OUT = ROOT / ('manabi-battle-canva.html' if CANVA else 'manabi-battle.html')
 TMP = pathlib.Path(tempfile.mkdtemp())
 MIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.woff': 'font/woff', '.woff2': 'font/woff2'}
@@ -27,8 +27,8 @@ if CANVA:  # フォントに入れる字：ゲームの文と問題で使う字�
     CHARS.write_text(''.join(sorted(c for c in ch if ord(c) >= 0x20 and not 0xD800 <= ord(c) < 0xE000)))
 def data_uri(rel):
     p = src(rel)
-    if rel.startswith('sounds/bgm/'):  # BGM は モノラル・低いビットレートに
-        q = TMP / p.name
+    if rel.startswith('sounds/bgm/'):  # BGM は モノラル・低いビットレートに（Canva版は 16kbps。10/12：10MB に おさめるため）
+        q = TMP / f'{KBPS}_{p.name}'
         if not q.exists():
             subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(p), '-ac', '1'] + (['-ar', '22050'] if CANVA else []) + ['-b:a', f'{KBPS}k', str(q)], check=True)
         p = q
@@ -42,6 +42,14 @@ def data_uri(rel):
         q = TMP / (p.stem + '_' + str(abs(hash(rel))) + '.webp')
         if not q.exists(): Image.open(p).convert('RGB').save(q, quality=75, method=6)
         p = q
+    elif CANVA and p.suffix.lower() == '.png':  # PNG も WebP に（10/12。小さくなるときだけ）。手描きの 大きな絵は 見た目が かわらない程度に 圧縮、ドット絵などは ロスレス
+        from PIL import Image
+        q = TMP / (p.stem + '_' + str(abs(hash(rel))) + '.webp')
+        if not q.exists():
+            im = Image.open(p).convert('RGBA')
+            if re.match(r'images/(boss2|zako2|player|npc/kokuusa)', rel): im.save(q, quality=85, alpha_quality=90, method=6)
+            else: im.save(q, lossless=True, method=6)
+        if q.stat().st_size < p.stat().st_size: p = q
     return f'data:{MIME[p.suffix.lower()]};base64,' + base64.b64encode(p.read_bytes()).decode()
 PATH = re.compile(r'(?:images|sounds|fonts)/[\w./%-]+\.(?:png|jpg|jpeg|gif|webp|svg|mp3|woff2?)')
 def js(text): return text.replace('</script', '<\\/script')
