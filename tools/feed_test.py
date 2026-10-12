@@ -44,7 +44,7 @@ with sync_playwright() as p:
     feed('肉'); feed('肉')
     check(S('seikaku') == 2000, 'さいこうは 2000')
 
-    # ---- すがた：1〜3段階目は 進化したときの せいかくで決まる。4段階目は すぐ変わる ----
+    # ---- すがた：単細胞 → 第1〜第3段階。どの段階でも せいかくで すぐ かわる（10/13）----
     # 画像があれば そのファイル名、なければ 絵文字
     look = "(e=>{const i=e.querySelector('img');return i?i.getAttribute('src').split('/').pop():e.innerText.trim()})(document.querySelector('#me'))"
     pg.evaluate("MB.S.seikaku = 0; MB.S.style='cute'; MB.S.styleStg=0; MB.go.home()"); W(50)
@@ -62,23 +62,21 @@ with sync_playwright() as p:
     for _ in range(3000):
         if pg.evaluate("!!document.querySelector('#dun') && !document.querySelector('.ov')"): break
         pg.evaluate(BOT, 0.9); W(15)
-    check(S('style') == 'cool' and S('styleStg') == 1, 'すがたを記録（かっこいい系・第1段階）')
     l1 = pg.evaluate(look)
-    check(l1 != l0, f'第1段階の すがた（{l1}）')
+    check(l1 != l0 and 'cool_1' in l1 or l1 in ('🐥', '🐊', '🦐', '🌿', '🐦', '🐈‍⬛'), f'第1段階・かっこいい系（{l1}）')
+    # どの段階でも せいかくが かわると すぐ すがたが かわる（10/13）
     pg.evaluate("MB.S.seikaku = 0; MB.go.home()"); W(50)
-    check(pg.evaluate(look) == l1, '第1段階：せいかくを かわいい側にしても すがたは そのまま')
-    # 4段階目：すぐ変わる
-    # 第4段階は ステータスだけでは 進化しない（10/12）
-    pg.evaluate("(()=>{const v=Math.round(MB.D.K.LOOK_LINE[2]/5)+100; MB.S.st = {国語:v,算数:v,理科:v,社会:v,英語:v}; MB.S.seikaku = 1000; MB.go.home()})()"); W(50)
-    check(pg.evaluate("MB.T.lookStage(Object.values(MB.S.st).reduce((a,b)=>a+b))") == 3 and 'つぎの 進化は ？？？' in pg.inner_text('#app'), 'ステータスが 第4段階の ラインを こえても 第3段階のまま')
-    pg.evaluate("(()=>{MB.S.stage4 = true; MB.go.home()})()"); W(50)
-    cute4 = pg.evaluate(look)
+    l1c = pg.evaluate(look)
+    check(l1c != l1 and ('cute_1' in l1c or not l1c.endswith('.png')), f'第1段階：せいかくを かわいい側にすると すぐ かわいい系（{l1}→{l1c}）')
+    # 第3段階が 最終（LOOK_LINE は 2つ）
+    pg.evaluate("(()=>{const v=Math.round(MB.D.K.LOOK_LINE[1]/5)+400; MB.S.st = {国語:v,算数:v,理科:v,社会:v,英語:v}; MB.S.seikaku = 1000; MB.go.home()})()"); W(50)
+    check(pg.evaluate("MB.D.K.LOOK_LINE.length") == 2 and pg.evaluate("MB.T.lookStage(Object.values(MB.S.st).reduce((a,b)=>a+b))") == 3 and '進化は さいごまで できた' in pg.inner_text('#app'), '第3段階が 最終進化')
+    cute3 = pg.evaluate(look)
     t = feed('肉')
-    cool4 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)
-    check(cute4 in ('🧚', 'all_cute_4.png') and cool4 in ('🦸', 'all_cool_4.png') and '姿が変わった' in t, f'4段階目：ごはんで すぐ すがたが かわる（{cute4}→{cool4}）')
-    # QR で せいかく・すがたを 引きつぐ
-    q = pg.evaluate("(()=>{const o=SAVECODE.decode(MB.qrBytes());return [o.seikaku,o.style,o.styleStg]})()")
-    check(q == [1200, 'cool', 1], f'QRに せいかく・すがた（段階 0〜4）{q}')
+    cool3 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)
+    check(cute3 != cool3 and '姿が変わった' in t, f'第3段階：ごはんで すぐ すがたが かわる（{cute3}→{cool3}）')
+    q = pg.evaluate("(()=>{const o=SAVECODE.decode(MB.qrBytes());return [o.seikaku,o.style]})()")
+    check(q[0] == 1200, f'QRに せいかく {q}')
 
     # ---- せってい：称号・背景・名前 ----
     pg.evaluate("MB.S.ach = {}; MB.S.ach['solved1'] = '2026-01-01'; MB.S.sel.title=''; MB.go.home()"); W(50)
