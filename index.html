@@ -87,8 +87,23 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .stats .sti2 .sji{vertical-align:0}.stats .sti2 .art img{height:26px!important;vertical-align:0}
 .stats .stc b{text-align:right}
 .meet{position:absolute;inset:0}
-.meet-mon{position:absolute;left:50%;top:40px;transform:translateX(-50%);font-size:330px;line-height:1}
-.meet-mon .art img{animation:bob 1.6s ease-in-out infinite;image-rendering:pixelated;filter:drop-shadow(0 12px 10px rgba(0,0,0,.5))}
+.meet-mon,.meet-k{position:absolute;left:50%;top:40px;transform:translateX(-50%);font-size:330px;line-height:1;opacity:0;transition:opacity .9s,left .7s}
+.meet-mon .art img,.meet-k .art img{animation:bob 1.6s ease-in-out infinite;image-rendering:pixelated;filter:drop-shadow(0 12px 10px rgba(0,0,0,.5))}
+.meet-mon.in,.meet-k.in{opacity:1}
+.meet.two .meet-k{left:30%}.meet.two .meet-mon{left:70%}
+.meet-shake .art img{animation:mshake .5s ease-in-out}
+@keyframes mshake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-14px) rotate(-6deg)}40%{transform:translateX(12px) rotate(5deg)}60%{transform:translateX(-8px) rotate(-3deg)}80%{transform:translateX(5px) rotate(2deg)}}
+/* まばたき：黒い まぶたが 上下に ひらく（出会いの はじめ） */
+.lid{position:absolute;left:0;right:0;height:50%;background:#000;z-index:30;pointer-events:none}
+.lid-t{top:0}.lid-b{bottom:0}.fast .lid{display:none}
+.meet.open .lid-t{animation:lidT 1.9s ease-in-out forwards}.meet.open .lid-b{animation:lidB 1.9s ease-in-out forwards}
+@keyframes lidT{0%{transform:translateY(0)}25%{transform:translateY(-35%)}40%{transform:translateY(0)}70%{transform:translateY(-60%)}80%{transform:translateY(-45%)}100%{transform:translateY(-101%)}}
+@keyframes lidB{0%{transform:translateY(0)}25%{transform:translateY(35%)}40%{transform:translateY(0)}70%{transform:translateY(60%)}80%{transform:translateY(45%)}100%{transform:translateY(101%)}}
+/* こくうさの 小さい顔（せつめい・ヒント） */
+.koku-ic{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;flex:none;vertical-align:middle;font-size:46px;line-height:1}
+.koku-ic .art img{height:52px!important;width:auto}
+.tip.tip-k{display:flex;align-items:center;gap:8px;padding:4px 18px 4px 8px}
+.tut-ht{display:flex;align-items:center;gap:8px}
 .meet-name{position:absolute;left:50%;top:370px;transform:translateX(-50%);font-size:26px;color:#fff;text-shadow:0 2px 4px #000}
 .meet-box{position:absolute;left:90px;right:90px;bottom:28px;min-height:170px;padding:20px 30px!important;cursor:pointer}
 .meet-who{display:inline-block;background:#23305a;color:#fff;border-radius:999px;padding:2px 18px;font-size:18px;margin-bottom:6px}
@@ -97,15 +112,12 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .tut{width:1060px}
 .tut-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
 .tut-b{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
-.tut-row{display:flex;align-items:center;gap:22px;min-height:84px}
-.tut-pic{flex:none;width:330px;display:flex;justify-content:center;align-items:center;font-size:56px;pointer-events:none}
+.tut-row{display:flex;align-items:center;gap:22px;height:80px} /* 行の高さを そろえる（10/12） */
+.tut-pic{flex:none;width:330px;height:72px;display:flex;justify-content:center;align-items:center;font-size:56px;pointer-events:none}
 .tut-pic .ic .art img,.tut-pic .art img{height:64px!important}
 .tut-btn{zoom:.62;pointer-events:none}.tut-btn > div{position:static!important;display:block!important;height:auto!important;background:none!important;padding:0!important;width:auto!important}
-.tut-btn button{width:520px!important;height:auto!important;min-height:110px;max-width:none;display:flex!important;align-items:center;justify-content:center}
-.tut-btn .menuR button.wide{height:128px!important}
-.tut-btn:has(.menuR button:not(.wide)){zoom:.95}
-.tut-btn .menuR button:not(.wide){width:298px!important;height:86px!important;min-height:0;justify-content:flex-start}
-.tut-t{font-size:23px;line-height:1.5}
+.tut-btn button,.tut-btn .menuR button.wide,.tut-btn .menuR button:not(.wide){width:440px!important;height:110px!important;min-height:0!important;max-width:none;display:flex!important;align-items:center;justify-content:center} /* ボタンの絵は ぜんぶ 同じ大きさ（10/12） */
+.tut-t{font-size:21px;line-height:1.45;white-space:nowrap}
 .tut-mons{display:flex;justify-content:center;align-items:center;gap:14px;font-size:120px;line-height:1}
 .tut-mon .art img{image-rendering:pixelated}
 .tut-mon.sil{filter:brightness(0)} /* 進化さきは 黒ぬりの シルエット */
@@ -378,7 +390,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .eff-up{color:#dc2626;font-weight:800}
 .arena-b{width:380px;height:250px;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:24px!important}
 .arena-b .art{font-size:84px;line-height:1}.arena-b b{font-size:30px}.arena-b small{font-size:17px;line-height:1.4;opacity:.85}
-.art.art-hd img,.meet-mon .art.art-hd img,.tut-mon .art.art-hd img,.who .art.art-hd img{image-rendering:auto!important}
+.art.art-hd img,.meet-mon .art.art-hd img,.meet-k .art.art-hd img,.tut-mon .art.art-hd img,.who .art.art-hd img{image-rendering:auto!important}
 #vp{position:fixed;inset:0;pointer-events:none;z-index:-1}
 .scr.title,.scr.name{isolation:isolate}
 .scr-bgimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;image-rendering:auto}

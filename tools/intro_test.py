@@ -18,17 +18,29 @@ with sync_playwright() as p:
     W(300); shot('title')
     check(pg.locator('.logo').count() == 1 and 'はじめる' in pg.inner_text('#go'), 'はじめても タイトル画面')
     pg.click('#go'); W(300); shot('meet')
-    check('あいぼう' in pg.inner_text('#mb'), 'あいぼうが 話しかける')
-    pg.click('#mb'); W(150); shot('pname')
+    check('こくうさ' in pg.inner_text('#mb') and 'めが さめた' in pg.inner_text('#mb'), 'こくうさが 話しかける（10/12 サウンドノベル風）')
+    talk = []
+    def until(sel, n=20):
+        for _ in range(n):
+            if pg.query_selector(sel): return True
+            talk.append(pg.inner_text('#mb')); pg.click('#mb'); W(120)
+        return False
+    until('#nm'); shot('pname')
     check('かえることは できません' in pg.inner_text('#mb'), '自分の名前（あとから かえられない）')
     pg.fill('#nm', 'ゆうき'); pg.click('#ok'); W(150)
-    pg.click('#mb'); W(150); shot('cname')
+    check('これで いい' in pg.inner_text('#mb'), '名前の かくにん「これで いい？」')
+    pg.click('#n'); W(150)
+    check(pg.query_selector('#nm') is not None, '「いいえ」で もう一度 入れなおせる')
+    pg.fill('#nm', 'ゆうき'); pg.click('#ok'); W(150); pg.click('#y'); W(150)
+    until('#nm'); shot('cname')
     check('すきなときに かえられます' in pg.inner_text('#mb'), 'あいぼうの名前（あとから かえられる）')
-    pg.fill('#nm', 'ポチ'); pg.click('#ok'); W(150)
+    check(any('うしろを みて' in t for t in talk) and any('・・・♡' in t for t in talk), 'うしろに 単細胞・「・・・♡」')
+    pg.fill('#nm', 'ポチ'); pg.click('#ok'); W(150); pg.click('#y'); W(150)
     check(pg.evaluate('MB.S.pname') == 'ゆうき' and pg.evaluate('MB.S.cname') == 'ポチ', 'セーブができる')
-    talk = []
-    for _ in range(4): talk.append(pg.inner_text('.meet-t')); shot('talk'); pg.click('#mb'); W(150)
-    check('まなびタウン' in talk[0] and 'つよく そだてて' in talk[3], 'お話が 4つ')
+    for _ in range(10):
+        if pg.query_selector('.ov .choices'): break
+        talk.append(pg.inner_text('#mb')); shot('talk'); pg.click('#mb'); W(150)
+    check(any('ポチと いっしょに' in t for t in talk), 'さいごの ことば')
     check('せつめいを 聞きますか' in pg.inner_text('.ov'), 'せつめいを 聞くか きく'); shot('ask')
     pg.click('.ov .choices button >> nth=0'); W(300)
     pages = 0
@@ -37,7 +49,7 @@ with sync_playwright() as p:
     check(pages >= 7, f'せつめい（{pages}ページ）')
     check('ごはん' in pg.inner_text('.ov'), 'せつめいのあとに ごはん'); shot('feed')
     pg.click('.ov .choices button >> nth=0'); W(200); pg.click('.ov .choices button'); W(200)
-    check('ダンジョンに 行こう' in pg.inner_text('.ov'), 'さいごに「まずは ダンジョンに 行こう！」'); shot('go')
+    check('ダンジョンに 行こう' in pg.inner_text('.ov') and 'こくうさ' in pg.inner_text('.ov'), 'さいごに こくうさ「まずは ダンジョンに 行こう！」'); shot('go')
     pg.click('.ov .choices button'); W(200)
     check(pg.evaluate('MB.S.tutorial') == 0 and pg.locator('.ov').count() == 0, 'おわり → ホーム')
     # せっていの せつめい
@@ -46,9 +58,10 @@ with sync_playwright() as p:
     while pg.locator('.tut').count(): p2 += 1; pg.click('#nx'); W(120)
     check(p2 >= 4 and pg.locator('#sH').count() == 1, f'せっていから せつめい（{p2}ページ）→ せっていへ もどる')
     # いいえ のとき
-    pg.evaluate("localStorage.clear()"); pg.goto(URL); W(300); pg.click('#go'); W(200); pg.click('#mb'); W(100)
-    pg.fill('#nm', 'あ'); pg.click('#ok'); W(100); pg.click('#mb'); W(100); pg.fill('#nm', 'い'); pg.click('#ok'); W(100)
-    for _ in range(4): pg.click('#mb'); W(100)
+    pg.evaluate("localStorage.clear()"); pg.goto(URL); W(300); pg.click('#go'); W(200)
+    until('#nm'); pg.fill('#nm', 'あ'); pg.click('#ok'); W(100); pg.click('#y'); W(100)
+    until('#nm'); pg.fill('#nm', 'い'); pg.click('#ok'); W(100); pg.click('#y'); W(100)
+    until('.ov .choices')
     pg.click('.ov .choices button >> nth=1'); W(300)
     check(pg.locator('.tut').count() == 0 and 'ごはん' in pg.inner_text('.ov'), 'いいえ → すぐ ホーム（ごはん）')
     b.close()

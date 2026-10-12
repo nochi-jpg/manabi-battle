@@ -292,8 +292,9 @@
     el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.color = color; app.appendChild(el);
     setTimeout(() => el.remove(), T(1300));
   }
-  function tip(text, ms = 3500) {
-    const el = document.createElement('div'); el.className = 'tip'; el.innerHTML = '💡 ' + text; app.appendChild(el);
+  // koku：こくうさが 言う（さいしょの ヒント。10/12）
+  function tip(text, ms = 3500, koku = false) {
+    const el = document.createElement('div'); el.className = 'tip' + (koku ? ' tip-k' : ''); el.innerHTML = (koku ? kokuIc() : '💡 ') + `<span>${text}</span>`; app.appendChild(el);
     setTimeout(() => el.remove(), T(ms));
   }
   // ---- ゲームのテンポ（せってい）：はやい＝時間で進む ／ ふつう＝メッセージを 1クリック（タップ）で送る ----
@@ -561,37 +562,64 @@
   // =====================================================================
   // はじめて：あいぼうとの 出会い → 名前 → お話 → せつめい（チュートリアル）
   // =====================================================================
-  const PARTNER0 = { seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0 }; // さいしょの かわいい すがた
+  const PARTNER0 = { seikaku: K.SEIKAKU_START, style: 'cute', styleStg: 0 }; // さいしょの すがた（単細胞）
+  // こくうさ：チュートリアルの 案内役（K.nom さんの ウサギ。なめらかな絵）。出会い・せつめい・さいしょの ヒントだけに 出る（10/12）
+  const KOKU = 'こくうさ';
+  const artKoku = () => artNpc(KOKU, '🐰').replace('<span class="art">', '<span class="art art-hd">');
+  const kokuIc = () => `<span class="koku-ic">${art(g2(A, 'npc', 'こくうさ顔'), '🐰').replace('<span class="art">', '<span class="art art-hd">')}</span>`;
+  // 出会い（サウンドノベル風）：黒い画面 → まばたき → こくうさ → 名前 → うしろに 単細胞 → あいぼうの 名前 → せつめいを 聞くか
   function meetPartner() {
     const el = render(`<div class="scr meet">
-      <div class="meet-mon">${artPlayer('全教科', 0, PARTNER0)}</div>
-      <div class="meet-box panel" id="mb"></div></div>`, 'title');
-    const box = $('#mb', el);
+      <div class="meet-k" id="mk">${artKoku()}</div>
+      <div class="meet-mon" id="mm">${artPlayer('全教科', 0, PARTNER0)}</div>
+      <div class="meet-box panel" id="mb" style="visibility:hidden"></div>
+      <div class="lid lid-t"></div><div class="lid lid-b"></div></div>`, 'title');
+    const box = $('#mb', el), mk = $('#mk', el), mm = $('#mm', el), sc = el.classList.contains('meet') ? el : $('.meet', el);
+    const whoTag = w => (w ? `<div class="meet-who">${esc(w)}</div>` : '');
     // セリフを1つずつ（タップで すすむ）
-    const talk = (t, who = true) => new Promise(res => {
-      box.innerHTML = `${who ? '<div class="meet-who">？？？</div>' : ''}<div class="meet-t">${t}</div><div class="meet-next">▼</div>`;
+    const talk = (t, w = KOKU) => new Promise(res => {
+      box.innerHTML = `${whoTag(w)}<div class="meet-t">${t}</div><div class="meet-next">▼</div>`;
       box.onclick = () => { box.onclick = null; res(); };
     });
     const ask = (t, ph, note) => new Promise(res => {
       box.onclick = null;
-      box.innerHTML = `<div class="meet-t">${t}</div>
+      box.innerHTML = `${whoTag(KOKU)}<div class="meet-t">${t}</div>
         <div class="row" style="gap:12px;margin-top:10px;justify-content:center"><input id="nm" maxlength="8" placeholder="${ph}（8文字まで）" style="width:420px"><button class="btn-main" id="ok">けってい</button></div>
         <div class="sm" style="text-align:center;margin-top:6px">${note}</div><div class="sm rule" style="text-align:center">${NAME_RULE}</div><div class="sm red" id="er" style="text-align:center;min-height:22px"></div>`;
       const inp = $('#nm', box); inp.focus();
       const go = () => { const v = inp.value.trim(); if (!v) { $('#er', box).textContent = '名前を入れてね'; return; } res(v); };
       $('#ok', box).onclick = e => { e.stopPropagation(); go(); }; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
     });
-    (async () => {
-      await talk('わたしは あなたの あいぼうだよ。<br>まずは、あなたの なまえを おしえて！');
-      const pn = await ask('あなたの なまえは？', 'あなたの名前', '※ あとから かえることは できません');
-      await talk(`${esc(pn)}、よろしくね！<br>つぎに、わたしの なまえを きめてほしいな。`);
-      const cn = await ask('あいぼうの なまえは？', 'あいぼうの名前', '※ あとから すきなときに かえられます（せってい）');
-      S = newState(pn, cn); save();
-      const nm = `<div class="meet-who">${esc(cn)}</div>`;
-      for (const t of ['この まなびタウンでは、<br>まほうつかいが あいぼうの つかいまと', 'いっしょに 学問と まほうを<br>たんきゅう しているんだ。', `${esc(pn)}と いっしょに 学習して、<br>たくさん せいちょう したいな！`, 'バトルも だいすきだから、<br>つよく そだててね！']) {
-        box.innerHTML = `${nm}<div class="meet-t">${t}</div><div class="meet-next">▼</div>`;
-        await new Promise(res => (box.onclick = () => { box.onclick = null; res(); }));
+    // 名前を きめる → 「これで いい？」（いいえ なら もう一度）
+    const askName = async (t, ph, note) => {
+      for (;;) {
+        const v = await ask(t, ph, note);
+        const ok = await new Promise(res => {
+          box.innerHTML = `${whoTag(KOKU)}<div class="meet-t">「<b>${esc(v)}</b>」　これで いい？</div>
+            <div class="row" style="gap:16px;margin-top:14px;justify-content:center"><button class="btn-main" id="y">はい</button><button class="btn-gray" id="n">いいえ</button></div>`;
+          $('#y', box).onclick = e => { e.stopPropagation(); res(true); }; $('#n', box).onclick = e => { e.stopPropagation(); res(false); };
+        });
+        if (ok) return v;
       }
+    };
+    const shake = e => { e.classList.remove('meet-shake'); void e.offsetWidth; e.classList.add('meet-shake'); };
+    (async () => {
+      await wait(400); sc.classList.add('open'); await wait(1900); // まばたき
+      mk.classList.add('in'); await wait(900);                     // こくうさが ふわっと
+      box.style.visibility = '';
+      for (const t of ['やあ、めが さめたんだね', 'きみは この せかいに しょうかんされた', 'まほうつかい なんだ', 'この まなびタウンでは、<br>まほうつかいが あいぼうの つかいまと', 'いっしょに 学問と まほうを<br>たんきゅう しているんだ', 'まずは、きみの なまえを おしえて']) await talk(t);
+      const pn = await askName('きみの なまえは？', 'あなたの名前', '※ あとから かえることは できません');
+      await talk(`${esc(pn)}、これから この まなびタウンで<br>たくさん 学問を きわめるんだ！`);
+      await talk('・・・・・・え、あいぼうは ぼく なのかって？');
+      await talk('ああ、ちがう ちがう、うしろを みてごらん');
+      sc.classList.add('two'); mm.classList.add('in'); await wait(700); shake(mm);
+      await talk('その子が、きみを よんだんだよ');
+      shake(mm); await talk('・・・♡', '？？？');
+      await talk('まずは、名前を きめてあげなよ');
+      const cn = await askName('あいぼうの なまえは？', 'あいぼうの名前', '※ あとから すきなときに かえられます（せってい）');
+      S = newState(pn, cn); save();
+      await talk(`${esc(cn)}と いっしょに 学習して、<br>たくさん せいちょう してね！`);
+      shake(mm); await talk('・・・♡', cn);
       const yes = await dialog({ text: 'ゲームの せつめいを 聞きますか？', choices: [{ label: 'はい', val: true, cls: 'btn-main' }, { label: 'いいえ', val: false, cls: 'btn-gray' }] });
       if (yes) { S.tutorial = 1; save(); }
       home(); // せつめい（はいのとき）→ ごはんの時間
@@ -610,22 +638,22 @@
         + row(ic('stamina', '⚡'), `スタミナは 毎朝5時に ${K.STAMINA_DAY} ふえます<br>（${K.STAMINA_MAX}まで ためられます）`)
         + row(btnPic('dun'), '1日に 育成ダンジョン 2回 が めやすです')]);
       P.push(['スタミナが いらない あそび', row(btnPic('rev'), 'まちがえた問題に もう一度。<br>いつでも 入れます')
-        + row(btnPic('tow'), `1日 ${K.TOWER_MS / 60000}分 まで あそべます`) + row(btnPic('tri'), 'たおした ボスと 何回でも')]);
+        + row(btnPic('tow'), `1日 ${K.TOWER_MS / 60000}分 まで あそべます`) + row(btnPic('tri'), 'たおした ボスと 何回でも たたかえます')]);
     }
     if (parts.includes('home')) {
-      P.push(['ホームの ボタン ①', row(btnPic('dun'), '問題に 正解して そだてる。<br>さいごは ボス戦！')
-        + row(btnPic('vs'), 'あいての QRコードを 読みこんで<br>ともだちと 1台で 対戦！')]);
-      P.push(['ホームの ボタン ②', row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業')
-        + row(btnPic('tow'), '1問＝1階。<br>どこまで のぼれるかな？')
+      P.push(['ホームの ボタン ①', row(btnPic('dun'), '問題に 正解して あいぼうを そだてます。<br>さいごは ボス戦です！')
+        + row(btnPic('vs'), 'あいての QRコードを 読みこんで<br>ともだちと 1台で 対戦できます！')]);
+      P.push(['ホームの ボタン ②', row(btnPic('rev'), 'まちがえた問題を もう一度。<br>2回 正解で 卒業です')
+        + row(btnPic('tow'), '問題を といて<br>塔を のぼりましょう')
         + row(btnPic('tri'), 'ボスと れんしゅう試合・<br>友だちの QRゴーストと 対戦')
-        + row(btnPic('grow'), '進化や スキルまでの<br>のこりが わかる')]);
-      P.push(['ホームの ボタン ③', row(btnPic('b1'), 'コインで アイテムを ひく') + row(btnPic('b2'), 'あつめた アイテムを 見る')
-        + row(btnPic('b3'), 'といた問題を 見なおす') + row(btnPic('b4'), 'データの 引きつぎ・対戦') + row(btnPic('b5'), 'ごほうびの 称号や 背景')]);
+        + row(btnPic('grow'), '進化や スキルまでの<br>のこりが わかります')]);
+      P.push(['ホームの ボタン ③', row(btnPic('b1'), 'コインで アイテムを ひけます') + row(btnPic('b2'), 'あつめた アイテムを<br>見ることが できます')
+        + row(btnPic('b3'), 'といた問題を<br>見なおすことが できます') + row(btnPic('b4'), 'データの 引きつぎ・対戦が できます') + row(btnPic('b5'), 'ごほうびの 称号や 背景を<br>確認できます')]);
     }
     if (parts.includes('item')) {
       P.push(['アイテム', row(art(g2(A, 'ui', 'treasure'), '🎁'), 'ダンジョンで ひろった アイテムは、<br>その回の 道中と ボス戦で 効きます')
-        + row(btnPic('b2') || art(g2(A, 'emo', '🎒'), '🎒'), 'ダンジョンからは 1回に 1個だけ<br>アイテムを もちかえれるよ')
-        + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは<br>対戦モードで つかうことが できるよ<br>（とうぎじょうでも つかえます）')]);
+        + row(btnPic('b2') || art(g2(A, 'emo', '🎒'), '🎒'), 'ダンジョンからは 1回に 1個だけ<br>アイテムを もちかえれます')
+        + row(btnPic('vs') || art(g2(A, 'emo', '🆚'), '🆚'), 'もちかえった アイテムは 対戦モードで つかえます<br>（とうぎじょうでも つかえます）')]);
     }
     if (parts.includes('grow')) {
       P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">さいしょの ダンジョンから かえると 進化！<br>そのあとは ステータスの ごうけいが ふえると <b>4だんかい</b>まで 進化します</div>
@@ -633,7 +661,7 @@
       P.push(['タイプ', `<div class="tut-t" style="text-align:center">いちばん 高い教科で <b>タイプ</b>が きまります<br>（ばらばらなら 全教科タイプ）</div>
         <div class="tut-mons">${['国語', '算数', '理科', '社会', '英語', '全教科'].map(t => pimg(t, pick(['cute', 'cool']), 2, true)).join('')}</div>`]);
       P.push(['ごはんと せいかく', row(art(g2(A, 'emo', '🍽'), '🍽️'), '毎日 1回 <b>ごはん</b>を あげます')
-        + row(`${art(g2(A, 'emo', '🍬'), '🍬')}${art(g2(A, 'emo', '🍖'), '🍖')}`, 'キャンディは かわいく、<br>肉は かっこよく せいかくが かわる')
+        + row(`${art(g2(A, 'emo', '🍬'), '🍬')}${art(g2(A, 'emo', '🍖'), '🍖')}`, 'キャンディは かわいく、<br>肉は かっこよく せいかくが かわります')
         + `<div class="tut-t" style="text-align:center;margin-top:6px">進化したときの せいかくで すがたが きまります</div>
         <div class="tut-mons">${pimg(S.type, 'cute', 2, true)}<span class="tut-ar">or</span>${pimg(S.type, 'cool', 2, true)}</div>`]);
     }
@@ -643,7 +671,7 @@
     const P = tutPages(parts);
     for (let i = 0; i < P.length; i++) {
       await new Promise(res => {
-        const o = overlay(`<div class="panel tut"><div class="tut-h"><span class="big">${P[i][0]}</span><span class="sm dim">${i + 1} / ${P.length}</span></div>
+        const o = overlay(`<div class="panel tut"><div class="tut-h"><span class="tut-ht">${kokuIc()}<span class="big">${P[i][0]}</span></span><span class="sm dim">${i + 1} / ${P.length}</span></div>
           <div class="tut-b">${P[i][1]}</div><div class="choices"><button class="btn-main" id="nx">${i < P.length - 1 ? 'つぎへ' : 'わかった！'}</button></div></div>`);
         $('#nx', o).onclick = () => { o.remove(); res(); };
       });
@@ -1079,7 +1107,7 @@
       <div class="menuB">
         <button id="b1">${mb('b1', '🎰', 'ガチャ')}</button><button id="b2">${mb('b2', '🎒', 'もちもの')}</button><button id="b3">${mb('b3', '📋', '問題リスト')}</button><button id="b4">${mb('b4', '🔳', 'QR')}</button><button id="b5">${mb('b5', '🏆', 'アチーブメント')}</button>
       </div>`, 'home');
-    $('#me', el).onclick = () => { $('#say', el).textContent = '「' + pick(sayLines()) + '」'; };
+    $('#me', el).onclick = () => { $('#say', el).textContent = '「' + (lookStage(total(S.st)) === 0 ? '・・・♡' : pick(sayLines())) + '」'; };
     $('#dun', el).onclick = () => startDungeon();
     $('#set', el).onclick = () => settings();
     $('#sta', el).onclick = () => staminaHelp();
@@ -1095,8 +1123,8 @@
     $('#grow', el).onclick = () => growthPanel();
     $('#b4', el).onclick = () => qrScreen();
     if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'item', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
-    if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); if (fed && S.tutorial === 2) { S.tutorial = 0; save(); dialog({ who: artPlayer(S.type, total(S.st)), name: S.cname, text: 'まずは ダンジョンに 行こう！' }); } }); return; }
-    if (S.dungeons === 0) tip('まずは「育成ダンジョン」に行ってみよう！');
+    if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); if (fed && S.tutorial === 2) { S.tutorial = 0; save(); dialog({ who: artKoku(), name: KOKU, text: 'まずは ダンジョンに 行こう！' }); } }); return; }
+    if (S.dungeons === 0) tip('まずは「育成ダンジョン」に 行ってみよう！', 3500, true);
   }
 
   // ---- スタミナの説明 ----
@@ -1320,7 +1348,7 @@
       if (R.hand.length < K.ITEM_MAX) {
         se('chest'); await chooseItem(`${text}\n${artItem(n)} ${n} を拾った！`, [n], { labels: ['拾う'] });
         R.hand.push(n);
-        if (firstRun() && !R.flags.tipItem) { R.flags.tipItem = 1; tip('拾ったアイテムは、この回のボス戦で効くよ。持てるのは4個まで'); }
+        if (firstRun() && !R.flags.tipItem) { R.flags.tipItem = 1; tip('拾ったアイテムは、この回のボス戦で効きます。持てるのは4個までです', 3500, true); }
       } else {
         const all = [...R.hand, n];
         se('chest'); const out = await chooseItem(`${text}\n${artItem(n)} ${n} を見つけた！ 持てるのは4個まで。\n<span class="gold">どれを すてる？</span>`, all, { labels: all.map(() => 'すてる') });
@@ -1352,7 +1380,7 @@
     setFoe(artZako(emo), rare ? `<span class="gold">✨ ${esc(fname)}</span>` : esc(fname));
     if (R.ns.ans) { await flushPend(); return; } // 答えたあとに閉じた → 結果はもう出ている
     msg(`${rare ? `${esc(fname)}があらわれた！ <span class="gold">レアモンスターだ！ いいことありそう</span>` : `${esc(fname)}があらわれた！`}<br><span class="gold">教科をえらんで 問題に答えよう</span>`);
-    if (firstRun() && zi === 0) tip('教科をえらぶと問題が出るよ。正解すると、その教科のステータスが上がる！');
+    if (firstRun() && zi === 0) tip('教科をえらぶと問題が出ます。正解すると、その教科のステータスが上がります！', 3500, true);
     const st = curSt();
     const subj = await new Promise(res => {
       $('#subj').innerHTML = SUBJ.map(s => `<button data-s="${s}" style="border-color:${D.SUBJ_COLOR[s]}"><span class="sbn">${subjIc(s)}${s}</span><small>${st[s]}</small></button>`).join('');
@@ -1384,7 +1412,7 @@
       foeEl.style.transition = 'transform .6s,opacity .6s'; foeEl.style.transform = 'translateX(300px)'; foeEl.style.opacity = 0;
       if (out.c) floatAt(860, 240, `🪙+${out.c}`, '#ffd54a');
       msg(out.kind === 'new' ? '💨 にげられた… この問題は <b>復習まち</b> に入ったよ（あとで また出るよ）' : '💨 にげられた…');
-      if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで もう一度 挑戦できるよ'); }
+      if (firstRun() && !R.flags.tipWrong) { R.flags.tipWrong = 1; tip('まちがえた問題は、復習ダンジョンで もう一度 挑戦できます', 3500, true); }
     }
     drawHand();
     await wait(1200);
@@ -1419,7 +1447,7 @@
       useNew(g && a.some(n => !S.owned.includes(n))); save(); return a;
     });
     if (!names.length) { await dialog({ who: artUi('treasure', '🎁'), text: '宝箱はからっぽだった……' }); return; }
-    if (firstRun() && !('pick' in R.ns)) tip('「NEW」は まだ持っていないアイテム。リザルトで1個持ち帰れるよ');
+    if (firstRun() && !('pick' in R.ns)) tip('「NEW」は まだ持っていないアイテムです。リザルトで1個持ち帰れます', 3500, true);
     await once('pick', async () => { const n = await chooseItem(`${artUi('treasure', '🎁')} 宝箱が3つある！ 1つえらんで開けよう`, names, { labels: names.map(() => '開ける') }); queuePick(n, `${artUi('treasure', '🎁')} 宝箱を開けた！`); return n; });
     await flushPend();
   }
@@ -1439,7 +1467,7 @@
   async function eventNode(id) {
     const luck = luckOf(curSt());
     const coin = c => { S.coins += c; R.coins += c; floatAt(860, 240, `🪙+${c}`, '#ffd54a'); drawHand(); };
-    if (firstRun() && !R.flags.tipEv) { R.flags.tipEv = 1; tip('イベントでは、いいことが起きたり、問題で挑戦できたりするよ'); }
+    if (firstRun() && !R.flags.tipEv) { R.flags.tipEv = 1; tip('イベントでは、いいことが起きたり、問題で挑戦できたりします', 3500, true); }
     const npc = artNpc;
     switch (id) {
       case 'shop': {
@@ -2143,7 +2171,7 @@
     $('#turn').textContent = '👑 ボス戦';
     if (BT.phase === 'intro') {
       await bossIntro();
-      if (firstRun()) tip('ボス戦は3ターン。スキルと教科をえらんで、問題に答えて攻撃しよう！', 4000);
+      if (firstRun()) tip('ボス戦は3ターンです。スキルと教科をえらんで、問題に答えて攻撃しましょう！', 4000, true);
       BT.phase = 'turn'; BT.snap = dynAll(); save();
     }
     while (BT.phase === 'turn') await playTurn();
@@ -2243,7 +2271,10 @@
     await evolution(st0, type0, 'ホームへ', rw.d0 !== undefined ? rw.d0 : S.dungeons - 1);
     R = null; BT = null; S.run = null; save();
     home();
-    if (!S.tutItem) { S.tutItem = 1; save(); await tutorial(['item']); } // はじめて ダンジョンから 帰ったら アイテムの せつめい
+    if (!S.tutItem) { // はじめて ダンジョンから 帰ったら アイテムの せつめい → こくうさの さいごの ことば（このあとは せっていの せつめい だけに 出る）
+      S.tutItem = 1; save(); await tutorial(['item']);
+      await dialog({ who: artKoku(), name: KOKU, text: 'これで、せつめいは おわり。\nこれから がんばってね！' });
+    }
   }
 
   // 進化演出（新スキル・タイプ変化・見た目の成長）

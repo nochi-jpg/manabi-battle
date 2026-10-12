@@ -9,12 +9,17 @@ def check(c, m):
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(has_touch=True); pg.on('pageerror', lambda e: errors.append(str(e)))
     pg.add_init_script('window.FAST = true'); pg.goto(URL)
-    def start(pn, cn, story=True):  # タイトル → あいぼうとの出会い → 名前2つ →（お話 → せつめいは いいえ）
-        pg.click('#go'); pg.wait_for_timeout(100); pg.click('#mb'); pg.wait_for_timeout(60)
-        pg.fill('#nm', pn); pg.click('#ok'); pg.wait_for_timeout(60); pg.click('#mb'); pg.wait_for_timeout(60)
-        pg.fill('#nm', cn); pg.click('#ok'); pg.wait_for_timeout(100)
+    def start(pn, cn, story=True):  # タイトル → こくうさとの出会い → 名前2つ（かくにん）→ せつめいは いいえ（10/12）
+        pg.click('#go'); pg.wait_for_timeout(100)
+        for nm in (pn, cn):
+            for _ in range(20):
+                if pg.query_selector('#nm'): break
+                pg.click('#mb'); pg.wait_for_timeout(40)
+            pg.fill('#nm', nm); pg.click('#ok'); pg.wait_for_timeout(60); pg.click('#y'); pg.wait_for_timeout(60)
         if story:
-            for _ in range(4): pg.click('#mb'); pg.wait_for_timeout(60)
+            for _ in range(20):
+                if pg.query_selector('.ov .choices'): break
+                pg.click('#mb'); pg.wait_for_timeout(40)
             pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(100)
     start('せんせい', 'テスト')
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
