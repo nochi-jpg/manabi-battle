@@ -107,7 +107,7 @@ with sync_playwright() as p:
         rk = pg.evaluate("(() => { const e = document.querySelector('#rstamp'); return e ? e.textContent : null; })()")
         if rk: saw_rank = rk
         if pg.evaluate("!!(MB.BT && MB.BT.P)"):
-            pg.evaluate("MB.BT.P.hp = 1; MB.BT.B.hp = MB.BT.B.maxhp; (() => { const b = [...document.querySelectorAll('.ov button')].find(x => x.textContent.includes('リザルト')); if (b) b.click(); })()")
+            pg.evaluate("MB.BT.P.hp = 1; MB.BT.B.hp = MB.BT.B.maxhp; MB.BT.P.power = 0.01; (() => { const b = [...document.querySelectorAll('.ov button')].find(x => x.textContent.includes('リザルト')); if (b) b.click(); })()")
         pg.evaluate(BOT, 1.0); W(25)
     last = pg.evaluate("window.MB_LAST")
     check(last and not last['beat'], f'負けて おわり {last}')

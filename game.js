@@ -75,6 +75,8 @@
   const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t, p)), lookOf(type, t, p)), lookStage(t, p));
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   // 雑魚：K.nom さんの 手描き（images/zako2）は なめらかに 表示（10/12）
+  // ボス：K.nom さんの 手描き（images/boss2）。なめらかに・左向きのまま（反転しない。10/12）
+  const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return /boss2\//.test(p || '') ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h; };
   const artZako = e => { const h = art(g2(A, 'zako', e), e); return /zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', '<span class="art art-hd">') : h; };
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
@@ -797,7 +799,7 @@
   const backToSettings = () => { home(); settings(); };
   const howTo = (a, what) => dialog({ who: '🔒', text: `まだ 手に入れていない ${what}だよ\n手に入れかた：<span class="gold">${esc(a.d)}</span>` });
   function titlePage() {
-    const have = new Set(myRewards('t')), list = D.ACH.filter(a => a.r.t), cats = [...new Set(list.map(a => a.cat))];
+    const have = new Set(myRewards('t')), list = ACHS().filter(a => a.r.t), cats = [...new Set(list.map(a => a.cat))];
     const row = (t, label, on) => `<div class="qrow ttl ${on ? 'sel' : ''}" data-t="${esc(t)}">${on ? '✅' : '⬜'} ${label}</div>`;
     const el = render(`
       <div class="prog"><span class="mid">🏷️ 称号をえらぶ　<span class="gold">${list.filter(a => have.has(a.r.t)).length} / ${list.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">◀ せっていへ</button></span></div>
@@ -930,7 +932,7 @@
       case 'days': return (S.playDays || 0) >= a.v;
       case 'clear': return (S.clears || 0) >= a.v;
       case 'boss': return !!S.bossWin[a.s];
-      case 'bossAll': return Object.keys(S.bossWin).length >= 6;
+      case 'bossAll': return BOSS5.every(b => S.bossWin[b]); // 無属性は 廃止（10/12）
       case 'boss3': return Object.keys(S.boss3).length >= a.v;
       case 'nocont': return (S.nocont || 0) >= a.v;
       case 'tower': return (S.towerBest[a.s] || 0) >= (a.v || QBY[a.s].length);
@@ -955,6 +957,9 @@
   const rewardText = r => [r.t && `称号「${esc(r.t)}」`, r.bg && `背景「${esc(r.bg)}」`, r.aura && `${r.aura}オーラ`].filter(Boolean).join('＋');
   // デバッグの「称号 全開放」「背景 全開放」は セーブを書きかえずに 見えるだけ
   // ---- 称号の色：限定＝虹、むずかしい＝金、教科・属性＝その色、とりやすい＝白 ----
+  // アチーブメントの 一覧（無属性ボスは 廃止。もう とっている子には 出す）
+  const ACHS = () => D.ACH.filter(a => a.id !== 'boss_無' || S.ach[a.id]);
+  const BOSS5 = ['国語', '算数', '理科', '社会', '英語']; // ボスの 属性（無属性は 10/12 に 廃止）
   const TCOL = { 国語: '#ff8f8f', 算数: '#7cb8ff', 理科: '#6fe3a0', 社会: '#ffc46b', 英語: '#d9a8ff', 無: '#cfd6e6' };
   function titleRank(t) {
     if (D.HIDDEN_TITLES.includes(t)) return 'rainbow';
@@ -983,11 +988,11 @@
     setTimeout(() => { el.remove(); toastN = Math.max(0, toastN - 1); }, T(4000));
   }
   function achList() {
-    const n = Object.keys(S.ach).length, cats = [...new Set(D.ACH.map(a => a.cat))];
+    const n = ACHS().filter(a => S.ach[a.id]).length, cats = [...new Set(ACHS().map(a => a.cat))];
     const el = render(`
-      <div class="prog"><span class="mid">🏆 アチーブメント　<span class="gold">${n} / ${D.ACH.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
+      <div class="prog"><span class="mid">🏆 アチーブメント　<span class="gold">${n} / ${ACHS().length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
       <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
-        ${cats.map(c => `<div class="mid gold" style="margin:8px 0 4px">${c}</div>` + D.ACH.filter(a => a.cat === c).map(a => {
+        ${cats.map(c => `<div class="mid gold" style="margin:8px 0 4px">${c}</div>` + ACHS().filter(a => a.cat === c).map(a => {
           const ok = !!S.ach[a.id];
           return `<div class="qrow" style="cursor:default;${ok ? '' : 'color:#94a3b8'}">${ok ? '✅' : '⬜'} ${esc(a.d)} → ${ok ? `<span class="gold">${rewardText(a.r)}</span>` : '？？？'}</div>`;
         }).join('')).join('')}
@@ -1256,7 +1261,7 @@
     if (!go) return;
     S.stamina -= K.DUNGEON_COST;
     const seed = (Math.random() * 2 ** 32) >>> 0, rnd = makeRng(seed);
-    const boss = pick(['国語', '算数', '理科', '社会', '英語', '無'].filter(b => b !== S.lastBoss), rnd);
+    const boss = pick(BOSS5.filter(b => b !== S.lastBoss), rnd);
     S.lastBoss = boss;
     const ev = shuffle(EVENTS, rnd);
     const forks = shuffle(['coin', 'item', 'event'], rnd).slice(0, 2);
@@ -2070,7 +2075,7 @@
     const skills = skillsOf(t);
     const lt = look || { type: S.type, t };
     const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...pst }, items: [...hand], prevType: S.type, type: look && look.st ? lt.type : undefined, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
-    const cB = { name: bd.n[stg], emo: bd.e[stg], art: art(g2(A, 'boss', boss, stg), bd.e[stg]), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
+    const cB = { name: bd.n[stg], emo: bd.e[stg], art: artBoss(boss, stg), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
     // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
     const wk = D.WEAK[boss];
     if (wk) {
@@ -2110,7 +2115,7 @@
     let win = 0, turns = 0;
     try {
       for (let i = 0; i < n; i++) {
-        const b = boss || pick(['国語', '算数', '理科', '社会', '英語', '無']);
+        const b = boss || pick(BOSS5);
         const its = typeof items === 'function' ? items(i) : items;
         const cfg = bossCfg(b, stg, its);
         const P = makeFighter(cfg.P), B = makeFighter(cfg.B);
@@ -2638,7 +2643,7 @@
   // ・ほうびなし・回数制限なし・正誤は記録しない・とちゅうのセーブなし
   // ・ボスは育成ダンジョンと同じ。1ターン5問×3ターン。持っているアイテムだけ。時間制限なし
   // =====================================================================
-  const TRIAL_BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
+  const TRIAL_BOSS = BOSS5;
   let TR = null; // { boss, stg, items }
   // 倒したことのあるボス（デバッグの「ボス討伐 全開放」なら全部）
   const beaten = (b, g) => dbg('boss') || ((S.bossStg || {})[b] || 0) >= (1 << g); // 上の★を倒していれば 下の★もOK
@@ -2672,11 +2677,11 @@
           <div class="big">🧪 おためしバトル</div>
           <div class="sm dim">倒したことのあるボスと 何回でも戦えるよ。ほうびはないよ（1ターン${K.VS_Q}問×3ターン）</div>
           <div class="row" id="sg">${[0, 1, 2].map(i => `<button data-g="${i}" class="${i === stg ? 'btn-main' : 'btn-gray'}" ${anyBeaten(i) ? '' : 'disabled'} style="font-size:20px;padding:8px 18px">ボスの強さ ${'★'.repeat(i + 1)}</button>`).join('')}</div>
-          <div style="display:grid;grid-template-columns:repeat(3,360px);gap:12px" id="bs">${TRIAL_BOSS.map(b => {
+          <div style="display:grid;grid-template-columns:repeat(5,232px);gap:10px" id="bs">${TRIAL_BOSS.map(b => {
             const bd = D.BOSSES[b];
-            if (!beaten(b, stg)) return `<button disabled style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:48px;line-height:1">❓</span><span class="mid">？？？</span><span class="xs dim">まだ倒していない</span></button>`;
+            if (!beaten(b, stg)) return `<button disabled style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><span style="font-size:72px;line-height:1;height:72px;display:flex;align-items:center"><span style="font-size:48px">❓</span></span><span class="mid" style="font-size:20px;white-space:nowrap">？？？</span><span class="xs dim">まだ倒していない</span></button>`;
             return `<button data-b="${b}" style="height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-              <span style="font-size:48px;line-height:1">${art(g2(A, 'boss', b, stg), bd.e[stg])}</span><span class="mid">${esc(bd.n[stg])}</span>
+              <span style="font-size:72px;line-height:1">${artBoss(b, stg)}</span><span class="mid" style="font-size:20px;white-space:nowrap">${esc(bd.n[stg])}</span>
               <span class="xs dim">${bd.el}属性　持ち物 ${bd.items.slice(0, stg + 1).map(n => artItem(n)).join('')}</span></button>`;
           }).join('')}</div>
           <button class="btn-gray" id="bk">◀ とうぎじょう</button></div>`, 'dun');
@@ -2763,7 +2768,7 @@
   }
   async function ghostBattle() {
     const me = vsCfg(window.SAVECODE.decode(qrBytes()), GH.mine), gh = { ...vsCfg(GH.pr, GH.items), ghost: true, acc: GH.acc, name: GH.pr.cname };
-    BT = hydrate({ trial: true, ghost: true, bgVs: pick(Object.keys(D.BOSSES)), qn: K.VS_Q, cfg: { P: me, B: gh }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
+    BT = hydrate({ trial: true, ghost: true, bgVs: pick(BOSS5), qn: K.VS_Q, cfg: { P: me, B: gh }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
     BT.snap = dynAll();
     battleScreen();
     $('#turn').textContent = '👻 QRゴースト';
@@ -2811,7 +2816,7 @@
       }
       if (V.phase === 'intro') {
         await tapScreen('2人で 画面を見てください');
-        V.bt = { vs: true, bgVs: pick(Object.keys(D.BOSSES)), cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
+        V.bt = { vs: true, bgVs: pick(BOSS5), cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
         BT = hydrate(V.bt); BT.snap = dynAll(); V.phase = 'battle'; saveVs();
         battleScreen(); $('#turn').textContent = '🆚 対戦';
         await vsIntro(); continue;

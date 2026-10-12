@@ -16,13 +16,13 @@
 - フォントはネットから読みこまない（Teamsのオフラインでも同じ見た目）。作りなおしは `python3 tools/make_fonts.py`
 
 ## 画像
+- モンスター（主人公・雑魚・ボス）の絵は ぜんぶ K.nom さん（キャラクターデザイン）。10/12 に フリー素材の モンスター（モケモさんの Monsters Pixel Pack）は ぜんぶ 入れかえた
 - 画像の素材は 非公開リポジトリ `manabi-battle-assets` に置いている（二次配布NGの素材があるため、公開リポジトリには入れない）
 - 公開リポジトリ（GitHub Pages）だけで開くと、絵文字で動く。Teams用ZIP（`python3 tools/build_zip.py`）には画像が入る
 - 素材ごとの出典・ライセンスは `manabi-battle-assets/CREDITS.md`
 
 | 素材 | 作者 | 使っているところ |
 |---|---|---|
-| Monsters Pixel Pack vol.01〜10 | モケモ（mokemo-factory） | ボス・雑魚 |
 | [Verboten Arcane Stash] Basic Skills and Buffs | Atelier Pixerelia | 状態異常・スキルのアイコン |
 | Fantasy RPG UI Pack（DEMO） | dobo_ui | ボタン・パネル・カード・マス・リボン |
 | Garden cozy kit | mandinhart | ハート・スタミナ・コイン・メニューのアイコン |

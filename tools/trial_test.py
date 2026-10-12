@@ -47,14 +47,14 @@ with sync_playwright() as p:
 
     check(pg.evaluate("MB.BT && MB.BT.qn") == 5, '1ターン5問')
     check(pg.evaluate("[...MB.BT.P.items].sort().join()") == ','.join(sorted(['木の盾', 'どくキバ'])), 'えらんだアイテムで戦う')
-    check(pg.evaluate("MB.BT.B.name") == 'たいかいのぬし', 'えらんだボス・強さ')
+    check(pg.evaluate("MB.BT.B.name") == 'けいさめのおう', 'えらんだボス・強さ')
     # 1ターン目：プレイヤーの問題数を数える
     asked = 0; maxturn = 0
     end = "!!document.querySelector('.ov .choices') && document.querySelector('.ov').innerText.includes('おためしバトルなので')"
     for _ in range(15000):
         if pg.evaluate(end): break
         t = pg.evaluate("MB.BT ? MB.BT.turn : 0"); maxturn = max(maxturn, t)
-        a = pg.evaluate("MB.BT && MB.BT.acts.P && MB.BT.acts.P.ans ? MB.BT.acts.P.ans.length : 0"); asked = max(asked, a)
+        a = pg.evaluate("(()=>{const h=document.querySelector('.qbox .qh'); const m=h&&h.textContent.match(/（(\\d+)\\/5問目）/); return m?+m[1]:0})()"); asked = max(asked, a)  # 問題の 見出し（n/5問目）で 数える
         pg.evaluate(BOT, 0.8); pg.wait_for_timeout(20)
     check(pg.evaluate(end), 'バトルがおわって 結果が出る')
     check(asked == 5, f'プレイヤーは5問答える（{asked}問）')
@@ -101,7 +101,7 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.bossStg = {}; MB.S.debug = { on: true, boss: true, bak: {} }")
     pg.click('#tri'); pg.wait_for_timeout(100); pg.click('#aT'); pg.wait_for_timeout(100)
     pg.click('#sg button[data-g="1"]'); pg.wait_for_timeout(50)
-    check(pg.locator('#bs button[data-b]').count() == 6, 'デバッグ：ボス討伐 全開放で 6体×3段階 えらべる')
+    check(pg.locator('#bs button[data-b]').count() == 5, 'デバッグ：ボス討伐 全開放で 5体×3段階 えらべる（無属性は 廃止）')
     pg.click('#bk'); pg.wait_for_timeout(50)
     check(pg.evaluate("JSON.stringify(MB.S.bossStg)") == '{}', 'デバッグの全開放は セーブを書きかえない')
     pg.evaluate("MB.S.debug = null")
