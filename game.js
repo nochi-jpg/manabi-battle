@@ -74,7 +74,8 @@
   const handArt = (html, g) => (SMOOTH_G.has(g) ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
   const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t, p)), lookOf(type, t, p)), lookStage(t, p));
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
-  const artZako = e => art(g2(A, 'zako', e), e);
+  // 雑魚：K.nom さんの 手描き（images/zako2）は なめらかに 表示（10/12）
+  const artZako = e => { const h = art(g2(A, 'zako', e), e); return /zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', '<span class="art art-hd">') : h; };
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
   // 教科のアイコン（画像がなければ 絵文字）
@@ -1261,7 +1262,8 @@
     const forks = shuffle(['coin', 'item', 'event'], rnd).slice(0, 2);
     const plan = ['z', 'z', 'z', 'e1', 'z', 'z', 'f', 'z', 'z', 'z', 'e2', 'z', 'z', 't', 'b'];
     const luck = luckOf(curSt());
-    const zako = plan.filter(p => p === 'z').map(() => { const k = Math.floor(rnd() * D.ZAKO.length); return { k, e: pick(D.ZAKO[k].e, rnd), re: pick(D.RARE_ZAKO.e, rnd), rare: rnd() < K.RARE_RATE * luck / 1000 * 1.2, drop: rnd() < K.DROP_RATE }; });
+    const ZALL = D.ZAKO.flatMap((g, k) => g.e.map(e => ({ k, e }))); // 22体から 同じ確率で（10/12）
+    const zako = plan.filter(p => p === 'z').map(() => { const { k, e } = pick(ZALL, rnd); return { k, e, re: pick(D.RARE_ZAKO.e, rnd), rare: rnd() < K.RARE_RATE * luck / 1000 * 1.2, drop: rnd() < K.DROP_RATE }; });
     // gain：この回で 上がった ステータス（仮）。本ステータスに 足すのは リザルトで（10/5）
     R = {
       seed, rnd, boss, plan, i: 0, zi: 0, zako, ev1: ev[0], ev2: ev[1], ev2on: rnd() < 0.5, forks,
@@ -2339,7 +2341,7 @@
       else if (queue.length) id = queue.shift();
       else break;
       const q = Q[id], stage = S.qs[id];
-      $('#foe').innerHTML = artZako(stage === 3 ? '🦉' : '👻'); $('#foe').className = 'foe fadein';
+      $('#foe').innerHTML = artZako(stage === 3 ? '🍚' : '👻'); $('#foe').className = 'foe fadein';
       $('#foelbl').textContent = stage === 3 ? 'あと1回（正解で卒業）' : '復習まち';
       msg(`<span class="gold">${q.s}</span>の ${stage === 3 ? 'あと1回の問題' : '復習まちの問題'}が あらわれた！ のこり <b>${left() + 1}</b> 問<br>解いた問題に もう一度 挑戦して、しっかり おぼえよう！`);
       // いきなり 問題を出さずに、ボタンを おしてから（ダンジョンと同じ ながれ）
