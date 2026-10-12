@@ -68,7 +68,10 @@ with sync_playwright() as p:
     pg.evaluate("MB.S.seikaku = 0; MB.go.home()"); W(50)
     check(pg.evaluate(look) == l1, '第1段階：せいかくを かわいい側にしても すがたは そのまま')
     # 4段階目：すぐ変わる
+    # 第4段階は ステータスだけでは 進化しない（10/12）
     pg.evaluate("(()=>{const v=Math.round(MB.D.K.LOOK_LINE[2]/5)+100; MB.S.st = {国語:v,算数:v,理科:v,社会:v,英語:v}; MB.S.seikaku = 1000; MB.go.home()})()"); W(50)
+    check(pg.evaluate("MB.T.lookStage(Object.values(MB.S.st).reduce((a,b)=>a+b))") == 3 and 'つぎの 進化は ？？？' in pg.inner_text('#app'), 'ステータスが 第4段階の ラインを こえても 第3段階のまま')
+    pg.evaluate("(()=>{MB.S.stage4 = true; MB.go.home()})()"); W(50)
     cute4 = pg.evaluate(look)
     t = feed('肉')
     cool4 = pg.evaluate("void MB.go.home()") or pg.evaluate(look)

@@ -211,7 +211,8 @@
   const skillsOf = t => D.SKILLS.filter(k => !K.SKILL_LINE[k.n] || t >= K.SKILL_LINE[k.n]).map(k => k.n);
   // ---- 見た目：タイプ × かわいい系・かっこいい系 × 4段階 ----
   // 見た目の段階 0〜4：0＝単細胞（まだ ダンジョンに 行っていない）→ さいしょの ダンジョンの リザルトで 第1段階 → LOOK_LINE で 第2〜4段階（10/8）
-  const lookStage = (t, p = S) => (p && p.dungeons > 0 ? 1 + K.LOOK_LINE.filter(x => t >= x).length : 0);
+  // 第4段階は ステータスだけでは 進化しない（なにかの 特別な条件で 進化させる予定。p.stage4 が true のとき。10/12）
+  const lookStage = (t, p = S) => (p && p.dungeons > 0 ? Math.min(p.stage4 ? 4 : 3, 1 + K.LOOK_LINE.filter(x => t >= x).length) : 0);
   const styleOf = v => ((v === undefined || v === null ? K.SEIKAKU_START : v) <= 1000 ? 'cute' : 'cool');
   const seikakuName = v => D.SEIKAKU.find(([x]) => (v === undefined ? K.SEIKAKU_START : v) <= x)[1];
   // 第1〜3段階：進化したときの せいかくで決まる（styleStg に記録）。第4段階：いまの せいかくで すぐ変わる
@@ -630,11 +631,11 @@
       P.push(['すがたが かわる', `<div class="tut-t" style="text-align:center">さいしょの ダンジョンから かえると 進化！<br>そのあとは ステータスの ごうけいが ふえると <b>4だんかい</b>まで 進化します</div>
         <div class="tut-mons">${[0, 1, 2, 3, 4].map(g => pimg('全教科', 'cute', g, g > 0)).join('<span class="tut-ar">▶</span>')}</div>`]);
       P.push(['タイプ', `<div class="tut-t" style="text-align:center">いちばん 高い教科で <b>タイプ</b>が きまります<br>（ばらばらなら 全教科タイプ）</div>
-        <div class="tut-mons">${['国語', '算数', '理科', '社会', '英語', '全教科'].map(t => pimg(t, pick(['cute', 'cool']), 4, true)).join('')}</div>`]);
+        <div class="tut-mons">${['国語', '算数', '理科', '社会', '英語', '全教科'].map(t => pimg(t, pick(['cute', 'cool']), 2, true)).join('')}</div>`]);
       P.push(['ごはんと せいかく', row(art(g2(A, 'emo', '🍽'), '🍽️'), '毎日 1回 <b>ごはん</b>を あげます')
         + row(`${art(g2(A, 'emo', '🍬'), '🍬')}${art(g2(A, 'emo', '🍖'), '🍖')}`, 'キャンディは かわいく、<br>肉は かっこよく せいかくが かわる')
         + `<div class="tut-t" style="text-align:center;margin-top:6px">進化したときの せいかくで すがたが きまります</div>
-        <div class="tut-mons">${pimg(S.type, 'cute', 4, true)}<span class="tut-ar">or</span>${pimg(S.type, 'cool', 4, true)}</div>`]);
+        <div class="tut-mons">${pimg(S.type, 'cute', 2, true)}<span class="tut-ar">or</span>${pimg(S.type, 'cool', 2, true)}</div>`]);
     }
     return P;
   }
@@ -1182,11 +1183,12 @@
   }
 
   // ---- せいちょう（進化・スキル）----
-  const nextEvo = t => K.LOOK_LINE.find(x => t < x) || null;
+  // つぎの 進化の ライン（第4段階は ステータスでは 進化しないので 出さない）
+  const nextEvo = t => K.LOOK_LINE.filter((x, i) => i < 2 || S.stage4).find(x => t < x) || null;
   const nextSkill = t => D.SKILLS.filter(k => K.SKILL_LINE[k.n] && t < K.SKILL_LINE[k.n]).sort((a, b) => K.SKILL_LINE[a.n] - K.SKILL_LINE[b.n])[0] || null;
   function growLine(t) {
     const e = nextEvo(t), k = nextSkill(t);
-    return [!(S.dungeons > 0) ? 'ダンジョンに 行くと 進化！' : e ? `進化まで あと ${e - t}` : '進化は さいごまで できた！', k ? `スキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
+    return [!(S.dungeons > 0) ? 'ダンジョンに 行くと 進化！' : e ? `進化まで あと ${e - t}` : lookStage(t) < 4 ? 'つぎの 進化は ？？？' : '進化は さいごまで できた！', k ? `スキルまで あと ${K.SKILL_LINE[k.n] - t}` : 'スキルは ぜんぶ おぼえた！'].join('<br>');
   }
   function growthPanel() {
     const t = total(S.st), stg = lookStage(t), e = nextEvo(t), sk = skillsOf(t);
@@ -1194,14 +1196,16 @@
     const s0 = stg === 0; // 単細胞：さいしょの ダンジョンの リザルトで 進化
     const bar = (a, b) => `<div class="hpbar" style="width:100%;height:16px;margin:6px 0"><i style="width:${Math.min(100, (a / b) * 100)}%;background:linear-gradient(90deg,#22c55e,#a3e635)"></i></div>`;
     const evo = s0
-      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${artPlayer(S.type, t, { ...S, dungeons: 1 })}</span>
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0)">${artPlayer(S.type, t, { ...S, dungeons: 1 })}</span>
            <div style="flex:1"><div class="mid">さいしょの <b class="gold">ダンジョン</b>から かえると 進化！</div><div class="xs dim">とくいな教科・せいかく（かわいい系／かっこいい系）で すがたが きまるよ</div></div></div>`
       : e
-      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0) opacity(.5)">${artPlayer(S.type, e)}</span>
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0)">${artPlayer(S.type, e)}</span>
            <div style="flex:1"><div class="mid">進化まで あと <b class="gold">${e - t}</b></div>${bar(t - prev, e - prev)}<div class="xs dim">ステータスの ごうけい ${t} ／ ${e} で 進化</div></div></div>`
+      : stg < 4 // 第4段階は 特別な条件で 進化（いまは まだ ひみつ）
+      ? `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><span class="mid">▶</span><span style="font-size:64px;filter:brightness(0)">${artPlayer(S.type, Math.max(t, K.LOOK_LINE[2]), { ...S, stage4: true })}</span><div class="mid gold">？？？</div></div>`
       : `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><div class="mid gold">さいごの すがたまで 進化した！</div></div>`;
     const sty = D.STYLE_NAME[styleOf(S.seikaku)];
-    const sei = `<div class="sm" style="margin-top:8px">🍽️ せいかく：<b class="gold">${seikakuName(S.seikaku)}</b>　${e || s0 ? `いまの せいかくで 進化すると <b>${sty}</b> になるよ` : `せいかくが かわると、すがたも すぐ かわるよ（いまは ${sty}）`}<br><span class="xs dim">せいかくは 毎日の ごはん（🍬キャンディ・🍖肉）で かわる</span></div>`;
+    const sei = `<div class="sm" style="margin-top:8px">🍽️ せいかく：<b class="gold">${seikakuName(S.seikaku)}</b>　${e || s0 || stg < 4 ? `いまの せいかくで 進化すると <b>${sty}</b> になるよ` : `せいかくが かわると、すがたも すぐ かわるよ（いまは ${sty}）`}<br><span class="xs dim">せいかくは 毎日の ごはん（🍬キャンディ・🍖肉）で かわる</span></div>`;
     const rows = D.SKILLS.map(k => {
       const line = K.SKILL_LINE[k.n] || 0, has = sk.includes(k.n);
       return `<div class="skrow ${has ? '' : 'lock'}"><span class="mid">${has ? '✅' : '🔒'} ${esc(k.n)}</span>
