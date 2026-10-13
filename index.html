@@ -435,6 +435,14 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .rst-t{font-size:30px;font-weight:800;line-height:1.7;text-align:center}
 .rst-b{display:flex;flex-direction:column;gap:16px;align-items:center}
 .rst-b>button,.rst-b>label{display:flex;align-items:center;justify-content:center;width:560px;height:84px;box-sizing:border-box;font-size:28px;border-radius:14px;cursor:pointer;border:2px solid var(--line);color:#fff}
+
+/* アイテムの 発動（10/13）：カットインの 2行目・アイコンが 光る・無効は 暗く */
+.cutin:has(.cut2){flex-direction:column;height:auto;min-height:120px;padding:12px 0;top:270px}
+.cutin .cut2{font-size:22px;font-weight:700;margin-top:8px;color:#fde68a;line-height:1.5}
+.cutin .cut2 .art img{height:1em}
+.itrow .it.fx{animation:itfx .9s ease-out}
+.itrow .it.off{filter:grayscale(1) brightness(.45);opacity:.7}
+@keyframes itfx{0%{transform:scale(1);filter:drop-shadow(0 0 0 #fde047)}30%{transform:scale(1.45);filter:drop-shadow(0 0 14px #fde047)}100%{transform:scale(1);filter:none}}
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">

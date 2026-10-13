@@ -152,7 +152,7 @@
   }
   // 版番号ごとの引きつぎ（新しいZIPに差しかえても読めるように）
   // アイテムの名前を かえた（10/3）。セーブの中の 古い名前を 新しい名前に
-  const ITEM_RENAME = { 'たこあげ': 'たこ焼き', 'ふたつのお面': 'きつねのおめん', 'かみなりの羽': 'かみなりぐも', '雷鳴の太鼓': 'らいうのくも', '雪女のかんざし': 'かきごおり', 'うずまきキャンディ': 'キャンディのつえ', 'しゃぼん玉の杖': 'ばくちく', 'みつまたの槍': 'でんせつの弓', 'トゲよろい': 'かたいよろい', '鉄壁のこて': '鉄壁の兜', '吸血マント': '吸血セーター', 'すなどけい': 'ふしぎなウォッチ' };
+  const ITEM_RENAME = { 'たこあげ': 'たこ焼き', 'ふたつのお面': 'きつねのおめん', 'かみなりの羽': 'かみなりぐも', '雷鳴の太鼓': 'らいうのくも', '雪女のかんざし': 'かきごおり', 'うずまきキャンディ': 'キャンディのつえ', 'しゃぼん玉の杖': 'ばくちく', 'みつまたの槍': 'でんせつの弓', 'トゲよろい': 'かたいよろい', '鉄壁のこて': '鉄壁の兜', '吸血マント': '吸収セーター', '吸血セーター': '吸収セーター', 'すなどけい': 'ふしぎなウォッチ' };
   const renItems = a => (Array.isArray(a) ? a.map(x => ITEM_RENAME[x] || x) : a);
   const TITLE_RENAME = { バトル部員: '見習いまほうつかい', 新入部員: '新米まほうつかい', 部長: '一人前のまほうつかい', 伝説の部員: '伝説のまほうつかい' };
   function migrate(s) {
@@ -526,7 +526,7 @@
   }
   function drawItem(rnd, { cat = null, unowned = false, exclude = [], hand = [], minR = 1, rarity = 0 } = {}) {
     const luck = luckOf(curSt());
-    const pool = D.ITEMS.filter(it => reqOK(it, hand) && !hand.includes(it.n) && !exclude.includes(it.n) && (!unowned || !S.owned.includes(it.n)));
+    const pool = D.ITEMS.filter(it => it.r <= 4 && reqOK(it, hand) && !hand.includes(it.n) && !exclude.includes(it.n) && (!unowned || !S.owned.includes(it.n)));
     if (!pool.length) return null;
     const r = rarity || rollRarity(rnd, luck, minR);
     let p = pool.filter(it => it.r === r);
@@ -1021,7 +1021,7 @@
       <div class="row"><button class="btn-blue" id="rate" style="font-size:20px">提供割合</button><button class="btn-gray" id="bk" style="font-size:20px">🏠 ホームへ</button></div>
       </div>`, 'res', 'gacha');
     $('#bk', el).onclick = () => home();
-    $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `★1　35%\n★2　30%\n★3　20%\n★4　10%\n★5　5%\n${D.GACHA_PITY}回目ごとに ★4以上が かならず出ます（★4 67%・★5 33%）。\nもう持っている アイテムが出たら、ボーナスポイント +${D.DUP_BONUS}（すきな教科に ふれる）。\n1日 ${D.GACHA_DAY}回まで ひけます` });
+    $('#rate', el).onclick = () => dialog({ who: '📊', name: '提供割合', text: `${[1, 2, 3, 4, 5].map(r => `★${r} ${D.GACHA_W[r]}%`).join('　')}\n${D.GACHA_PITY}回目ごとに ★4以上が かならず出ます（★4 ${D.GACHA_PITY_W[4] * 10}%・★5 ${D.GACHA_PITY_W[5] * 10}%）。\n★5は ガチャでしか 手に入りません。\nもう持っている アイテムが出たら、ボーナスポイント +${D.DUP_BONUS}（すきな教科に ふれる）。\n1日 ${D.GACHA_DAY}回まで ひけます` });
     const ba = $('#bpa', el); if (ba) ba.onclick = () => bonusAlloc().then(gacha);
     const pb = $('#pull', el); if (pb) pb.onclick = () => pullGacha();
   }
@@ -1029,7 +1029,7 @@
     const pool = gachaPool();
     if (S.coins < D.GACHA_COST || !pool.length || gachaLeftToday() <= 0) return;
     const pity = S.gachaN % D.GACHA_PITY === D.GACHA_PITY - 1;
-    const w = pity ? [0, 0, 0, 0, 10, 5] : D.RARITY_W;
+    const w = pity ? D.GACHA_PITY_W : D.GACHA_W;
     let t = Math.random() * w.reduce((a, b) => a + b), r = 5;
     for (let k = 1; k <= 5; k++) { t -= w[k]; if (t < 0) { r = k; break; } }
     const has = k => pool.some(it => it.r === k);
@@ -1191,7 +1191,7 @@
     S.loginN = (S.loginN || 0) + 1; S.loginDay = today();
     const n = S.loginN, c = (n - 1) % D.LOGIN.length, base = n - 1 - c, rw = D.LOGIN[c];
     if (rw.c) S.coins += rw.c;
-    if (rw.item) { const pool = shuffle(D.ITEMS.map(it => it.n)); S.loginPend = pool.slice(0, rw.item); } // 完全ランダム（持っているものも 出る）
+    if (rw.item) { const pool = shuffle(D.ITEMS.filter(it => it.r <= 4).map(it => it.n)); S.loginPend = pool.slice(0, rw.item); } // 完全ランダム（持っているものも 出る。★5は ガチャのみ）
     save();
     const o = overlay(`<div class="panel lb">
       <div class="lb-h">${ic('treasure', '🎁')}ログインボーナス</div>
@@ -1662,21 +1662,37 @@
   // =====================================================================
   function makeFighter(o) {
     const f = { ...o, items: new Set(o.items || []) };
-    f.has = k => f.items.has(k);
-    f.luck = Math.max(300, luckOf(f.st) - (f.has('特化の王冠') ? 100 : 0));
+    // アイテムが 効いているか：持っている＆金色の羽で 無効になっていない＆聖杯の 2ターンでない（10/13）
+    f.has = k => f.items.has(k) && !(f.off && f.off.includes(k)) && (k === '聖杯' || !grailOn());
+    const own = k => f.items.has(k); // 最大HPは 聖杯でも そのまま
+    f.luck0 = luckOf(f.st);
+    // 運：特化の王冠 −200・1ターン目だけ さくらもち（相手）−300／ごまだんご +300（10/13）
+    Object.defineProperty(f, 'luck', { enumerable: true, configurable: true, get() {
+      let l = f.luck0;
+      if (f.has('特化の王冠')) l = Math.max(100, l - 200);
+      if (CURT === 1 && f.opp && f.opp.has('さくらもち')) l = Math.max(100, l - 300);
+      if (CURT === 1 && f.has('ごまだんご')) l = Math.min(1000, l + 300);
+      return l;
+    } });
     f.type = o.type || typeOf(f.st, o.prevType);
-    let hpm = 1 + 0.15 * f.has('いのちの実') + 0.6 * f.has('巨人のハート') + 0.08 * f.has('ランドセル');
+    let hpm = 1 + 0.15 * own('いのちの実') + 0.5 * own('巨人のハート') + 0.10 * own('ランドセル');
     hpm = Math.min(hpm, 1 + K.HPCAP);
-    if (f.has('竜の逆鱗')) hpm *= 0.8;
+    if (own('竜の逆鱗')) hpm *= 0.8;
     if (o.hpBonus) hpm *= 1 + o.hpBonus;
     if (o.long) hpm *= K.VS_HP; // 5ターンの モード（対戦・とうぎじょう・まなスタ）は HPを 多めに（10/13）
     f.maxhp = R0(total(f.st) * K.HPK * hpm); f.hp = f.maxhp;
-    Object.assign(f, { ct: {}, status: {}, used: new Set(), guard: 0, lastrecv: 0, lastdealt: 0, skipNext: false, seal: {}, lastsubj: null, cursubj: null, streak: 0, fail: 0, megane: 2, eraser: 1 });
+    Object.assign(f, { ct: {}, status: {}, used: new Set(), guard: 0, lastrecv: 0, lastdealt: 0, skipNext: false, seal: {}, lastsubj: null, cursubj: null, streak: 0, fail: 0, megane: 2, eraser: 1, off: [], web: 0, shuT: 0, shuF: false });
     return f;
   }
-  const DYN = ['hp', 'ct', 'status', 'guard', 'lastrecv', 'lastdealt', 'skipNext', 'seal', 'lastsubj', 'cursubj', 'streak', 'fail', 'megane', 'eraser'];
+  // いまの ターン（聖杯・さくらもち など「○ターン目だけ」の アイテムが 見る。10/13）
+  let CURT = 1;
+  const setT = t => (CURT = t);
+  const grailOn = () => !!(BT && BT.P && BT.B && CURT <= 2 && (BT.P.items.has('聖杯') || BT.B.items.has('聖杯')));
+  const mbOn = () => !!(BT && BT.P && BT.B && CURT === 1 && (BT.P.has('モンブラン') || BT.B.has('モンブラン')));
+  const pr = p => (mbOn() ? Math.max(p, Math.min(0.75, p * 2)) : p); // アイテムの 確率（モンブランの 1ターン目は 2倍・上限75%）
+  const DYN = ['hp', 'ct', 'status', 'guard', 'lastrecv', 'lastdealt', 'skipNext', 'seal', 'lastsubj', 'cursubj', 'streak', 'fail', 'megane', 'eraser', 'off', 'web', 'shuT', 'shuF'];
   function dyn(f) { const o = {}; DYN.forEach(k => (o[k] = clone(f[k] === undefined ? null : f[k]))); o.used = [...f.used]; return o; }
-  function restoreDyn(f, o) { DYN.forEach(k => (f[k] = clone(o[k]))); f.used = new Set(o.used || []); }
+  function restoreDyn(f, o) { DYN.forEach(k => { if (k in o) f[k] = clone(o[k]); }); if (!Array.isArray(f.off)) f.off = []; f.used = new Set(o.used || []); }
   const dynAll = () => ({ P: dyn(BT.P), B: dyn(BT.B) });
   function hydrate(pk) {
     const lg = f => (pk.vs || pk.trial ? { ...f, long: 1 } : f);
@@ -1693,18 +1709,18 @@
   function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
 
   function cutRate(f) {
-    let c = 0.10 * f.has('木の盾') + 0.35 * f.has('城の大盾') + 0.03 * f.has('ランドセル');
+    let c = 0.10 * f.has('木の盾') + 0.30 * f.has('城の大盾') + 0.03 * f.has('ランドセル');
     if (f.has('くまのぬいぐるみ') && f.hp <= 0.3 * f.maxhp) c += 0.20;
     return Math.min(c, K.CUTCAP);
   }
   function subjMult(a, s) {
     let m = a.has(s + 'の紋章') ? 1.2 : 1;
-    if (a.has('特化の王冠')) m *= s === SUBJ.reduce((b, x) => (a.st[x] > a.st[b] ? x : b)) ? 1.3 : 0.7;
+    if (a.has('特化の王冠')) m *= s === SUBJ.reduce((b, x) => (a.st[x] > a.st[b] ? x : b)) ? 1.2 : 0.7;
     return m;
   }
   function recvMult(d, s) {
     if (d.type === '全教科') return K.ALLRES;
-    if (D.WEAK[d.type] === s) return d.has('じょうぎ') ? 1.15 : 1.25;
+    if (D.WEAK[d.type] === s) return d.has('じょうぎ') ? 1.1 : 1.25;
     if (D.RESIST[d.type] === s) return 0.9;
     return 1;
   }
@@ -1715,7 +1731,7 @@
   // 問題ゲージなどの計算（1問ごと）
   const newGauge = () => ({ g: 0, correct: 0, run: 0, bonus: 0, s3: false });
   function gaugeStep(a, st, ok) {
-    if (ok) { st.g += 1; st.correct++; st.run++; if (a.has('失敗は成功のもと') && a.fail) { st.bonus += 0.15 * a.fail; a.fail = 0; } a.streak++; }
+    if (ok) { st.g += 1; st.correct++; st.run++; if (a.has('失敗は成功のもと') && a.fail) { st.bonus += 0.2 * a.fail; a.fail = 0; } a.streak++; }
     else {
       if (a.has('やり直し消しゴム') && a.eraser > 0) { a.eraser--; st.g += 1; st.eraserUsed = true; } else st.g += 0.5;
       st.run = 0; a.fail++; if (a.has('連続正解の炎')) a.streak = 0;
@@ -1724,122 +1740,224 @@
   }
   function gaugeMult(a, st, n) {
     let m = (st.g / n) * (1 + st.bonus / n);
-    if (a.has('えんぴつのお守り')) m *= 1 + Math.min(0.2, 0.07 * st.correct);
-    if (a.has('連続正解の炎')) m *= 1 + Math.min(0.6, 0.06 * a.streak);
-    if (a.has('百科じてん') && st.correct === n) m *= 1.3;
+    if (a.has('えんぴつのお守り')) m *= 1 + Math.min(0.15, 0.05 * st.correct);
+    if (a.has('連続正解の炎')) m *= 1 + Math.min(0.5, 0.06 * a.streak);
+    if (a.has('百科じてん') && st.correct === n) m *= 1.2;
     return m;
   }
 
-  function giveStatus(dst, stt, log) {
-    if (dst.has('ユニコーンの角') && stt === 'どく') return;
-    if (dst.has('おまもり') && !dst.used.has('おまもり')) { dst.used.add('おまもり'); log(`🧿 ${dst.name}のおまもりが ${stt}をふせいだ！`); return; }
+  // アイテムの 名前（アイコンつき）。発動の メッセージで つかう（10/13）
+  const itn = n => `${artItem(n)}${n}`;
+  // 状態異常を かける。src：かけた人、item：かけた アイテム（メッセージ用）
+  function giveStatus(dst, stt, log, src = null, item = null) {
+    const fx = [];
+    if (src && item) fx.push([src.side, item]);
+    if (dst.has('ユニコーンの角') && stt === 'どく') { log(`${esc(dst.name)}の ${itn('ユニコーンの角')}の効果で、どくに ならなかった！`, { fx: [...fx, [dst.side, 'ユニコーンの角']] }); return; }
+    if (dst.has('おまもり') && !dst.used.has('おまもり') && Math.random() < pr(0.5)) { dst.used.add('おまもり'); log(`${esc(dst.name)}の ${itn('おまもり')}の効果で、${stt}を ふせいだ！`, { fx: [...fx, [dst.side, 'おまもり']] }); return; }
+    if (dst.has('あんぱん') && !dst.used.has('あんぱん')) {
+      dst.used.add('あんぱん');
+      const to = pick(Object.keys(D.STATUS).filter(k => k !== stt));
+      log(`${esc(dst.name)}の ${itn('あんぱん')}の効果で、${stt}が ${to}に かわった！`, { fx: [[dst.side, 'あんぱん']] });
+      stt = to;
+      if (stt === 'どく' && dst.has('ユニコーンの角')) { log(`${esc(dst.name)}の ${itn('ユニコーンの角')}の効果で、どくは 消えた！`, { fx: [[dst.side, 'ユニコーンの角']] }); return; }
+    }
     const was = stt in dst.status;
     dst.status[stt] = stt === 'どく' ? K.POISON_T : true; // どくは のこり回数（かかりなおすと 3回に もどる）
-    if (dst.has('教室のベル') || dst.has('ユニコーンの角')) dst.hp = Math.min(dst.maxhp, dst.hp + 0.05 * dst.maxhp);
-    if (!was) log(`${art(g2(A, 'status', stt), D.STATUS[stt].e)} ${dst.name}は ${stt}になった！`, { stt });
+    const ic = art(g2(A, 'status', stt), D.STATUS[stt].e);
+    if (!was) log(src && item ? `${ic} ${esc(src.name)}の ${itn(item)}の効果で、${esc(dst.name)}が ${stt}に なった！` : `${ic} ${esc(dst.name)}は ${stt}に なった！`, { stt, fx });
+    else if (src && item) log(`${ic} ${esc(src.name)}の ${itn(item)}の効果で、${esc(dst.name)}の ${stt}が つづく！`, { fx });
+    const hb = (dst.has('教室のベル') ? 0.05 : 0) + (dst.has('ユニコーンの角') ? 0.10 : 0);
+    if (hb && dst.hp > 0 && dst.hp < dst.maxhp) {
+      const h = Math.min(dst.maxhp - dst.hp, R0(hb * dst.maxhp)); dst.hp += h;
+      const its = ['教室のベル', 'ユニコーンの角'].filter(k => dst.has(k));
+      log(`${esc(dst.name)}の ${its.map(itn).join('・')}の効果で、HPが ${h} 回復した！`, { fx: its.map(k => [dst.side, k]) });
+    }
   }
-  const procRate = (a, d, r) => Math.min(1, r * (a.has('悪魔の契約書') ? 2.5 : 1) * (d.has('重力の石') ? 0.5 : 1));
+  const procRate = (a, d, r) => pr(Math.min(1, r * (a.has('悪魔の契約書') ? 2.5 : 1) * (d.has('重力の石') ? 0.5 : 1)));
+  // 教科の ダメージを 無効にする アイテム（ポーション→鉱石→花束 の じゅん。10/13）
+  const SUBJ_COLOR_N = { 国語: '赤', 算数: '青', 社会: '黄', 理科: '緑', 英語: '紫' };
+  function blockItem(d, subj, rnd) {
+    const c = SUBJ_COLOR_N[subj];
+    const po = c + 'のポーション', ko = c + 'の鉱石', ha = c + 'の花束';
+    if (d.has(po) && !d.used.has(po)) { d.used.add(po); return po; }
+    if (d.has(ko) && !d.used.has(ko) && rnd() < pr(0.10)) { d.used.add(ko); return ko; }
+    if (d.has(ha) && rnd() < pr(0.03)) return ha;
+    return null;
+  }
+  // えらべる スキル（こおり・くもの巣・ベーコンは 通常攻撃だけ。メテオは 通常攻撃が だめ。10/13）
+  function availSkills(f, turn) {
+    let s = f.skills.filter(k => !(f.ct[k] > 0));
+    const why = [];
+    if ('こおり' in f.status) why.push('🧊こおっていて');
+    if (f.web === turn) why.push(`${itn('くもの巣')}の効果で`);
+    if (f.has('ベーコン')) why.push(`${itn('ベーコン')}の効果で`);
+    if (why.length) s = s.filter(k => k === '通常攻撃');
+    if (f.has('メテオ')) s = s.filter(k => k !== '通常攻撃');
+    const note = why.length ? `${why.join('・')}、通常攻撃しか 使えない` : f.has('メテオ') ? `${itn('メテオ')}の効果で、通常攻撃は 使えない` : '';
+    return { s, note };
+  }
 
   // 表示用の状態（演出中のHPなど）
   const vsnap = () => { const o = {}; [['P', BT.P], ['B', BT.B]].forEach(([k, f]) => (o[k] = { hp: f.hp, status: Object.keys(f.status), ct: { ...f.ct } })); return o; };
 
   // 攻撃1回ぶんを計算して、表示する出来事の列を返す
+  // out.ups：威力が 上がった アイテム（技の カットインの 2行目に 出す）、out.downs：下がった アイテム
   function resolveAttack(a, d, act, turn, first, ctx) {
     const out = []; const log = (t, x) => out.push({ t, snap: vsnap(), ...x });
+    const ups = [], downs = [];
     const sk = act.sk, subj = act.subj; const skill = D.SKILLS.find(k => k.n === sk);
     let m = 1;
+    const up = (n, k) => { m *= k; ups.push(n); };
+    // いつも 同じ 効果（メッセージは 出さない。説明は アイテムを タップ）
     if (a.has('あばれ斧')) m *= 1.3;
     if (a.has('城の大盾')) m *= 0.8;
-    if (a.has('巨人のハート')) m *= 0.8;
-    if (a.has('悪魔の契約書')) m *= 0.85;
-    if (a.has('ふしぎなウォッチ')) m *= 0.9;
+    if (a.has('巨人のハート')) m *= 0.6;
+    if (a.has('悪魔の契約書')) m *= 0.8;
+    if (a.has('ふしぎなウォッチ')) m *= 0.6;
     if (a.has('両刃の剣')) m *= 1.5;
-    if (a.has('運命の指輪')) m *= 0.92;
-    if (a.has('バランスの天秤') && a.luck >= 900) m *= 1.15;
-    if (a.has('背水の書')) m *= a.hp <= 0.5 * a.maxhp ? 1.5 : 0.9;
-    if (a.has('給食の牛乳') && turn === 1) m *= 1.25;
-    if (a.has('ラストのあめ') && turn === lastT()) m *= 1.15;
-    if (a.has('うわばき') && first) m *= 1.1;
-    if (a.has('くつした') && !first) m *= 1.1;
-    if (a.has('たこ焼き') && sk === '通常攻撃') m *= 1.15;
-    if (a.has('ジュース') && d.hp >= 0.5 * d.maxhp) m *= 1.12;
-    if (a.has('応援ラッパ') && turn > 1 && a.lastdealt < d.lastdealt) m *= 1.2;
-    if (a.has('きつねのおめん')) m *= !first && d.cursubj === subj ? 1.2 : 0.95;
-    if (a.has('にじの紋章') && a.lastsubj && a.lastsubj !== subj) m *= 1.15;
-    if (a.has('竜の逆鱗') && a.hp <= 0.5 * a.maxhp && !a.used.has('げきりん')) { m *= 3; a.used.add('げきりん'); log('🐉 竜の逆鱗！ 威力3倍！'); }
-    if (a.has('らいうのくも') && 'しびれ' in d.status) m *= 1.3;
-    if (a.has('かきごおり') && 'こおり' in d.status) m *= 1.2;
-    if (a.has('道化のトランプ') && 'こんらん' in d.status) m *= 1.3;
-    if (a.has('弱点さがしの虫めがね') && recvMult(d, subj) > 1) m *= 1.15;
+    if (a.has('運命の指輪')) m *= 0.9;
+    if (a.has('ベーコン')) m *= 1.2;
+    if (a.has('メテオ')) m *= 1.2;
+    if (a.has('まりとっつぉ')) m *= 1.2;
+    // 場面で 効く（効いたら カットインに 名前を 出す）
+    if (a.has('バランスの天秤') && a.luck >= 900) up('バランスの天秤', 1.2);
+    if (a.has('背水の書')) { if (a.hp <= 0.5 * a.maxhp) up('背水の書', 1.5); else m *= 0.8; }
+    if (a.has('給食の牛乳') && turn === 1) up('給食の牛乳', 1.25);
+    if (a.has('ラストのあめ') && turn === lastT()) up('ラストのあめ', 1.25);
+    if (a.has('うわばき') && first) up('うわばき', 1.1);
+    if (a.has('くつした') && !first) up('くつした', 1.1);
+    if (a.has('たこ焼き') && sk === '通常攻撃') up('たこ焼き', 1.15);
+    if (a.has('ジュース') && d.hp >= 0.5 * d.maxhp) up('ジュース', 1.1);
+    if (a.has('応援ラッパ') && turn > 1 && a.lastdealt < d.lastdealt) up('応援ラッパ', 1.2);
+    if (a.has('きつねのおめん')) { if (!first && d.cursubj === subj) up('きつねのおめん', 1.2); else m *= 0.95; }
+    if (a.has('にじの紋章') && a.lastsubj && a.lastsubj !== subj) up('にじの紋章', 1.2);
+    if (a.has('竜の逆鱗') && a.hp <= 0.5 * a.maxhp && !a.used.has('げきりん')) { a.used.add('げきりん'); up('竜の逆鱗', 1.5); }
+    if (a.has('らいうのくも') && 'しびれ' in d.status) up('らいうのくも', 1.3);
+    if (a.has('かきごおり') && 'こおり' in d.status) up('かきごおり', 1.3);
+    if (a.has('道化のトランプ') && 'こんらん' in d.status) up('道化のトランプ', 1.3);
+    if (a.has('弱点さがしの虫めがね') && recvMult(d, subj) > 1) up('弱点さがしの虫めがね', 1.2);
+    if (turn === 1) { const dn = [a, d].find(f => f.has('もちもちドーナツ')); if (dn) { m *= 0.5; downs.push(['もちもちドーナツ', '威力が 半分', dn.side]); } }
     if (a.power) m *= a.power;                                  // クロガネの修行など
     if (a.weakSubj === subj) m *= a.weakMul;                   // 紋章が輝く（ボスの弱点補正）
-    if ('しびれ' in a.status) { m *= 0.7; delete a.status['しびれ']; log(`${art(g2(A, 'status', 'しびれ'), '⚡')} ${a.name}はしびれて力が出ない…`); }
-    let nocrit = a.has('運命の指輪');
-    if ('よわき' in a.status) { m *= a.opp && a.opp.has('やみの霧') ? 0.6 : 0.8; nocrit = true; delete a.status['よわき']; log(`${art(g2(A, 'status', 'よわき'), '🫧')} ${a.name}はよわきになっている…`); }
+    if ('しびれ' in a.status) { m *= 0.7; delete a.status['しびれ']; log(`${art(g2(A, 'status', 'しびれ'), '⚡')} ${esc(a.name)}は しびれて 力が出ない…（威力0.7倍）`); }
+    let nocrit = a.has('運命の指輪') || (turn <= 2 && (a.has('銀色の羽') || d.has('銀色の羽')));
+    if ('よわき' in a.status) { const yk = a.opp && a.opp.has('やみの霧'); m *= yk ? 0.6 : 0.8; nocrit = true; delete a.status['よわき']; log(`${art(g2(A, 'status', 'よわき'), '🫧')} ${esc(a.name)}は よわきに なっている…（威力${yk ? '0.6' : '0.8'}倍・会心なし${yk ? '。' + itn('やみの霧') + 'で つよく なっている' : ''}）`); }
     let cr, cm;
-    if (a.has('運命の水晶')) { cr = 0.25; cm = 1.25; } // 会心の倍率は ふつう 1.5倍（10/13 に 2倍から 変更）
-    else { cr = K.CRIT * a.luck / 1000 + 0.1 * a.has('ねらいのメガネ') + 0.25 * a.has('一撃の角') + (a.has('ひらめき電球') && act.s3 ? 0.25 : 0); cm = K.CRIT_MUL; }
+    if (a.has('運命の水晶')) { cr = pr(0.30); cm = 1.3; } // 運に 関係なく 30%（ほかの 会心アイテムとは 足さない）
+    else { cr = K.CRIT * a.luck / 1000 + pr(0.1 * a.has('ねらいのメガネ') + 0.2 * a.has('一撃の角') + (a.has('ひらめき電球') && act.s3 ? 0.1 : 0)); cm = K.CRIT_MUL; }
     if (nocrit) cr = 0;
     const base = baseAtk(a, subj) * act.mult;
     const hits = sk === '連続攻撃' ? (a.has('でんせつの弓') ? [0.45, 0.45, 0.45] : [0.6, 0.6]) : [skill.pw];
     let totalD = 0;
     hits.forEach(h => {
       if (d.hp <= 0) return;
+      // 教科の ダメージを 無効（ポーション・鉱石・花束）→ 当たらなかったので、当たったときの 効果も なし
+      const blk = blockItem(d, subj, ctx.rnd);
+      if (blk) { out.push({ hit: 0, block: blk, crit: false, eff: 1, side: d.side, snap: vsnap(), t: `${esc(d.name)}の ${itn(blk)}の効果で、${subj}の ダメージを ふせいだ！`, fx: [[d.side, blk]] }); return; }
       const crit = ctx.rnd() < cr;
       let dmg = base * m * h;
-      if (crit) dmg *= d.has('赤白ぼうし') && cm === K.CRIT_MUL ? 1.25 : cm;
+      const notes = [], nfx = [];
+      const nt = (f, n, t) => { notes.push(`${itn(n)}${t}`); nfx.push([f.side, n]); };
+      if (crit) { if (d.has('赤白ぼうし') && cm === K.CRIT_MUL) { dmg *= 1.3; nt(d, '赤白ぼうし', 'で 会心ダメージが へった'); } else dmg *= cm; if (cm !== K.CRIT_MUL) nt(a, '運命の水晶', 'の 会心は 1.3倍'); }
       else if (a.has('一撃の角')) dmg *= 0.8;
-      if (sk === 'カウンター') dmg += a.lastrecv * (a.has('はね返しの鏡') ? 1 : 0.5);
+      if (sk === 'カウンター') { const mi = a.has('はね返しの鏡') && !a.used.has('はね返しの鏡'); if (mi) { a.used.add('はね返しの鏡'); nt(a, 'はね返しの鏡', 'で 上乗せが 全部'); } dmg += a.lastrecv * (mi ? 1 : 0.5); }
       let eff = 1;
       if (sk !== 'かんつう') {
         eff = recvMult(d, subj);
-        dmg *= eff * (1 - cutRate(d));
-        if (d.guard) dmg *= d.has('鉄壁の兜') ? 0.3 : 0.5;
+        if (eff > 1 && d.has('じょうぎ')) nt(d, 'じょうぎ', 'で 弱点の ダメージが へった');
+        const cut = cutRate(d);
+        if (cut > 0) { ['木の盾', '城の大盾', 'ランドセル'].filter(k => d.has(k)).forEach(k => nt(d, k, '')); if (d.has('くまのぬいぐるみ') && d.hp <= 0.3 * d.maxhp) nt(d, 'くまのぬいぐるみ', ''); notes[notes.length - 1] += 'で へった'; }
+        dmg *= eff * (1 - cut);
+        if (d.guard) { const tg = d.guard === 2; dmg *= tg ? 0.3 : 0.5; notes.push(tg ? `ガード（${itn('鉄壁の兜')}で 70%カット）` : 'ガードで 半分'); if (tg) nfx.push([d.side, '鉄壁の兜']); }
       }
-      if (d.has('あばれ斧')) dmg *= 1.15;
-      if ('やけど' in d.status) dmg *= a.has('火山のかけら') ? 1.4 : 1.2;
+      if (d.has('あばれ斧')) { dmg *= 1.2; nt(d, 'あばれ斧', 'で ふえた'); }
+      if ('やけど' in d.status) { const kz = a.has('火山のかけら'); dmg *= kz ? 1.3 : 1.2; notes.push(kz ? `やけど（${itn('火山のかけら')}で 1.3倍）` : 'やけどで 1.2倍'); if (kz) nfx.push([a.side, '火山のかけら']); }
       if (ctx.cheer) dmg *= 3;
       dmg = Math.max(1, R0(dmg));
       const before = d.hp; d.hp -= dmg; totalD += dmg;
       const ganjo = d.hp <= 0 && d.has('がんじょう石') && !d.used.has('がんじょう') && before >= 0.5 * d.maxhp;
       if (ganjo) { d.used.add('がんじょう'); d.hp = 1; }
-      out.push({ hit: dmg, crit, eff, side: d.side, snap: vsnap() });
-      if (ganjo) log(`🪨 ${d.name}は がんじょう石で HP1でふみとどまった！`);
-      if (d.has('かたいよろい')) { const r = R0(0.15 * dmg); a.hp -= r; log(`🌵 かたいよろいで ${a.name}も ${r} ダメージ`); }
-      if (a.has('両刃の剣')) { const r = R0(0.25 * dmg); a.hp -= r; log(`⚔️ 両刃の剣で ${a.name}も ${r} ダメージ`); }
-      Object.entries(D.INFLICT).forEach(([it, [stt, r]]) => { if (a.has(it) && ctx.rnd() < procRate(a, d, r)) giveStatus(d, stt, log); });
-      if (a.has('嵐の羽') && ctx.rnd() < procRate(a, d, 0.2)) giveStatus(d, pick(Object.keys(D.STATUS)), log);
-      if (d.has('嵐の羽') && ctx.rnd() < 0.3) giveStatus(a, pick(Object.keys(D.STATUS)), log);
+      out.push({ hit: dmg, crit, eff, side: d.side, snap: vsnap(), note: notes.join('・'), fx: nfx });
+      if (ganjo) log(`${esc(d.name)}の ${itn('がんじょう石')}の効果で、HP1で ふみとどまった！`, { fx: [[d.side, 'がんじょう石']] });
+      if (d.has('かたいよろい')) { const r = Math.max(1, R0(0.10 * dmg)); a.hp -= r; log(`${esc(d.name)}の ${itn('かたいよろい')}の効果で、${esc(a.name)}も ${r} ダメージ！`, { fx: [[d.side, 'かたいよろい']] }); }
+      if (a.has('両刃の剣')) { const r = Math.max(1, R0(0.25 * dmg)); a.hp -= r; log(`${esc(a.name)}は ${itn('両刃の剣')}の 反動で ${r} ダメージ！`, { fx: [[a.side, '両刃の剣']] }); }
+      // 当たったときの 効果
+      Object.entries(D.INFLICT).forEach(([it, [stt, r]]) => { if (a.has(it) && ctx.rnd() < procRate(a, d, r)) giveStatus(d, stt, log, a, it); });
+      if (a.has('嵐の羽') && ctx.rnd() < procRate(a, d, 0.2)) giveStatus(d, pick(Object.keys(D.STATUS)), log, a, '嵐の羽');
+      if (d.has('嵐の羽') && ctx.rnd() < pr(0.2)) { log(`${esc(d.name)}の ${itn('嵐の羽')}が あばれた！`, { fx: [[d.side, '嵐の羽']] }); giveStatus(a, pick(Object.keys(D.STATUS)), log); }
+      if (a.has('くもの巣') && d.web !== turn + 1 && ctx.rnd() < pr(0.10)) { d.web = turn + 1; log(`${esc(a.name)}の ${itn('くもの巣')}の効果で、${esc(d.name)}は 次のターン 通常攻撃しか えらべない！`, { fx: [[a.side, 'くもの巣']] }); }
+      if (a.has('UFO') && !a.used.has('UFO') && ctx.rnd() < pr(0.10)) {
+        a.used.add('UFO');
+        const kd = a.has('ふういんの鍵') ? 1 : 0, ta = topSubj(a), td = topSubj(d);
+        a.seal[ta] = Math.max(a.seal[ta] || 0, turn + 1); d.seal[td] = Math.max(d.seal[td] || 0, turn + 1 + kd);
+        log(`${esc(a.name)}の ${itn('UFO')}の効果で、次のターン ２人とも ふういん！（${esc(a.name)}は ${ta}・${esc(d.name)}は ${td}${kd ? `。${itn('ふういんの鍵')}で ${esc(d.name)}だけ 2ターン` : ''}）`, { fx: [[a.side, 'UFO']] });
+      }
+      [['生シュー', true], ['カスタードシュー', false]].forEach(([n, f1]) => { if (a.has(n) && ctx.rnd() < pr(0.05)) { a.shuT = turn + 1; a.shuF = f1; log(`${esc(a.name)}の ${itn(n)}の効果で、次のターンは ルーレットなしで ${f1 ? '先攻' : '後攻'}！`, { fx: [[a.side, n]] }); } });
     });
     d.guard = 0;
-    if (sk === 'ガードバッシュ') { a.guard = 1; log(`🛡️ ${a.name}は 守りをかためた！（次に受けるダメージ${a.has('鉄壁の兜') ? '70%カット' : '半分'}）`); }
-    if (sk === 'ふういん' && !first) { const top = topSubj(d); d.seal[top] = turn + 1 + (a.has('ふういんの鍵') ? 1 : 0); log(`🔒 ${d.name}の ${top}が ふういんされた！`); }
+    if (sk === 'ガードバッシュ') { const tk = a.has('鉄壁の兜') && !a.used.has('鉄壁の兜'); if (tk) a.used.add('鉄壁の兜'); a.guard = tk ? 2 : 1; log(`🛡️ ${esc(a.name)}は 守りを かためた！（次に 受ける ダメージ${tk ? `70%カット：${itn('鉄壁の兜')}の効果` : '半分'}）`, tk ? { fx: [[a.side, '鉄壁の兜']] } : {}); }
+    if (sk === 'ふういん' && !first) { const top = topSubj(d), kb = keyBonus(a); d.seal[top] = turn + 1 + kb; log(`🔒 ${esc(d.name)}の ${top}が ふういんされた！${kb ? `（${itn('ふういんの鍵')}の効果で 2ターン）` : ''}`, kb ? { fx: [[a.side, 'ふういんの鍵']] } : {}); }
     if (sk === 'パワーシュート') a.skipNext = true;
-    let heal = 0;
-    if (sk === 'ドレイン') heal += 0.5 * totalD * (a.has('吸血セーター') ? 1.5 : 1);
-    if (a.has('ドレインの牙')) heal += 0.1 * totalD;
-    if (heal > 0 && a.hp > 0) { heal = R0(heal); a.hp = Math.min(a.maxhp, a.hp + heal); log(`💚 ${a.name}は HPを ${heal} 回復した`); }
+    if (sk === 'ドレイン' && totalD > 0 && a.hp > 0) {
+      const sw = a.has('吸収セーター') && !a.used.has('吸収セーター'); if (sw) a.used.add('吸収セーター');
+      const h = Math.min(a.maxhp - a.hp, R0(0.5 * totalD * (sw ? 1.3 : 1)));
+      if (h > 0) { a.hp += h; log(`💚 ${esc(a.name)}は HPを ${h} 回復した${sw ? `（${itn('吸収セーター')}の効果で 1.3倍）` : ''}`, sw ? { fx: [[a.side, '吸収セーター']] } : {}); }
+    }
+    if (a.has('ドレインの牙') && totalD > 0 && a.hp > 0 && a.hp < a.maxhp) { const h = Math.min(a.maxhp - a.hp, Math.max(1, R0(0.1 * totalD))); a.hp += h; log(`${esc(a.name)}の ${itn('ドレインの牙')}の効果で、HPが ${h} 回復した！`, { fx: [[a.side, 'ドレインの牙']] }); }
     d.lastrecv = totalD; a.lastdealt = totalD; a.lastsubj = subj;
+    out.ups = ups; out.downs = downs;
     return out;
   }
+  // ふういんの鍵（１回のみ）：つかったら +1ターン
+  function keyBonus(x) { if (x.has('ふういんの鍵') && !x.used.has('ふういんの鍵')) { x.used.add('ふういんの鍵'); return 1; } return 0; }
   function endTurn(f, log) {
-    if ('どく' in f.status) { const dmg = R0(0.10 * f.maxhp * (f.opp.has('もうどくビン') ? 1.5 : 1)); f.hp -= dmg; log(`${art(g2(A, 'status', 'どく'), '🟣')} ${f.name}は どくで ${dmg} ダメージ`);
+    if ('どく' in f.status) {
+      const mo = f.opp.has('もうどくビン'), dmg = R0(0.10 * f.maxhp * (mo ? 1.5 : 1)); f.hp -= dmg;
+      log(`${art(g2(A, 'status', 'どく'), '🟣')} ${esc(f.name)}は どくで ${dmg} ダメージ${mo ? `（${itn('もうどくビン')}で 1.5倍）` : ''}`, mo ? { fx: [[f.opp.side, 'もうどくビン']] } : {});
       const left = (f.status['どく'] === true ? K.POISON_T : f.status['どく']) - 1; // true＝前の バージョンの とちゅうの セーブ
       if (left > 0) f.status['どく'] = left; else delete f.status['どく'];
     }
-    if (f.has('おにぎり') && f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + R0(0.03 * f.maxhp));
-    if (f.has('ばんそうこう') && f.hp > 0 && f.hp <= 0.3 * f.maxhp && !f.used.has('ばんそうこう')) { f.used.add('ばんそうこう'); f.hp += R0(0.25 * f.maxhp); log(`🩹 ${f.name}は ばんそうこうで回復！`); }
+    if (f.has('おにぎり') && f.hp > 0 && f.hp < f.maxhp) { const h = Math.min(f.maxhp - f.hp, R0(0.05 * f.maxhp)); f.hp += h; log(`${esc(f.name)}の ${itn('おにぎり')}の効果で、HPが ${h} 回復した！`, { fx: [[f.side, 'おにぎり']] }); }
+    if (f.has('ばんそうこう') && f.hp > 0 && f.hp <= 0.3 * f.maxhp && !f.used.has('ばんそうこう')) { f.used.add('ばんそうこう'); const h = R0(0.20 * f.maxhp); f.hp += h; log(`${esc(f.name)}の ${itn('ばんそうこう')}の効果で、HPが ${h} 回復した！`, { fx: [[f.side, 'ばんそうこう']] }); }
     ['やけど', 'こおり', 'こんらん'].forEach(k => { if (k in f.status) { if (f.status[k] === true) f.status[k] = 'next'; else delete f.status[k]; } });
     Object.keys(f.ct).forEach(k => (f.ct[k] -= 1));
+  }
+  // 試合の はじめ（1ターン目の ルーレットの前）に 効く アイテム。メッセージの 行を かえす（10/13）
+  // 聖杯（最初の2ターン）→ 金色の羽（相手の アイテムを 1つ 無効。2人とも 持っていたら 同時）→ まりとっつぉ・ドーナツ・さくらもち・ごまだんご・モンブラン・銀色の羽
+  function battleStart() {
+    const { P, B } = BT, L = [];
+    const both = [P, B];
+    const g = both.find(f => f.items.has('聖杯'));
+    if (g) L.push({ t: `${esc(g.name)}の ${itn('聖杯')}の効果で、最初の 2ターンは おたがいの アイテムが 効かない！（最大HPは そのまま）`, fx: [[g.side, '聖杯']] });
+    const picks = both.map(f => { if (!f.has('金色の羽')) return null; const c = [...f.opp.items].filter(k => !f.opp.off.includes(k)); return c.length ? pick(c) : null; });
+    both.forEach((f, i) => { const n = picks[i]; if (!n) return; f.opp.off.push(n); L.push({ t: `${esc(f.name)}の ${itn('金色の羽')}の効果で、${esc(f.opp.name)}の ${itn(n)}が 無効化された！`, fx: [[f.side, '金色の羽']] }); });
+    both.forEach(f => {
+      if (f.has('まりとっつぉ')) { const top = topSubj(f), k = f.opp.has('ふういんの鍵') ? 1 : 0; f.seal[top] = Math.max(f.seal[top] || 0, 1 + k); L.push({ t: `${esc(f.name)}は ${itn('まりとっつぉ')}の効果で、${k ? '2ターン' : '1ターン目は'} ${top}が ふういん！（そのかわり 威力は ずっと 1.2倍）`, fx: [[f.side, 'まりとっつぉ']] }); }
+      if (f.has('もちもちドーナツ')) L.push({ t: `${esc(f.name)}の ${itn('もちもちドーナツ')}の効果で、1ターン目は おたがいの 威力が 半分！`, fx: [[f.side, 'もちもちドーナツ']] });
+      if (f.has('さくらもち')) L.push({ t: `${esc(f.name)}の ${itn('さくらもち')}の効果で、1ターン目は ${esc(f.opp.name)}の 運が 300 下がった！`, fx: [[f.side, 'さくらもち']] });
+      if (f.has('ごまだんご')) L.push({ t: `${esc(f.name)}の ${itn('ごまだんご')}の効果で、1ターン目は ${esc(f.name)}の 運が 300 上がった！`, fx: [[f.side, 'ごまだんご']] });
+      if (f.has('モンブラン')) L.push({ t: `${esc(f.name)}の ${itn('モンブラン')}の効果で、1ターン目は おたがいの アイテムの 確率が 2倍！`, fx: [[f.side, 'モンブラン']] });
+      if (f.has('銀色の羽')) L.push({ t: `${esc(f.name)}の ${itn('銀色の羽')}の効果で、最初の 2ターンは おたがいに 会心が 出ない！`, fx: [[f.side, '銀色の羽']] });
+    });
+    return L;
+  }
+  // ルーレットを しないで 先攻・後攻が きまるとき（生シュー・カスタードシュー）。{ first, t } か null（10/13）
+  function forcedOrder(P, B, turn) {
+    const on = [P, B].filter(f => f.shuT === turn);
+    if (!on.length) return null;
+    if (on.length === 2) return { first: null, t: '２人とも シューの効果が 出たので、ふつうに ルーレット！' };
+    const f = on[0], n = f.shuF ? '生シュー' : 'カスタードシュー';
+    return { first: f.shuF ? f : f.opp, t: `${esc(f.name)}の ${itn(n)}の効果で、ルーレットなしで ${esc(f.name)}が ${f.shuF ? '先攻' : '後攻'}！`, fx: [[f.side, n]] };
   }
 
   // ---- CPUボスの作戦 ----
   function bossChoose(b, p, turn, first) {
-    const avail = b.skills.filter(k => !(b.ct[k] > 0));
+    const avail = availSkills(b, turn).s;
+    if (!avail.length) return null; // えらべる 技が ない（メテオ など）→ パス
     const ok = k => avail.includes(k);
-    let sk = '通常攻撃';
+    let sk = avail.includes('通常攻撃') ? '通常攻撃' : avail[0];
     const est = baseAtk(b, topSubj(b)) * 0.8;
-    if ('こおり' in b.status) sk = '通常攻撃';
+    if (avail.length === 1) sk = avail[0];
     else if (ok('パワーシュート') && (p.hp <= est * 2 * recvMult(p, topSubj(b)) || turn === lastT())) sk = 'パワーシュート';
     else if (b.hp < 0.45 * b.maxhp && ok('ガードバッシュ') && first && turn < lastT()) sk = 'ガードバッシュ';
     else if (b.hp < 0.45 * b.maxhp && ok('ドレイン')) sk = 'ドレイン';
@@ -1880,6 +1998,7 @@
       el.querySelector('.hpbar i').style.width = r * 100 + '%';
       el.querySelector('.hpbar').classList.toggle('low', r < 0.3);
       el.querySelector('.hpt').textContent = `HP ${Math.max(0, R0(v.hp))} / ${f.maxhp}`;
+      el.querySelectorAll('.it').forEach(s => s.classList.toggle('off', !f.has(s.dataset.n))); // 金色の羽・聖杯で 効かない アイテムは 暗く
       el.querySelector('.stt').innerHTML = v.status.map(k => `<span class="sti" data-stt="${k}" title="${k}">${art(g2(A, 'status', k), D.STATUS[k].e)}${k}</span>`).join(' ') +
         Object.entries(v.ct).filter(([, x]) => x > 0).map(([k, x]) => ` <span class="xs dim">${k}あと${x}</span>`).join('');
     });
@@ -1901,7 +2020,11 @@
 
   // ルーレット（運が高いほど幅が広い）
   async function roulette(P, B) {
-    if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`🎰 運命の指輪！ ${esc(w.name)}が 先攻・後攻をえらぶ`); await msgWait(1200); return w; }
+    // 運命の指輪：最初の ターンだけ（2人とも 持っていたら ふつうに ルーレット。10/13）
+    if (BT.turn === 1 && (P.has('運命の指輪') || B.has('運命の指輪'))) {
+      if (P.has('運命の指輪') !== B.has('運命の指輪')) { const w = P.has('運命の指輪') ? P : B; blog(`${esc(w.name)}の ${itn('運命の指輪')}の効果で、ルーレットに 勝った！ ${esc(w.name)}が 先攻・後攻を えらぶ`); itFx([[w.side, '運命の指輪']]); await msgWait(1300); return w; }
+      blog(`２人とも ${itn('運命の指輪')}を 持っているので、ふつうに ルーレット！`); await msgWait(1100);
+    }
     const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
     const pa = 360 * wp / (wp + wb);
     const win = Math.random() < wp / (wp + wb) ? P : B;
@@ -1935,11 +2058,11 @@
   // プレイヤーのスキル・教科えらび
   function playerSkill(P) {
     return new Promise(res => {
-      const frozen = 'こおり' in P.status;
-      const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">スキルをえらぼう</span>${frozen ? '<span class="sm">🧊こおっていて、通常攻撃しか使えない</span>' : ''}${BT.note || ''}${canPass() ? '<button class="btn-gray passb" data-pass="1">🏳️ こうさん</button>' : ''}</div>
+      const av = availSkills(P, BT.turn);
+      const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">スキルをえらぼう</span>${av.note ? `<span class="sm">${av.note}</span>` : ''}${BT.note || ''}${canPass() ? '<button class="btn-gray passb" data-pass="1">🏳️ こうさん</button>' : ''}</div>
         <div class="skgrid">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
-          const dis = ct > 0 || (frozen && k !== '通常攻撃');
+          const dis = !av.s.includes(k);
           return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = async () => {
@@ -1971,7 +2094,7 @@
   function applyActStart(x, act, turn, first) {
     x.cursubj = act.subj;
     if (act.st) x.st = { ...act.st };
-    if (act.sk === 'ふういん' && first) { const y = x.opp, top = topSubj(y); y.seal[top] = turn + (x.has('ふういんの鍵') ? 1 : 0); }
+    if (act.sk === 'ふういん' && first) { const y = x.opp, top = topSubj(y); y.seal[top] = turn + keyBonus(x); }
     if (act.meg !== undefined) x.megane = act.meg;
   }
   // えらぶ人 P、あいて B（ボス戦ではプレイヤー、対戦では A・B どちらも）
@@ -2015,7 +2138,9 @@
     let act = BT.acts.B; const fresh = !act, n = BT.qn || K.BOSS_Q;
     if (fresh) {
       // QRゴースト：いちばん ダメージが出そうな手（正解率もかけて考える）。正解率は 友だちの 問題の すすみぐあい
-      const { sk, subj } = B.ghost ? simPlayer(B, P, turn, first, null, B.acc) : bossChoose(B, P, turn, first);
+      const ch = B.ghost ? simPlayer(B, P, turn, first, null, B.acc) : bossChoose(B, P, turn, first);
+      if (!ch) { BT.acts.B = 'skip'; save(); blog(`${esc(B.name)}は ${availSkills(B, turn).note || ''}… 使える技が ないので パス！`); await msgWait(1300); return 'skip'; }
+      const { sk, subj } = ch;
       const acc = B.ghost ? B.acc[subj] : K.BOSS_ACC;
       act = { sk, subj, ans: Array.from({ length: n }, () => Math.random() < acc) };
       BT.acts.B = act; save();
@@ -2035,13 +2160,22 @@
   // ターンの結果をまとめて計算（ここでセーブ）→ そのあと演出
   function resolveTurn(order, turn, cheer) {
     const ev = [];
+    setT(turn);
     order.forEach((x, i) => {
       const y = x.opp, act = BT.acts[x.side];
       if (!act || act === 'skip' || x.hp <= 0 || y.hp <= 0) return;
       const s = D.SKILLS.find(k => k.n === act.sk);
       x.ct[act.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(act.sk) && x.has('ふしぎなウォッチ') ? 1 : s.ct) + 1;
-      ev.push({ sk: act.sk, cut: `${x.art} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` });
-      ev.push(...resolveAttack(x, y, act, turn, i === 0, { rnd: Math.random, cheer }));
+      const cut = { sk: act.sk, cut: `${x.art} ${esc(x.name)}の <span class="gold">${act.sk}</span>！ <span class="sm">（${act.subj}）</span>` };
+      ev.push(cut);
+      const r = resolveAttack(x, y, act, turn, i === 0, { rnd: Math.random, cheer });
+      // 効いた アイテムは カットインの 2行目に（時間は ふやさない）
+      const l2 = [];
+      if (r.ups.length) l2.push(`${r.ups.map(itn).join('・')} の効果で、威力が 上がった！`);
+      r.downs.forEach(([n, t]) => l2.push(`${itn(n)} の効果で、${t}`));
+      if (l2.length) cut.cut = `<div class="cut1">${cut.cut}</div><div class="cut2">${l2.join('<br>')}</div>`;
+      cut.fx = [...r.ups.map(n => [x.side, n]), ...r.downs.map(([n, , sd]) => [sd, n])];
+      ev.push(...r);
       if (cheer && y.hp > 0) { const extra = Math.max(1, R0(y.hp)); y.hp = 0; ev.push({ hit: extra, crit: false, eff: 1, side: y.side, snap: vsnap() }); }
     });
     if (!cheer) [BT.P, BT.B].forEach(f => endTurn(f, t => ev.push({ t, snap: vsnap() })));
@@ -2050,17 +2184,19 @@
   async function playEvents(ev) {
     let lastSk = null, hitN = 0;
     for (const e of ev) {
-      if (e.cut) { lastSk = e.sk; hitN = 0; if (e.sk === 'ガードバッシュ' || e.sk === 'カウンター') se('guard'); await cutin(e.cut, 1100); continue; }
+      if (e.cut) { lastSk = e.sk; hitN = 0; if (e.sk === 'ガードバッシュ' || e.sk === 'カウンター') se('guard'); itFx(e.fx); await cutin(e.cut, 1100); continue; }
+      if (e.block) { se('guard'); itFx(e.fx); blog(`🛡️ ${e.t}`); updBars(e.snap); await msgWait(BT.vs ? 800 : 1000); continue; }
       if (e.hit) {
         hitN++; se(e.crit ? 'crit' : lastSk === '連続攻撃' ? (hitN === 1 ? 'combo' : null) : 'hit');
         const tEl = $(e.side === 'P' ? '#fP' : '#fB'), d = e.side === 'P' ? BT.P : BT.B;
         if (tEl) { tEl.classList.remove('hit'); void tEl.offsetWidth; tEl.classList.add('hit'); }
         floatAt(e.side === 'P' ? 260 : 960, 150, (e.crit ? '会心！ ' : '') + e.hit, e.crit ? '#f472b6' : '#fde047', 'dmg');
-        blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}`);
+        itFx(e.fx);
+        blog(`${e.crit ? '💥 会心の一撃！ ' : ''}${esc(d.name)}に <b class="gold">${e.hit}</b> ダメージ！ ${e.eff > 1 ? '<span class="gold">こうかばつぐん！</span>' : e.eff < 1 ? '<span class="dim">いまひとつ…</span>' : ''}${e.note ? `<span class="sm">（${e.note}）</span>` : ''}`);
         updBars(e.snap); await msgWait(900);
       } else {
         if (e.stt) se(e.stt);
-        blog(e.t); updBars(e.snap); await msgWait(1000);
+        itFx(e.fx); blog(e.t); updBars(e.snap); await msgWait(BT.vs ? 700 : 1000); // 対戦は テンポ よく（10/13）
         // CPU戦だけ：はじめて見る 状態異常は 説明を出す（対戦では出さない。きろくは QR に入れない）
         if (e.stt && !BT.vs) { S.seenStt = S.seenStt || {}; if (!S.seenStt[e.stt]) { S.seenStt[e.stt] = 1; save(); await statusHelp(e.stt); } }
       }
@@ -2068,20 +2204,37 @@
     updBars();
   }
 
+  // ターンの はじめ：1ターン目は 試合はじめの アイテム、3ターン目は 聖杯が きれる（10/13）
+  async function turnIntro(turn) {
+    setT(turn);
+    const L = [];
+    if (turn === 1 && !BT.started) { L.push(...battleStart()); BT.started = 1; BT.snap = dynAll(); btSave(); }
+    if (turn === 3 && !BT.grailEnd && [BT.P, BT.B].some(f => f.items.has('聖杯'))) { BT.grailEnd = 1; btSave(); L.push({ t: `${itn('聖杯')}の効果が きれた！ ここから アイテムが 効くよ`, fx: [] }); }
+    updBars();
+    for (const l of L) { blog(l.t); itFx(l.fx); await msgWait(BT.vs ? 1100 : 1300); }
+  }
+  // 効いた アイテムの アイコンを 光らせる（[[side, 名前], ...]）
+  function itFx(fx) {
+    (fx || []).forEach(([side, n]) => { const el = $(`#${side === 'P' ? 'fP' : 'fB'} .it[data-n="${CSS.escape(n)}"]`); if (el) { el.classList.remove('fx'); void el.offsetWidth; el.classList.add('fx'); } });
+  }
   async function playTurn() {
     const { P, B } = BT, turn = BT.turn;
     if (dunBoss()) P.st = BT.acts.P && BT.acts.P.st ? { ...BT.acts.P.st } : curSt(); // 前のターンで 上がった分は ここから
     hideGauges();
     $('#turn').textContent = `ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
+    await turnIntro(turn);
     if (!BT.firstId) {
-      let right;
-      if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await msgWait(900); }
+      const fo = forcedOrder(P, B, turn);
+      if (fo) { blog(fo.t); itFx(fo.fx); await msgWait(1300); }
+      let right, first;
+      if (fo && fo.first) first = fo.first;
+      else if (R && R.flags.hayate) { right = P; blog('🏃 ハヤテ「ボスのくせはお見通しだ！」 先攻・後攻をえらべる'); await msgWait(900); }
       else right = await roulette(P, B);
-      let first;
-      if (right === P) first = await dialog({ text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: P, cls: 'btn-main fsb' }, { label: `${artUi('second', '👀')} 後攻`, val: B, cls: 'btn-blue fsb' }], cls: 'ovb ovfs' });
+      if (first) {}
+      else if (right === P) first = await dialog({ text: `${esc(P.name)}が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: P, cls: 'btn-main fsb' }, { label: `${artUi('second', '👀')} 後攻`, val: B, cls: 'btn-blue fsb' }], cls: 'ovb ovfs' });
       else { first = B; blog(`${esc(B.name)}が 決める権利をとった！ ${esc(B.name)}は先攻をえらんだ`); await msgWait(1300); }
-      BT.firstId = first.side; save();
+      if (!BT.firstId) { BT.firstId = first.side; save(); }
     }
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
     for (let i = 0; i < 2; i++) {
@@ -2091,6 +2244,7 @@
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; save(); }
         blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await msgWait(1300); continue;
       }
+      if (x === P && !BT.acts.P && !availSkills(P, turn).s.length) { BT.acts.P = 'skip'; save(); blog(`${esc(P.name)}は ${availSkills(P, turn).note}… 使える技が ないので パス！`); await msgWait(1300); continue; }
       if (x === P) {
         const ba = BT.acts.B;
         BT.note = i === 1 && ba && ba !== 'skip' ? `<div class="sm gold" style="margin-bottom:6px">👀 ${esc(B.name)}は「${ba.sk}」・${ba.subj} をえらんだ。どうする？</div>` : '';
@@ -2141,7 +2295,8 @@
     let cands = SUBJ.filter(s => !ban.includes(s)); if (!cands.length) cands = SUBJ;
     const val = s => baseAtk(P, s) * recvMult(B, s) * (P.weakSubj === s ? P.weakMul : 1) * (acc ? 0.3 + 0.7 * acc[s] : 1);
     const subj = 'こんらん' in P.status ? pick(cands) : cands.reduce((x, s) => (val(s) > val(x) ? s : x));
-    const avail = 'こおり' in P.status ? ['通常攻撃'] : P.skills.filter(k => !(P.ct[k] > 0));
+    const avail = availSkills(P, turn).s;
+    if (!avail.length) return null; // パス
     const est = val(subj) * (1 - cutRate(B));
     const sc = k => {
       const pw = D.SKILLS.find(x => x.n === k).pw;
@@ -2155,6 +2310,13 @@
       return pw;
     };
     return { sk: avail.reduce((x, k) => (sc(k) > sc(x) ? k : x)), subj };
+  }
+  // 画面なしの 先攻えらび（シュー → 運命の指輪（1ターン目）→ ルーレット。権利を とったら 先攻）
+  function simFirst(P, B, turn) {
+    const fo = forcedOrder(P, B, turn); if (fo && fo.first) return fo.first;
+    if (turn === 1 && P.has('運命の指輪') !== B.has('運命の指輪')) return P.has('運命の指輪') ? P : B;
+    const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
+    return Math.random() < wp / (wp + wb) ? P : B;
   }
   function simBoss({ st, boss = null, items = [], acc = 1, n = 1000, bossHp = null }) {
     const bak = { st: S.st, type: S.type, BT, hp: K.BOSS_HP };
@@ -2172,14 +2334,14 @@
         BT = { P, B };
         let res = null, turn = 1;
         for (; turn <= K.BOSS_T && !res; turn++) {
-          let first;
-          if (P.has('運命の指輪') !== B.has('運命の指輪')) first = P.has('運命の指輪') ? P : B;
-          else { const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1); first = Math.random() < wp / (wp + wb) ? P : B; }
+          setT(turn); if (turn === 1) battleStart();
+          const first = simFirst(P, B, turn);
           const order = [first, first.opp], acts = {};
           order.forEach((x, k) => {
             if (x.skipNext) { x.skipNext = false; acts[x.side] = 'skip'; return; }
             const fst = k === 0;
             const a = x === P ? simPlayer(P, B, turn, fst, acts.B) : bossChoose(B, P, turn, fst);
+            if (!a) { acts[x.side] = 'skip'; return; }
             const ok = x === P ? acc : K.BOSS_ACC;
             a.ans = Array.from({ length: q }, () => Math.random() < ok);
             applyActStart(x, a, turn, fst);
@@ -2218,14 +2380,14 @@
         BT = { P, B, vs: true };
         let res = null, turn = 1;
         for (; turn <= T && !res; turn++) {
-          let first;
-          if (P.has('運命の指輪') !== B.has('運命の指輪')) first = P.has('運命の指輪') ? P : B;
-          else { const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1); first = Math.random() < wp / (wp + wb) ? P : B; }
+          setT(turn); if (turn === 1) battleStart();
+          const first = simFirst(P, B, turn);
           const order = [first, first.opp], acts = {};
           order.forEach((x, k) => {
             if (x.skipNext) { x.skipNext = false; acts[x.side] = 'skip'; return; }
             const fst = k === 0, acc = x === P ? accA : accB;
             const a = simPlayer(x, x.opp, turn, fst, acts[x.opp.side]);
+            if (!a) { acts[x.side] = 'skip'; return; }
             a.ans = Array.from({ length: q }, () => Math.random() < acc);
             applyActStart(x, a, turn, fst);
             const g = newGauge(); a.ans.forEach(o => gaugeStep(x, g, o));
@@ -2816,7 +2978,8 @@
     });
   }
   async function trialBattle() {
-    BT = hydrate({ trial: true, qn: K.VS_Q, cfg: bossCfg(TR.boss, TR.stg, TR.items), snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
+    const tcfg = bossCfg(TR.boss, TR.stg, TR.items); if (TR.bItems) tcfg.B.items = TR.bItems; // テスト用：ボスの アイテムを かえる
+    BT = hydrate({ trial: true, qn: K.VS_Q, cfg: tcfg, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
     BT.snap = dynAll();
     battleScreen();
     $('#turn').textContent = '🧪 おためしバトル';
@@ -3018,6 +3181,9 @@
     hideGauges();
     $('#turn').textContent = `🆚 ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
+    await turnIntro(turn);
+    const fo = !BT.firstId && forcedOrder(P, B, turn);
+    if (fo) { blog(fo.t); itFx(fo.fx); await msgWait(1100); if (fo.first) { BT.firstId = fo.first.side; saveVs(); } }
     if (!BT.firstId) {
       const right = await roulette(P, B);
       const first = await dialog({ who: right.art, text: `${esc(right.pname)}さん（${esc(right.name)}）が 決める権利をとった！\n先攻（先に攻撃できる）と 後攻（相手のえらんだものを見てからえらべる）、どっちにする？`, choices: [{ label: `${artUi('first', '⚔️')} 先攻`, val: right, cls: 'btn-main fsb' }, { label: `${artUi('second', '👀')} 後攻`, val: right.opp, cls: 'btn-blue fsb' }], cls: 'ovb ovfs' });
@@ -3031,6 +3197,7 @@
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveVs(); }
         blog(`${esc(x.name)}は パワーシュートの反動で動けない！`); await msgWait(1300); continue;
       }
+      if (!BT.acts[x.side] && !availSkills(x, turn).s.length) { BT.acts[x.side] = 'skip'; saveVs(); blog(`${esc(x.name)}は ${availSkills(x, turn).note}… 使える技が ないので パス！`); await msgWait(1300); continue; }
       if (!BT.acts[x.side] || !BT.acts[x.side].ans) await cutin(`${esc(x.pname)}さん（${esc(x.name)}）の番！`, 1100);
       BT.note = `<div class="sm" style="margin-bottom:6px"><b>${esc(x.pname)}</b>さんの番${i === 1 && other && other !== 'skip' ? `　<span class="gold">👀 ${esc(x.opp.pname)}さんは「${other.sk}」・${other.subj} をえらんだ</span>` : ''}</div>`;
       const pa = await playerAct(x, x.opp, turn, i === 0, K.VS_Q);
@@ -3208,7 +3375,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simVs, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { trial: (pi, bi, boss = '算数') => { TR = { boss, stg: 2, items: pi, bItems: bi }; return trialBattle(); }, pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simVs, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
