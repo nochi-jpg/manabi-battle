@@ -45,7 +45,7 @@ with sync_playwright() as p:
     check(pg.locator('#eq').count() == 0, '持っていないアイテムは そうびできない')
     pg.click('#ok'); pg.wait_for_timeout(100)
 
-    check(pg.evaluate("MB.BT && MB.BT.qn") == 5, '1ターン5問')
+    check(pg.evaluate("MB.BT && MB.BT.qn") == 3, "1ターン3問")
     check(pg.evaluate("[...MB.BT.P.items].sort().join()") == ','.join(sorted(['木の盾', 'どくキバ'])), 'えらんだアイテムで戦う')
     check(pg.evaluate("MB.BT.B.name") == 'けいさめのおう', 'えらんだボス・強さ')
     # 1ターン目：プレイヤーの問題数を数える
@@ -54,11 +54,11 @@ with sync_playwright() as p:
     for _ in range(15000):
         if pg.evaluate(end): break
         t = pg.evaluate("MB.BT ? MB.BT.turn : 0"); maxturn = max(maxturn, t)
-        a = pg.evaluate("(()=>{const h=document.querySelector('.qbox .qh'); const m=h&&h.textContent.match(/（(\\d+)\\/5問目）/); return m?+m[1]:0})()"); asked = max(asked, a)  # 問題の 見出し（n/5問目）で 数える
+        a = pg.evaluate("(()=>{const h=document.querySelector('.qbox .qh'); const m=h&&h.textContent.match(/（(\\d+)\\/3問目）/); return m?+m[1]:0})()"); asked = max(asked, a)  # 問題の 見出し（n/3問目）で 数える
         pg.evaluate(BOT, 0.8); pg.wait_for_timeout(20)
     check(pg.evaluate(end), 'バトルがおわって 結果が出る')
-    check(asked == 5, f'プレイヤーは5問答える（{asked}問）')
-    check(maxturn <= 4, f'3ターンまで（{maxturn}）')
+    check(asked == 3, f'プレイヤーは3問答える（{asked}問）')
+    check(maxturn <= 6, f'5ターンまで（{maxturn}）')
     check(pg.evaluate("MB.R") is None and pg.evaluate("MB.S.run") is None, 'ダンジョンのデータを作らない')
     # もう一度（同じそうび）
     pg.click('.ov .choices button >> nth=0'); pg.wait_for_timeout(200)

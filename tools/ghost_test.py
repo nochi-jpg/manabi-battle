@@ -34,7 +34,7 @@ with sync_playwright() as p:
     pg.click('.ov .choices button'); pg.wait_for_timeout(100)
     pg.click('#ok'); pg.wait_for_timeout(100)
     if pg.locator('#vgo').count(): pg.click('#vgo')
-    check(pg.evaluate("MB.BT && MB.BT.ghost && MB.BT.qn") == 5, 'ゴースト戦：1ターン5問')
+    check(pg.evaluate("MB.BT && MB.BT.ghost && MB.BT.qn") == 3, "ゴースト戦：1ターン3問")
     check(sorted(pg.evaluate("[...MB.BT.B.items]")) == sorted(['どくキバ', 'ねらいのメガネ']), 'ゴーストの そうび＝おきにいり')
     accm = pg.evaluate("MB.BT.B.acc"); exp = {'国語': 0.95, '算数': 1, '理科': 0.55, '社会': 0.5, '英語': 0.5}
     check(all(abs(accm[k] - v) < 1e-6 for k, v in exp.items()), f'正解率（卒業100・あと1回95・復習待ち55・まだ50）{accm}')

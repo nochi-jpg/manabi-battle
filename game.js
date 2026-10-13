@@ -1669,6 +1669,7 @@
     hpm = Math.min(hpm, 1 + K.HPCAP);
     if (f.has('竜の逆鱗')) hpm *= 0.8;
     if (o.hpBonus) hpm *= 1 + o.hpBonus;
+    if (o.long) hpm *= K.VS_HP; // 5ターンの モード（対戦・とうぎじょう・まなスタ）は HPを 多めに（10/13）
     f.maxhp = R0(total(f.st) * K.HPK * hpm); f.hp = f.maxhp;
     Object.assign(f, { ct: {}, status: {}, used: new Set(), guard: 0, lastrecv: 0, lastdealt: 0, skipNext: false, seal: {}, lastsubj: null, cursubj: null, streak: 0, fail: 0, megane: 2, eraser: 1 });
     return f;
@@ -1678,12 +1679,15 @@
   function restoreDyn(f, o) { DYN.forEach(k => (f[k] = clone(o[k]))); f.used = new Set(o.used || []); }
   const dynAll = () => ({ P: dyn(BT.P), B: dyn(BT.B) });
   function hydrate(pk) {
-    const P = makeFighter(pk.cfg.P), B = makeFighter(pk.cfg.B);
+    const lg = f => (pk.vs || pk.trial ? { ...f, long: 1 } : f);
+    const P = makeFighter(lg(pk.cfg.P)), B = makeFighter(lg(pk.cfg.B));
     P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
     if (pk.snap) { restoreDyn(P, pk.snap.P); restoreDyn(B, pk.snap.B); }
     return { ...pk, P, B, used: new Set(pk.used || []) };
   }
   const btSave = () => (BT && BT.vs ? saveVs() : save());
+  // 何ターンで おわるか：育成ダンジョンの ボス戦は 3ターン、対戦・とうぎじょう（おためし・QRゴースト）・まなスタは 5ターン（10/13）
+  const lastT = () => (BT && (BT.vs || BT.trial) ? K.VS_T : K.BOSS_T);
   const canPass = () => !!(BT && (BT.vs || BT.trial) && !dunBoss()); // こうさん：対戦・おためしバトル・QRゴースト（ダンジョンの ボス戦は なし）
   const dunBoss = () => !!(R && R.bt && BT && !BT.vs); // 育成ダンジョンの ボス戦（記録する）
   function packBT() { const { P, B, used, note, ...rest } = BT; return clone({ ...rest, used: [...used] }); }
@@ -1720,7 +1724,7 @@
   }
   function gaugeMult(a, st, n) {
     let m = (st.g / n) * (1 + st.bonus / n);
-    if (a.has('えんぴつのお守り')) m *= 1 + Math.min(0.2, 0.04 * st.correct);
+    if (a.has('えんぴつのお守り')) m *= 1 + Math.min(0.2, 0.07 * st.correct);
     if (a.has('連続正解の炎')) m *= 1 + Math.min(0.6, 0.06 * a.streak);
     if (a.has('百科じてん') && st.correct === n) m *= 1.3;
     return m;
@@ -1730,7 +1734,7 @@
     if (dst.has('ユニコーンの角') && stt === 'どく') return;
     if (dst.has('おまもり') && !dst.used.has('おまもり')) { dst.used.add('おまもり'); log(`🧿 ${dst.name}のおまもりが ${stt}をふせいだ！`); return; }
     const was = stt in dst.status;
-    dst.status[stt] = true;
+    dst.status[stt] = stt === 'どく' ? K.POISON_T : true; // どくは のこり回数（かかりなおすと 3回に もどる）
     if (dst.has('教室のベル') || dst.has('ユニコーンの角')) dst.hp = Math.min(dst.maxhp, dst.hp + 0.05 * dst.maxhp);
     if (!was) log(`${art(g2(A, 'status', stt), D.STATUS[stt].e)} ${dst.name}は ${stt}になった！`, { stt });
   }
@@ -1753,8 +1757,8 @@
     if (a.has('運命の指輪')) m *= 0.92;
     if (a.has('バランスの天秤') && a.luck >= 900) m *= 1.15;
     if (a.has('背水の書')) m *= a.hp <= 0.5 * a.maxhp ? 1.5 : 0.9;
-    if (a.has('給食の牛乳') && turn === 1) m *= 1.15;
-    if (a.has('ラストのあめ') && turn === 3) m *= 1.15;
+    if (a.has('給食の牛乳') && turn === 1) m *= 1.25;
+    if (a.has('ラストのあめ') && turn === lastT()) m *= 1.15;
     if (a.has('うわばき') && first) m *= 1.1;
     if (a.has('くつした') && !first) m *= 1.1;
     if (a.has('たこ焼き') && sk === '通常攻撃') m *= 1.15;
@@ -1819,7 +1823,10 @@
     return out;
   }
   function endTurn(f, log) {
-    if ('どく' in f.status) { const dmg = R0(0.10 * f.maxhp * (f.opp.has('もうどくビン') ? 1.5 : 1)); f.hp -= dmg; log(`${art(g2(A, 'status', 'どく'), '🟣')} ${f.name}は どくで ${dmg} ダメージ`); }
+    if ('どく' in f.status) { const dmg = R0(0.10 * f.maxhp * (f.opp.has('もうどくビン') ? 1.5 : 1)); f.hp -= dmg; log(`${art(g2(A, 'status', 'どく'), '🟣')} ${f.name}は どくで ${dmg} ダメージ`);
+      const left = (f.status['どく'] === true ? K.POISON_T : f.status['どく']) - 1; // true＝前の バージョンの とちゅうの セーブ
+      if (left > 0) f.status['どく'] = left; else delete f.status['どく'];
+    }
     if (f.has('おにぎり') && f.hp > 0) f.hp = Math.min(f.maxhp, f.hp + R0(0.03 * f.maxhp));
     if (f.has('ばんそうこう') && f.hp > 0 && f.hp <= 0.3 * f.maxhp && !f.used.has('ばんそうこう')) { f.used.add('ばんそうこう'); f.hp += R0(0.25 * f.maxhp); log(`🩹 ${f.name}は ばんそうこうで回復！`); }
     ['やけど', 'こおり', 'こんらん'].forEach(k => { if (k in f.status) { if (f.status[k] === true) f.status[k] = 'next'; else delete f.status[k]; } });
@@ -1833,8 +1840,8 @@
     let sk = '通常攻撃';
     const est = baseAtk(b, topSubj(b)) * 0.8;
     if ('こおり' in b.status) sk = '通常攻撃';
-    else if (ok('パワーシュート') && (p.hp <= est * 2 * recvMult(p, topSubj(b)) || turn === 3)) sk = 'パワーシュート';
-    else if (b.hp < 0.45 * b.maxhp && ok('ガードバッシュ') && first && turn < 3) sk = 'ガードバッシュ';
+    else if (ok('パワーシュート') && (p.hp <= est * 2 * recvMult(p, topSubj(b)) || turn === lastT())) sk = 'パワーシュート';
+    else if (b.hp < 0.45 * b.maxhp && ok('ガードバッシュ') && first && turn < lastT()) sk = 'ガードバッシュ';
     else if (b.hp < 0.45 * b.maxhp && ok('ドレイン')) sk = 'ドレイン';
     else if (ok('カウンター') && b.lastrecv > 0.25 * b.maxhp && first) sk = 'カウンター';
     else {
@@ -2063,7 +2070,7 @@
     const { P, B } = BT, turn = BT.turn;
     if (dunBoss()) P.st = BT.acts.P && BT.acts.P.st ? { ...BT.acts.P.st } : curSt(); // 前のターンで 上がった分は ここから
     hideGauges();
-    $('#turn').textContent = `ターン ${turn} / 3`;
+    $('#turn').textContent = `ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       let right;
@@ -2094,9 +2101,9 @@
     const ev = resolveTurn(order, turn, false);
     let res = null;
     if (P.hp <= 0 || B.hp <= 0) res = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
-    else if (turn >= 3) {
+    else if (turn >= lastT()) {
       const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp >= rb ? 'win' : 'lose';
-      ev.push({ t: `⏱️ 3ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
+      ev.push({ t: `⏱️ ${lastT()}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
     }
     BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
     if (res) { BT.phase = 'end'; BT.result = res; }
@@ -2137,9 +2144,9 @@
     const sc = k => {
       const pw = D.SKILLS.find(x => x.n === k).pw;
       if (k === '連続攻撃') return P.has('でんせつの弓') ? 1.35 : 1.2;
-      if (k === 'パワーシュート') return turn === 3 || est * 2 >= B.hp ? 2.1 : 0.9;
+      if (k === 'パワーシュート') return turn === lastT() || est * 2 >= B.hp ? 2.1 : 0.9;
       if (k === 'ドレイン') return pw + (P.hp < 0.5 * P.maxhp ? 0.4 : 0);
-      if (k === 'ガードバッシュ') return pw + (first && turn < 3 ? 0.3 : 0);
+      if (k === 'ガードバッシュ') return pw + (first && turn < lastT() ? 0.3 : 0);
       if (k === 'ふういん') return pw + (first ? 0.2 : 0);
       if (k === 'カウンター') return pw + (est > 0 ? (0.5 * P.lastrecv) / est : 0);
       if (k === 'かんつう') return pw / Math.min(1, recvMult(B, subj) * (1 - cutRate(B)));
@@ -2162,7 +2169,7 @@
         P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
         BT = { P, B };
         let res = null, turn = 1;
-        for (; turn <= 3 && !res; turn++) {
+        for (; turn <= K.BOSS_T && !res; turn++) {
           let first;
           if (P.has('運命の指輪') !== B.has('運命の指輪')) first = P.has('運命の指輪') ? P : B;
           else { const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1); first = Math.random() < wp / (wp + wb) ? P : B; }
@@ -2186,13 +2193,57 @@
           });
           [P, B].forEach(f => endTurn(f, () => {}));
           if (P.hp <= 0 || B.hp <= 0) res = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
-          else if (turn >= 3) res = P.hp / P.maxhp >= B.hp / B.maxhp ? 'win' : 'lose';
+          else if (turn >= K.BOSS_T) res = P.hp / P.maxhp >= B.hp / B.maxhp ? 'win' : 'lose';
         }
         if (res === 'win') win++;
         turns += turn - 1;
       }
     } finally { S.st = bak.st; S.type = bak.type; BT = bak.BT; K.BOSS_HP = bak.hp; }
     return { win: win / n, turns: turns / n };
+  }
+  // ---- テスト用：対戦（3問×5ターン）を 画面なしで くりかえす（MB.simVs。tools/vs_balance.py）----
+  // 2人とも simPlayer（いちばん強そうな手）。結果：A の勝率・決着の ターン・判定の わりあい
+  function simVs({ stA, stB, itemsA = [], itemsB = [], accA = 0.8, accB = 0.8, n = 1000, hp = null }) {
+    const bak = { BT, hp: K.VS_HP };
+    if (hp) K.VS_HP = hp;
+    const q = K.VS_Q, T = K.VS_T;
+    let win = 0, draw = 0, judge = 0; const ko = Array(T + 1).fill(0);
+    try {
+      for (let i = 0; i < n; i++) {
+        const mk = (st, its, nm) => makeFighter({ name: nm, st: { ...st }, items: typeof its === 'function' ? its(i) : its, skills: skillsOf(total(st)), long: 1 });
+        const P = mk(stA, itemsA, 'A'), B = mk(stB, itemsB, 'B');
+        P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
+        BT = { P, B, vs: true };
+        let res = null, turn = 1;
+        for (; turn <= T && !res; turn++) {
+          let first;
+          if (P.has('運命の指輪') !== B.has('運命の指輪')) first = P.has('運命の指輪') ? P : B;
+          else { const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1); first = Math.random() < wp / (wp + wb) ? P : B; }
+          const order = [first, first.opp], acts = {};
+          order.forEach((x, k) => {
+            if (x.skipNext) { x.skipNext = false; acts[x.side] = 'skip'; return; }
+            const fst = k === 0, acc = x === P ? accA : accB;
+            const a = simPlayer(x, x.opp, turn, fst, acts[x.opp.side]);
+            a.ans = Array.from({ length: q }, () => Math.random() < acc);
+            applyActStart(x, a, turn, fst);
+            const g = newGauge(); a.ans.forEach(o => gaugeStep(x, g, o));
+            a.mult = gaugeMult(x, g, q); a.s3 = g.s3; acts[x.side] = a;
+          });
+          order.forEach((x, k) => {
+            const y = x.opp, a = acts[x.side];
+            if (!a || a === 'skip' || x.hp <= 0 || y.hp <= 0) return;
+            const sk = D.SKILLS.find(z => z.n === a.sk);
+            x.ct[a.sk] = (['カウンター', 'パワーシュート', 'ふういん'].includes(a.sk) && x.has('ふしぎなウォッチ') ? 1 : sk.ct) + 1;
+            resolveAttack(x, y, a, turn, k === 0, { rnd: Math.random, cheer: false });
+          });
+          [P, B].forEach(f => endTurn(f, () => {}));
+          if (P.hp <= 0 || B.hp <= 0) { res = P.hp / P.maxhp > B.hp / B.maxhp ? 'P' : P.hp / P.maxhp < B.hp / B.maxhp ? 'B' : 'draw'; ko[turn]++; }
+          else if (turn >= T) { judge++; const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = Math.abs(rp - rb) < 1e-9 ? 'draw' : rp > rb ? 'P' : 'B'; }
+        }
+        if (res === 'P') win++; else if (res === 'draw') draw++;
+      }
+    } finally { BT = bak.BT; K.VS_HP = bak.hp; }
+    return { win: win / n, draw: draw / n, judge: judge / n, ko: ko.map(x => x / n) };
   }
   // アイテムを ダンジョンと同じように ひく（テスト用）
   // ダンジョン1回で 見つけるのは 6個くらい → レアなものを 4個のこす
@@ -2681,7 +2732,7 @@
   // =====================================================================
   // おためしバトル（CPU戦）：アイテムの組み合わせを ためす用
   // ・ほうびなし・回数制限なし・正誤は記録しない・とちゅうのセーブなし
-  // ・ボスは育成ダンジョンと同じ。1ターン5問×3ターン。持っているアイテムだけ。時間制限なし
+  // ・ボスは育成ダンジョンと同じ。1ターン3問×5ターン（10/13 変更）。持っているアイテムだけ。時間制限なし
   // =====================================================================
   const TRIAL_BOSS = BOSS5;
   let TR = null; // { boss, stg, items }
@@ -2715,7 +2766,7 @@
         const stg = TR.stg;
         const el = render(`<div class="scr center" style="gap:14px">
           <div class="big">🧪 おためしバトル</div>
-          <div class="sm dim">倒したことのあるボスと 何回でも戦えるよ。ほうびはないよ（1ターン${K.VS_Q}問×3ターン）</div>
+          <div class="sm dim">倒したことのあるボスと 何回でも戦えるよ。ほうびはないよ（1ターン${K.VS_Q}問×${K.VS_T}ターン）</div>
           <div class="row" id="sg">${[0, 1, 2].map(i => `<button data-g="${i}" class="${i === stg ? 'btn-main' : 'btn-gray'}" ${anyBeaten(i) ? '' : 'disabled'} style="font-size:20px;padding:8px 18px">ボスの強さ ${'★'.repeat(i + 1)}</button>`).join('')}</div>
           <div style="display:grid;grid-template-columns:repeat(5,232px);gap:10px" id="bs">${TRIAL_BOSS.map(b => {
             const bd = D.BOSSES[b];
@@ -2752,7 +2803,7 @@
     const card = (id, e, t, d) => `<button id="${id}" class="arena-b">${art(g2(A, 'emo', e), e)}<b>${t}</b><small>${d}</small></button>`;
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">⚔️ とうぎじょう</div>
-      <div class="sm">スタミナは つかわないよ。ほうびは ないけど、何回でも 戦えるよ（1ターン${K.VS_Q}問×3ターン）</div>
+      <div class="sm">スタミナは つかわないよ。ほうびは ないけど、何回でも 戦えるよ（1ターン${K.VS_Q}問×${K.VS_T}ターン）</div>
       <div class="row" style="gap:28px">${card('aT', '📖', 'おためしバトル', '倒したボスと れんしゅう試合')}${card('aG', '👻', 'QRゴーストと対戦', '友だちの QRを読みこんで、<br>友だちの モンスターと 戦う')}</div>
       <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, '', 'arena');
     $('#aT', el).onclick = () => trialMode();
@@ -2933,7 +2984,7 @@
   async function vsTurn() {
     const { P, B } = BT, turn = BT.turn;
     hideGauges();
-    $('#turn').textContent = `🆚 ターン ${turn} / 3`;
+    $('#turn').textContent = `🆚 ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
     if (!BT.firstId) {
       const right = await roulette(P, B);
@@ -2959,9 +3010,9 @@
     if (P.hp <= 0 || B.hp <= 0) {
       if (P.hp <= 0 && B.hp <= 0) { const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp === rb ? 'draw' : rp > rb ? 'P' : 'B'; }
       else res = B.hp <= 0 ? 'P' : 'B';
-    } else if (turn >= 3) {
+    } else if (turn >= lastT()) {
       const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = Math.abs(rp - rb) < 1e-9 ? 'draw' : rp > rb ? 'P' : 'B';
-      ev.push({ t: `⏱️ 3ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
+      ev.push({ t: `⏱️ ${lastT()}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
     }
     BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
     if (res) { BT.phase = 'end'; BT.result = res; }
@@ -3125,7 +3176,7 @@
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
   const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
-  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
+  window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simVs, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----
   const EMO_RE = /[\u{1F000}-\u{1FAFF}\u{2300}-\u{23FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}](?:\uFE0F|\u200D[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]\uFE0F?)*/gu;
