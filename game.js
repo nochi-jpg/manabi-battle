@@ -79,7 +79,8 @@
   // 雑魚：K.nom さんの 手描き（images/zako2）は なめらかに 表示（10/12）
   // ボス：K.nom さんの 手描き（images/boss2）。なめらかに・左向きのまま（反転しない。10/12）
   const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return withRim(/boss2\//.test(p || '') ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h, `b/${b}/${g}`); };
-  const artZako = e => { const h = art(g2(A, 'zako', e), e); return withRim(/zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', '<span class="art art-hd">') : h, `z/${e}`); };
+  const ZAKO_NF = new Set(['🫑']); // 文字が 入っている 雑魚は 反転しない（Pマンの P。10/14）
+  const artZako = e => { const h = art(g2(A, 'zako', e), e); return withRim(/zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', `<span class="art art-hd${ZAKO_NF.has(e) ? ' art-nf' : ''}">`) : h, `z/${e}`); };
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
   // 教科のアイコン（画像がなければ 絵文字）
@@ -327,8 +328,35 @@
     const it = D.ITEM[n]; const isNew = !S.owned.includes(n);
     // 名前が長いときは 文字を少し小さく。NEW は カードの右上に
     const len = [...n].length, sz = len >= 10 ? ' xl' : len >= 8 ? ' l' : '';
-    return `<div class="itemcard rr${it.r}">${isNew ? NEWB : ''}<div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}${sz}">${esc(n)}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
+    return `<div class="itemcard rr${it.r}">${isNew ? NEWB : ''}<div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}${sz}">${esc(n)}</div><div class="id">${linkTerms(it.d)}</div>${extra}</div>`;
   }
+  // ---- 用語（説明カードの 言葉に 下線 → タップで 説明。10/14 ver 2.0）----
+  const TERM_RE = new RegExp(D.TERMS.map(([r]) => `(${r})`).join('|'), 'g');
+  const ITEM_NAME_RE = new RegExp(D.ITEMS.map(it => it.n).sort((a, b) => b.length - a.length).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  function linkTerms(text) {
+    const keep = []; // アイテム名の 中の 言葉（もうどくビン の どく など）には 線を 引かない
+    let h = esc(text).replace(ITEM_NAME_RE, m => { keep.push(m); return `\u0001${keep.length - 1}\u0001`; });
+    h = h.replace(TERM_RE, (m, ...g) => { const k = g.findIndex(x => x !== undefined); let id = D.TERMS[k][1]; if (id === 'sk') id = 'sk:' + m; return `<span class="term" data-g="${esc(id)}">${m}</span>`; });
+    // 下線の 言葉は 前後の 1文字と いっしょに 改行しない（「ふういん」・30%でやけど などが 行の はしで 切れないように）
+    h = h.replace(/([^\s<>;\u0001])?(<span class="term"[^>]*>[^<]*<\/span>)([^\s<>&\u0001])?/g, (m, a, t, b) => `<span class="nw">${a || ''}${t}${b || ''}</span>`);
+    return h.replace(/\u0001(\d+)\u0001/g, (_, i) => keep[+i]);
+  }
+  const skillKnown = n => skillsOf(total(S ? S.st : {})).includes(n);
+  function skillHtml(n) {
+    const k = D.SKILLS.find(x => x.n === n); if (!k) return '';
+    if (S && !skillKnown(n)) return `<div class="glsk lock"><b>？？？</b><span>ステータスの ごうけい <b class="gold">${K.SKILL_LINE[n] || 0}</b> で おぼえる</span></div>`;
+    return `<div class="glsk"><b>${esc(n)}</b><span>${linkTerms(k.d)}${k.ct ? `（CT${k.ct}）` : ''}</span></div>`;
+  }
+  const glossText = g => (g.d === '__SKILLS__' ? `覚えた スキルを バトルで つかえる。ステータスの ごうけいが ふえると 新しい スキルを おぼえる（まだの ものは ？？？）。${D.SKILLS.map(k => skillHtml(k.n)).join('')}` : g.d);
+  function glossPop(id) {
+    let t, d;
+    if (id.startsWith('sk:')) { const n = id.slice(3); if (S && !skillKnown(n)) { t = '？？？'; d = `まだ おぼえていない スキル。ステータスの ごうけい <b class="gold">${K.SKILL_LINE[n] || 0}</b> で おぼえる`; } else { const k = D.SKILLS.find(x => x.n === n); t = n; d = `${linkTerms(k.d)}${k.ct ? `（CT${k.ct}）` : ''}`; } }
+    else { const g = D.GLOSS.find(x => x.id === id); if (!g) return; t = g.t; d = glossText(g); }
+    const o = overlay(`<div class="panel glpop"><div class="mid gold">📖 ${esc(t)}</div><div class="gld">${d}</div><div class="row" style="justify-content:center"><button class="btn-blue" id="gx">とじる</button></div></div>`, 'ovgl');
+    $('#gx', o).onclick = () => o.remove();
+  }
+  // 下線の 言葉を タップ：ボタンの中（スキルえらび など）でも ボタンは おさない
+  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('.term'); if (!t) return; e.stopPropagation(); e.preventDefault(); se('menu'); glossPop(t.dataset.g); }, true);
   function showItem(n) {
     return new Promise(res => {
       const o = overlay(`<div class="panel center">${itemCard(n)}<button class="btn-gray">とじる</button></div>`);
@@ -725,13 +753,15 @@
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
-      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
+      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sG" style="font-size:18px">📖 用語集</button><button class="btn-gray" id="sHi" style="font-size:18px">🕘 バージョン履歴</button><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
     o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); if (b.dataset.k === 'full' && b.dataset.v === 'off') fsExit(); o.remove(); home(); settings(); }));
     $('#cl', o).onclick = () => o.remove();
     $('#sT', o).onclick = () => { o.remove(); titlePage(); };
     $('#sB', o).onclick = () => { o.remove(); bgPage(); };
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
     $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
+    $('#sG', o).onclick = () => { o.remove(); glossPage(); };
+    $('#sHi', o).onclick = () => { o.remove(); historyPage(); };
     $('#sV', o).onclick = () => { o.remove(); volumePage(); };
     $('#sQ', o).onclick = () => { o.remove(); gradePage(); };
     $('#sH', o).onclick = () => { o.remove(); tutorial(['cycle', 'item', 'grow']).then(backToSettings); };
@@ -785,6 +815,24 @@
   }
 
   // ---- クレジット（使っている素材・フォント・ライブラリ）----
+  // ---- 用語集（10/14 ver 2.0）：左に 分類、右に その分類の 用語と 説明 ----
+  let glossCat = 0;
+  function glossPage() {
+    const c = D.GLOSS_CATS[glossCat];
+    const el = render(`
+      <div class="prog"><span class="mid">📖 用語集</span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">もどる</button></span></div>
+      <div class="glw"><div class="glc">${D.GLOSS_CATS.map((x, i) => `<button class="glcb${i === glossCat ? ' on' : ''}" data-i="${i}">${x}</button>`).join('')}</div>
+        <div class="panel gll">${D.GLOSS.filter(g => g.c === c).map(g => `<div class="gle"><div class="mid gold">${esc(g.t)}</div><div class="gld">${glossText(g)}</div></div>`).join('')}</div></div>`, 'res', 'library');
+    $('#bk', el).onclick = backToSettings;
+    el.querySelectorAll('.glcb').forEach(b => (b.onclick = () => { glossCat = +b.dataset.i; glossPage(); }));
+  }
+  // ---- バージョン履歴（10/14）----
+  function historyPage() {
+    const o = overlay(`<div class="panel" style="width:1000px;max-height:660px;display:flex;flex-direction:column">
+      <div class="row" style="justify-content:space-between"><span class="big">🕘 バージョン履歴</span><button class="btn-blue" id="cl">とじる</button></div>
+      <div style="overflow-y:auto;margin-top:8px"><table class="tt hist"><tr><th>バージョン</th><th>日付</th><th>内容</th></tr>${D.HISTORY.map(([v, d, t]) => `<tr><td>${esc(v)}</td><td>${esc(d)}</td><td style="text-align:left">${esc(t)}</td></tr>`).join('')}</table></div></div>`);
+    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
+  }
   function creditsPage() {
     const rows = list => list.map(([n, a, u, l]) => `<div class="crow"><div class="cn">${esc(n)}</div><div class="ca">${esc(a)}${l ? `<small>${esc(l)}</small>` : ''}</div><div class="cu">${esc(u)}</div></div>`).join('');
     const img = (A.credits || []).filter(c => c && c[0]);
@@ -1072,20 +1120,27 @@
   // =====================================================================
   // 並びかえ・所持のみ の 設定（この ブラウザだけ。QRには 入れない。10/13）
   const BOOK_KEY = 'manabi_battle_book';
-  const bookPref = () => { try { return { sort: 'eff', own: false, ...JSON.parse(localStorage.getItem(BOOK_KEY) || '{}') }; } catch (e) { return { sort: 'eff', own: false }; } };
+  const bookPref = () => { try { return { sort: 'eff', own: false, view: 'icon', ...JSON.parse(localStorage.getItem(BOOK_KEY) || '{}') }; } catch (e) { return { sort: 'eff', own: false, view: 'icon' }; } };
   const bookSet = p => { try { localStorage.setItem(BOOK_KEY, JSON.stringify(p)); } catch (e) {} };
   function itemBook(keepTop = 0) {
     const pf = bookPref();
     const cell = n => { const own = S.owned.includes(n); return `<div class="bk ${own ? '' : 'none'}${own && S.fav.includes(n) ? ' fav' : ''}" data-n="${esc(n)}" title="${own ? esc(n) : '？？？'}">${artItem(n)}</div>`; };
     const vis = list => (pf.own ? list.filter(n => S.owned.includes(n)) : list);
+    // リスト表示（10/14）：アイコン・名前・レア度・効果グループ・効果を 1行ずつ（持っていないものは ？？？）。おきにいりは アイコンのまま
+    const lrow = n => { const it = D.ITEM[n], own = S.owned.includes(n);
+      return `<tr class="bkl${own ? '' : ' none'}" data-n="${esc(n)}"><td>${cell(n)}</td><td class="bkl-n" style="color:${own ? RCOL[it.r] : '#64748b'}">${own ? esc(n) : '？？？'}</td><td class="bkl-r" style="color:${RCOL[it.r]}">${'★'.repeat(it.r)}</td><td class="bkl-g">${esc(it.g)}</td><td class="bkl-d">${own ? linkTerms(it.d) : '<span class="dim">？？？</span>'}</td></tr>`; };
+    const grid = l => (pf.view === 'list' ? `<table class="bkt">${l.map(lrow).join('')}</table>` : `<div class="bkrow">${l.map(cell).join('')}</div>`);
     let body;
-    if (pf.sort === 'new') body = `<div class="bkrow">${[...S.owned].reverse().filter(n => D.ITEM[n]).map(cell).join('') || '<span class="sm dim">まだ アイテムを 持っていないよ</span>'}</div>`; // 入手順：左上が いちばん 新しい（持っているものだけ）
-    else if (pf.sort === 'rare') body = `<div class="bkrow">${vis([...D.ITEMS].sort((x, y) => x.r - y.r || x.id - y.id).map(it => it.n)).map(cell).join('')}</div>`; // レア度順：上が 低レア。同じ レア度の 中は 効果順
-    else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div><div class="bkrow">${l.map(cell).join('')}</div>` : ''; }).join('');
+    if (pf.sort === 'new') body = `<div class="sm gold" style="margin-top:8px">入手順（上の方が最新）</div>${S.owned.length ? grid([...S.owned].reverse().filter(n => D.ITEM[n])) : '<div class="sm dim">まだ アイテムを 持っていないよ</div>'}`; // 入手順：左上が いちばん 新しい（持っているものだけ）
+    else if (pf.sort === 'rare') body = [1, 2, 3, 4, 5].map(r => { // レア度順：★ごとに 見出し（持っている数 / ぜんぶ）。同じ レア度の 中は 効果順
+      const all = D.ITEMS.filter(it => it.r === r).map(it => it.n), l = vis(all), have = all.filter(n => S.owned.includes(n)).length;
+      return `<div class="sm" style="margin-top:8px;color:${RCOL[r]};font-weight:800">${'★'.repeat(r)}　<span class="gold">${have} / ${all.length}</span></div>${l.length ? grid(l) : '<div class="sm dim">まだ 持っていないよ</div>'}`;
+    }).join('');
+    else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div>${grid(l)}` : ''; }).join('');
     const sb = (k, t) => `<button class="bks${pf.sort === k ? ' on' : ''}" data-s="${k}">${t}</button>`;
     const el = render(`
       <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span>
-        <span class="bkbar">${sb('eff', '効果順')}${sb('rare', 'レア度順')}${sb('new', '入手順')}<button class="bks bko${pf.own ? ' on' : ''}" id="own">所持アイテムのみ：${pf.own ? 'ON' : 'OFF'}</button></span>
+        <span class="bkbar"><span class="bkv"><button class="bks${pf.view === 'list' ? ' on' : ''}" data-v="list">リスト表示</button><button class="bks${pf.view === 'list' ? '' : ' on'}" data-v="icon">アイコン表示</button></span>${sb('eff', '効果順')}${sb('rare', 'レア度順')}${sb('new', '入手順')}<button class="bks bko${pf.own ? ' on' : ''}" id="own">所持アイテムのみ：${pf.own ? 'ON' : 'OFF'}</button></span>
         <span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
       <div class="panel bkp" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         <div class="mid" style="color:#f9a8d4">♡ おきにいり</div>
@@ -1096,6 +1151,7 @@
     $('#bk', el).onclick = () => home();
     el.querySelectorAll('.bks[data-s]').forEach(b => (b.onclick = () => { bookSet({ ...pf, sort: b.dataset.s }); itemBook(); }));
     $('#own', el).onclick = () => { bookSet({ ...pf, own: !pf.own }); itemBook(); };
+    el.querySelectorAll('.bks[data-v]').forEach(b => (b.onclick = () => { bookSet({ ...pf, view: b.dataset.v }); itemBook(); }));
     el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
       const n = c.dataset.n;
       if (!S.owned.includes(n)) { dialog({ who: '❓', text: '？？？\nまだ 持っていない アイテム' }); return; }
@@ -1312,13 +1368,14 @@
     const rows = D.SKILLS.map(k => {
       const line = K.SKILL_LINE[k.n] || 0, has = sk.includes(k.n);
       return `<div class="skrow ${has ? '' : 'lock'}"><span class="mid">${has ? '✅' : '🔒'} ${esc(k.n)}</span>
-        <span class="sm">${has ? esc(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
+        <span class="sm">${has ? linkTerms(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
     }).join('');
-    const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;overflow-y:auto">
+    const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;display:flex;flex-direction:column">
       <div class="row" style="justify-content:space-between"><span class="big" style="white-space:nowrap">📈 せいちょう・スキル</span><span class="row" style="gap:8px;margin-left:auto;margin-right:8px">${S.bonusPt ? `<button class="btn-purple gbt" id="gbp">ボーナス ${S.bonusPt} を ふる</button>` : ''}<button class="btn-blue gbt" id="gnm">✏️ 名前をかえる</button><button class="btn-blue gbt" id="gtt">🏷️ 称号をかえる</button></span><button class="btn-gray gbt" id="cl">とじる</button></div>
+      <div style="overflow-y:auto;margin-top:6px;padding-right:6px">
       <div class="panel" style="margin:8px 0">${evo}${sei}</div>
       <div class="mid" style="margin:6px 0">スキル <span class="gold">${sk.length} / ${D.SKILLS.length}</span></div>
-      <div class="sklist">${rows}</div></div>`);
+      <div class="sklist">${rows}</div></div></div>`); // 10/14：上の ボタンは スクロールしない（スクロールバーと かさならない）
     $('#cl', o).onclick = () => o.remove();
     const gb = $('#gbp', o); if (gb) gb.onclick = () => { o.remove(); bonusAlloc().then(() => { home(); growthPanel(); }); };
     const backG = () => { home(); growthPanel(); }; // せいちょう・スキル から 名前・称号を かえる（10/13）
@@ -1676,8 +1733,9 @@
         const sw = await once('swap', async () => {
           const n = await chooseItem(`${artUi('mirror', '🪞')} ふしぎな鏡に、アイテムがうつっている。\n1つを、同じレア度のべつのアイテムに交換できる`, R.hand, { labels: R.hand.map(() => '交換する'), skip: '交換しない' });
           if (!n) return null;
-          const m = drawItem(R.rnd, { rarity: D.ITEM[n].r, hand: R.hand, exclude: [n] });
-          if (!m) return null;
+          let m = null; // 交換先は かならず 元の アイテム・手持ちと ちがうもの（10/14）
+          for (let k = 0; k < 8 && (!m || m === n || R.hand.includes(m)); k++) m = drawItem(R.rnd, { rarity: D.ITEM[n].r, hand: R.hand, exclude: [n] });
+          if (!m || m === n || R.hand.includes(m)) return null;
           R.hand = R.hand.map(x => (x === n ? m : x)); return [n, m];
         });
         drawHand();
@@ -2092,7 +2150,7 @@
         <div class="skgrid">${P.skills.map(k => {
           const s = D.SKILLS.find(x => x.n === k); const ct = P.ct[k] > 0 ? P.ct[k] : 0;
           const dis = !av.s.includes(k);
-          return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${esc(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
+          return `<button class="skb" data-k="${k}" ${dis ? 'disabled' : ''}><span class="skh">${g2(A, 'skill', k) ? `<span class="skic">${art(g2(A, 'skill', k), '')}</span>` : ''}<b>${esc(k)}</b>${ct ? `<span class="skct">あと${ct}ターン</span>` : ''}</span><span class="skd">${linkTerms(s.d)}${s.ct ? `／CT${s.ct}` : ''}</span></button>`;
         }).join('')}</div></div>`, 'ovb');
       o.querySelectorAll('button').forEach(b => (b.onclick = async () => {
         if (b.dataset.pass) { // こうさん（対戦・とうぎじょう だけ。10/7）
@@ -2653,6 +2711,7 @@
       <div class="msg panel" id="msg" style="width:1232px"></div>
       <div class="subjbar" id="subj"></div>`, 'dun');
     const left = () => queue.length + retry.length;
+    let first = true; // 10/14：「挑戦する」は さいしょの 1回だけ。あとは 自動で 次の 問題へ（テンポ よく）
     while (true) {
       let id = null;
       const ri = retry.findIndex(r => r.wait <= 0);
@@ -2663,12 +2722,12 @@
       $('#foe').innerHTML = artZako(stage === 3 ? '🍚' : '👻'); $('#foe').className = 'foe fadein';
       $('#foelbl').textContent = stage === 3 ? 'あと1回（正解で卒業）' : '復習まち';
       msg(`<span class="gold">${q.s}</span>の ${stage === 3 ? 'あと1回の問題' : '復習まちの問題'}が あらわれた！ のこり <b>${left() + 1}</b> 問<br>解いた問題に もう一度 挑戦して、しっかり おぼえよう！`);
-      // いきなり 問題を出さずに、ボタンを おしてから（ダンジョンと同じ ながれ）
-      const go1 = await new Promise(res => {
+      // さいしょだけ ボタンを おしてから（のこり○問 → 挑戦する）
+      const go1 = !first || await new Promise(res => {
         $('#subj').innerHTML = `<button class="btn-main" id="rgo">${subjIc(q.s)} 問題に ちょうせん！</button><button class="btn-gray" id="rbk">🏠 ホームへ</button>`;
         $('#rgo').onclick = () => res(true); $('#rbk').onclick = () => res(false);
       });
-      $('#subj').innerHTML = '';
+      $('#subj').innerHTML = ''; first = false;
       if (!go1) { queue.unshift(id); break; }
       let out = null;
       const r = await ask(q, {
@@ -2693,14 +2752,9 @@
         if (out.c) setTimeout(() => floatAt(860, 240, `🪙+${out.c}`, '#ffd54a'), T(300));
         msg(out.grad ? `🎓 卒業！ この問題は もう だいじょうぶ！ ${q.s} +${out.gain}` : `⭕ 正解！ ${q.s} +${out.gain}<br><span class="sm">あと1回 正解すると 卒業だよ（あした以降に また出るよ）</span>`);
       } else msg(`💨 にげられた… ${queue.length + retry.length > 1 ? 'ほかの問題のあとで、もう一度出るよ' : 'また あとで 挑戦しよう'}`);
-      await wait(900);
+      await wait(500);
       if (!left()) break;
-      const go = await new Promise(res => {
-        $('#subj').innerHTML = `<button class="btn-main" id="nx">つぎの問題へ</button><button class="btn-gray" id="hm">🏠 ホームへ</button>`;
-        $('#nx').onclick = () => res(true); $('#hm').onclick = () => res(false);
-      });
-      $('#subj').innerHTML = '';
-      if (!go) break;
+      await cutin(`のこり <span class="gold">${left()}</span>問！`, 500, false); // 0.5秒だけ → 自動で 次へ（やめるときは 問題の「ホームへ」）
     }
     if (!left() && retry.length === 0) msg('📕 いまできる復習は ぜんぶおわった！');
     await dialog({ who: '📕', text: `きょうの復習\n⭕ ${okN}問　❌ ${ngN}問${dueList().length ? `\nまだ ${dueList().length}問 まっているよ` : ''}` });
@@ -2857,11 +2911,12 @@
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) c.fillRect((x + q) * cell, (y + q) * cell, cell, cell);
     return n;
   }
-  function qrScreen() {
-    // 10/13：スクショで 共有するので、だれの いつの データか わかるように（上：名前・左：モンスター・右：QR・下：日時）
+  // QRの 画面（10/13：スクショで 共有するので、だれの いつの データか わかるように。上：名前・左：モンスター・右：QR・下：日時）
+  // ホーム →「QRコード」と、対戦の「自分のQRコードを表示」で 同じ 画面（10/14）
+  function qrHtml(bk) {
     const t = total(S.st), d = new Date(), z = n => String(n).padStart(2, '0');
     const when = `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
-    const el = render(`<div class="scr qrs">
+    return `<div class="scr qrs">
       <div class="qrs-h">${esc(S.pname)} の データ</div>
       <div class="qrs-b">
         <div class="qrs-l panel">
@@ -2869,11 +2924,14 @@
           <div class="qrs-nm">${esc(S.cname)}<span class="sm dim">（${S.type}タイプ）</span></div>
           <div class="qrs-st">${SUBJ.map(s => `<span class="sbn">${subjIc(s)}${s}</span><b>${S.st[s]}</b>`).join('')}<span class="sbn">ごうけい</span><b>${t}</b></div>
         </div>
-        <canvas id="qrc" class="qrs-qr"></canvas>
+        <canvas class="qrs-qr"></canvas>
       </div>
       <div class="qrs-f"><span class="qrs-t">${when} の データ</span><span class="xs dim">対戦のときは、このQRを 相手のカメラに 見せてね（あそぶたびに 変わるよ）</span></div>
-      <button class="btn-gray qrs-bk" id="bk">🏠 ホームへ</button></div>`, 'res');
-    drawQR($('#qrc', el), qrBytes());
+      ${bk}</div>`;
+  }
+  function qrScreen() {
+    const el = render(qrHtml('<button class="btn-gray qrs-bk" id="bk">🏠 ホームへ</button>'), 'res');
+    drawQR($('.qrs-qr', el), qrBytes());
     $('#bk', el).onclick = () => home();
   }
   // QRを読みこむ（カメラ。だめなら画像ファイルから）→ 中身をかえす（やめたら null）
@@ -2901,12 +2959,9 @@
       const mq = $('#mq', o);
       if (mq) mq.onclick = () => { // 相手に 自分のQRを 見せる（そのあいだ 読みこみは 止める）
         pause = true;
-        const q = overlay(`<div class="panel center" style="gap:8px;width:640px;padding:22px 30px 26px">
-          <div class="mid">${esc(S.pname)}さんの QRコード</div>
-          <canvas id="qrm" style="background:#fff;border-radius:8px;width:440px;height:440px;image-rendering:pixelated"></canvas>
-          <div class="sm">相手のカメラに 見せてね</div>
-          <button class="btn-blue" id="qx" style="font-size:22px">読みこみに もどる</button></div>`);
-        drawQR($('#qrm', q), qrBytes());
+        const q = overlay(qrHtml('<button class="btn-blue qrs-bk" id="qx">📷 読みこみに もどる</button>'), 'ovqr');
+        const qb = g2(A, 'bg', BG.res); if (qb) q.style.background = `linear-gradient(rgba(8,10,24,.35),rgba(8,10,24,.5)), url("${qb}") center/cover`;
+        drawQR($('.qrs-qr', q), qrBytes());
         $('#qx', q).onclick = () => { q.remove(); pause = false; };
       };
       $('#fi', o).onchange = e => {

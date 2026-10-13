@@ -38,7 +38,7 @@ with sync_playwright() as p:
 
     # Bの QR画面の画像 → Aの端末で 画像ファイルから読みこみ（Aは この端末の人なので 読みこまない）
     B.click('#b4'); B.wait_for_timeout(200)
-    data = B.evaluate("document.querySelector('#qrc').toDataURL('image/png')")
+    data = B.evaluate("document.querySelector('.qrs-qr').toDataURL('image/png')")
     import base64; TMP.write_bytes(base64.b64decode(data.split(',')[1]))
     B.click('#bk'); B.wait_for_timeout(100)
 

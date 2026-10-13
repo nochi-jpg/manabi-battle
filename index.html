@@ -350,7 +350,7 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .chara .emo .art img,.fighter .emo .art img,.field .me .art img,.field .foe .art img{animation:bob 1.6s ease-in-out infinite;filter:drop-shadow(0 10px 6px rgba(0,0,0,.45))}
 /* 素材の絵は ぜんぶ右向きにそろえてある → 右側にいるもの（ボス・雑魚・対戦のプレイヤーB）は反転して 左向きに */
 #fB .emo .art,.field .foe .art{display:inline-block;transform:scaleX(-1)}
-#fB .emo .art.art-nf{transform:none} /* 手描きの ボスは もとから 左向き（文字も あるので 反転しない） */
+#fB .emo .art.art-nf,.field .foe .art.art-nf,.rl-side.b .rl-art .art.art-nf,.vi-side.b .vi-art .art.art-nf{transform:none} /* 手描きの ボスは もとから 左向き（文字も あるので 反転しない） */
 .fighter.hit .art img{animation:none}
 /* ガチャ */
 .magic{width:260px;height:260px;border-radius:50%;border:6px dashed var(--c,#a78bfa);box-shadow:0 0 30px var(--c,#a78bfa),inset 0 0 40px var(--c,#a78bfa);opacity:.85}
@@ -471,13 +471,15 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 @keyframes aura5{from{box-shadow:0 0 12px 3px rgba(168,85,247,.6),0 0 28px 8px rgba(168,85,247,.35)}to{box-shadow:0 0 22px 8px rgba(168,85,247,.95),0 0 48px 18px rgba(168,85,247,.55)}}
 /* ガチャの 演出（10/13） */
 .ov.ovgx{background:rgba(6,8,24,.88)}
+.ov.ovqr{background:linear-gradient(#1e3a8a,#0f172a);z-index:60}
 .gx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .gx-ring{position:absolute;width:440px;height:440px;transform:scale(0);opacity:0}
 .gx-ring img,.gx-ring .magic{width:100%;height:100%}
-.gx.go .gx-ring{animation:gxIn .55s cubic-bezier(.2,1.6,.4,1) forwards,gxRot 2.4s linear .55s infinite,gxGlow .9s ease-in-out .55s infinite alternate}
+.gx.go .gx-ring{animation:gxIn .55s cubic-bezier(.2,1.6,.4,1) forwards,gxRot .8s linear .55s infinite,gxGlow var(--d,2.5s) linear forwards}
 @keyframes gxIn{0%{transform:scale(0) rotate(-120deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
 @keyframes gxRot{from{transform:scale(1) rotate(0)}to{transform:scale(1) rotate(360deg)}}
-@keyframes gxGlow{from{filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 14px var(--c)) brightness(1.1)}to{filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 28px var(--c)) drop-shadow(0 0 50px var(--c)) brightness(1.35)}}
+/* 10/14：暗い → 明るい へ 一定の はやさで（明るくなったり 暗くなったり しない） */
+@keyframes gxGlow{from{filter:brightness(.35) drop-shadow(0 0 2px var(--c))}to{filter:brightness(1.6) drop-shadow(0 0 8px #fff) drop-shadow(0 0 30px var(--c)) drop-shadow(0 0 60px var(--c))}}
 .gx-spark{position:absolute;left:50%;top:50%;width:0;height:0}
 .gx-spark i{position:absolute;width:14px;height:14px;margin:-7px;border-radius:50%;background:radial-gradient(#fff,var(--c) 60%,transparent 70%);opacity:0;animation-name:gxSp;animation-timing-function:ease-in;animation-fill-mode:forwards}
 .gx-spark i::before,.gx-spark i::after{content:'';position:absolute;left:50%;top:50%;width:26px;height:3px;margin:-1.5px -13px;background:#fff;border-radius:2px}
@@ -503,7 +505,29 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .bks.on{background:#0ea5e9;color:#fff;border-color:#0369a1}
 .bko{min-width:230px;justify-content:center}.bko.on{background:#ec4899;border-color:#9d174d}
 .prog .bkbar + .coin{margin-left:0}
+.prog .bkbar{gap:6px}.prog .bkbar .bks{font-size:16px;padding:0 11px}.prog .bkbar .bko{min-width:196px}.bkv{display:flex;margin-right:6px}.bkv .bks{padding:0 12px}.bkv .bks:first-child{border-radius:999px 0 0 999px;border-right-width:1px}.bkv .bks:last-child{border-radius:0 999px 999px 0;border-left-width:1px}
+.bkt{width:100%;border-collapse:collapse;margin:4px 0 6px;font-size:17px}
+.bkt tr{border-bottom:1px solid rgba(255,255,255,.12)}.bkt td{padding:4px 8px;vertical-align:middle}
+.bkt td:first-child{width:56px;padding-left:4px}.bkt .bk{width:52px;height:52px}.bkt .bk .art img{width:44px!important;height:44px!important}.bkt tr.none{opacity:.75}.bkt .bkl-n{width:200px;font-weight:800;font-size:19px}.bkt .bkl-r{width:84px;white-space:nowrap;font-size:16px}.bkt .bkl-g{width:250px;white-space:nowrap;color:#a16207;font-size:15px;font-weight:700}.bkt .bkl-d{line-height:1.35}
 .bk.fav{box-shadow:0 0 0 3px #f472b6,0 0 10px 2px rgba(244,114,182,.7);border-radius:12px}
+
+/* 用語（10/14 ver 2.0）：下線の 言葉・説明の ポップ・用語集・バージョン履歴 */
+.nw{white-space:nowrap}
+.term{color:#2563eb;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;cursor:pointer;font-weight:700}
+.itemcard .term,.skb .term{color:#7dd3fc}
+.ov.ovgl{z-index:80}
+.glpop{width:760px;display:flex;flex-direction:column;gap:12px}
+.gld{font-size:20px;line-height:1.75;text-align:left}
+.glol{margin:6px 0 6px 1.4em;padding:0}
+.glsk{display:flex;gap:14px;align-items:baseline;padding:6px 10px;margin-top:6px;border-radius:10px;background:rgba(14,165,233,.1)}
+.glsk b{min-width:160px}.glsk.lock{opacity:.7}
+.glw{position:absolute;top:70px;left:24px;right:24px;bottom:20px;display:flex;gap:14px}
+.glc{display:flex;flex-direction:column;gap:8px;width:220px;flex:none}
+.glcb{height:56px;box-sizing:border-box;font-size:20px;font-weight:800;border-radius:14px;background:rgba(255,255,255,.92);color:#1e293b;border:2px solid #94a3b8}
+.glcb.on{background:#0ea5e9;color:#fff;border-color:#0369a1}
+.gll{flex:1;overflow-y:auto}
+.gle{padding:10px 4px;border-bottom:1px dashed rgba(100,116,139,.4)}
+.hist td,.hist th{font-size:18px;padding:6px 10px;white-space:nowrap}.hist td:last-child{white-space:normal}
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">

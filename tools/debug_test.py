@@ -19,7 +19,7 @@ def kid(b, pn, acc):
     for _ in range(4000):
         if pg.query_selector('#dun') and not pg.query_selector('.ov'): break
         pg.evaluate(BOT, acc); pg.wait_for_timeout(25)
-    return pg.evaluate("({ bytes: MB.qrBytes(), st: MB.S.st, n: Object.keys(MB.S.qs).length, miss: Object.keys(MB.S.miss).length })")
+    return pg.evaluate("({ bytes: MB.qrBytes(), st: MB.S.st, n: Object.keys(MB.S.qs).length, miss: Object.values(MB.S.qs).filter(v => v === 2).length })")  # 10/14：正答率＝いま 復習まちで ない 割合
 
 with sync_playwright() as p:
     b = p.chromium.launch()
