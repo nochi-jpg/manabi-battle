@@ -40,14 +40,14 @@ def data_uri(rel):
     elif CANVA and p.suffix.lower() in ('.jpg', '.jpeg'):  # 背景は WebP に（同じくらいの見た目で 半分）
         from PIL import Image
         q = TMP / (p.stem + '_' + str(abs(hash(rel))) + '.webp')
-        if not q.exists(): Image.open(p).convert('RGB').save(q, quality=75, method=6)
+        if not q.exists(): Image.open(p).convert('RGB').save(q, quality=62, method=6)  # 10/13：75→62（Canva版 10MB）
         p = q
     elif CANVA and p.suffix.lower() == '.png':  # PNG も WebP に（10/12。小さくなるときだけ）。手描きの 大きな絵は 見た目が かわらない程度に 圧縮、ドット絵などは ロスレス
         from PIL import Image
         q = TMP / (p.stem + '_' + str(abs(hash(rel))) + '.webp')
         if not q.exists():
             im = Image.open(p).convert('RGBA')
-            if re.match(r'images/(boss2|zako2|player|npc/kokuusa)', rel): im.save(q, quality=85, alpha_quality=90, method=6)
+            if re.match(r'images/(boss2|zako2|player|npc/kokuusa|ui/magic)', rel): im.save(q, quality=82, alpha_quality=85, method=6)
             else: im.save(q, lossless=True, method=6)
         if q.stat().st_size < p.stat().st_size: p = q
     return f'data:{MIME[p.suffix.lower()]};base64,' + base64.b64encode(p.read_bytes()).decode()
