@@ -1128,15 +1128,17 @@
     const vis = list => (pf.own ? list.filter(n => S.owned.includes(n)) : list);
     // リスト表示（10/14）：アイコン・名前・レア度・効果グループ・効果を 1行ずつ（持っていないものは ？？？）。おきにいりは アイコンのまま
     const lrow = n => { const it = D.ITEM[n], own = S.owned.includes(n);
-      return `<tr class="bkl${own ? '' : ' none'}" data-n="${esc(n)}"><td>${cell(n)}</td><td class="bkl-n" style="color:${own ? RCOL[it.r] : '#64748b'}">${own ? esc(n) : '？？？'}</td><td class="bkl-r" style="color:${RCOL[it.r]}">${'★'.repeat(it.r)}</td><td class="bkl-g">${esc(it.g)}</td><td class="bkl-d">${own ? linkTerms(it.d) : '<span class="dim">？？？</span>'}</td></tr>`; };
+      return `<tr class="bkl${own ? '' : ' none'}" data-n="${esc(n)}"><td>${cell(n)}</td><td class="bkl-n">${own ? esc(n) : '？？？'}</td><td class="bkl-r" style="color:${RCOL[it.r]}">${'★'.repeat(it.r)}</td><td class="bkl-g">${esc(it.g)}</td><td class="bkl-d">${own ? linkTerms(it.d) : '<span class="dim">？？？</span>'}</td></tr>`; };
     const grid = l => (pf.view === 'list' ? `<table class="bkt">${l.map(lrow).join('')}</table>` : `<div class="bkrow">${l.map(cell).join('')}</div>`);
+    // 見出し：リスト表示は「■ 〜」で 大きく（アイテム名と 見分けやすく。10/14）
+    const hd = (t, st = '') => (pf.view === 'list' ? `<div class="bkh" style="${st}">■ ${t}</div>` : `<div class="sm gold" style="margin-top:8px;${st}">${t}</div>`);
     let body;
-    if (pf.sort === 'new') body = `<div class="sm gold" style="margin-top:8px">入手順（上の方が最新）</div>${S.owned.length ? grid([...S.owned].reverse().filter(n => D.ITEM[n])) : '<div class="sm dim">まだ アイテムを 持っていないよ</div>'}`; // 入手順：左上が いちばん 新しい（持っているものだけ）
+    if (pf.sort === 'new') body = `${hd('入手順（上の方が最新）')}${S.owned.length ? grid([...S.owned].reverse().filter(n => D.ITEM[n])) : '<div class="sm dim">まだ アイテムを 持っていないよ</div>'}`; // 入手順：左上が いちばん 新しい（持っているものだけ）
     else if (pf.sort === 'rare') body = [1, 2, 3, 4, 5].map(r => { // レア度順：★ごとに 見出し（持っている数 / ぜんぶ）。同じ レア度の 中は 効果順
       const all = D.ITEMS.filter(it => it.r === r).map(it => it.n), l = vis(all), have = all.filter(n => S.owned.includes(n)).length;
-      return `<div class="sm" style="margin-top:8px;color:${RCOL[r]};font-weight:800">${'★'.repeat(r)}　<span class="gold">${have} / ${all.length}</span></div>${l.length ? grid(l) : '<div class="sm dim">まだ 持っていないよ</div>'}`;
+      return `${hd(`${'★'.repeat(r)}　<span class="gold">${have} / ${all.length}</span>`, `color:${RCOL[r]};font-weight:800`)}${l.length ? grid(l) : '<div class="sm dim">まだ 持っていないよ</div>'}`;
     }).join('');
-    else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div>${grid(l)}` : ''; }).join('');
+    else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `${hd(esc(g.n))}${grid(l)}` : ''; }).join('');
     const sb = (k, t) => `<button class="bks${pf.sort === k ? ' on' : ''}" data-s="${k}">${t}</button>`;
     const el = render(`
       <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span>
