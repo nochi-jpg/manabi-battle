@@ -443,6 +443,67 @@ input{font-family:var(--f);font-size:28px;padding:8px 12px;border-radius:10px;bo
 .itrow .it.fx{animation:itfx .9s ease-out}
 .itrow .it.off{filter:grayscale(1) brightness(.45);opacity:.7}
 @keyframes itfx{0%{transform:scale(1);filter:drop-shadow(0 0 0 #fde047)}30%{transform:scale(1.45);filter:drop-shadow(0 0 14px #fde047)}100%{transform:scale(1);filter:none}}
+
+/* QR画面（10/13）：上 名前・左 モンスターと ステータス・右 QR・下 日時 */
+.scr.qrs{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.qrs-h{font-size:36px;font-weight:900;background:rgba(255,255,255,.95);color:#1e293b;border-radius:999px;padding:6px 36px;line-height:1.2}
+.qrs-b{display:flex;align-items:center;gap:28px}
+.qrs-l{width:380px;height:480px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.qrs-mon{font-size:200px;line-height:1;height:230px;display:flex;align-items:flex-end}
+.qrs-nm{font-size:26px;font-weight:800}
+.qrs-st{display:grid;grid-template-columns:auto 80px auto 80px;gap:6px 10px;align-items:center;font-size:20px}
+.qrs-st b{text-align:right}
+.qrs-qr{width:480px;height:480px;background:#fff;border-radius:10px;image-rendering:pixelated}
+.qrs-f{display:flex;flex-direction:column;align-items:center;gap:2px}
+.qrs-t{font-size:24px;font-weight:800;background:rgba(255,255,255,.95);color:#1e293b;border-radius:999px;padding:2px 24px}
+.qrs-bk{position:absolute !important;right:24px;top:18px;font-size:20px}
+
+/* アイテムカード：レア度で 枠の色（10/13）。文字は こい 紺の 上に 明るい色で 読みやすく。★4 ピンク・★5 紫の オーラ */
+.itemcard[class*=" rr"]{border-image:none !important;border:4px solid var(--rc) !important;border-radius:16px !important;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--rc) 55%,#141a3a) 0,color-mix(in srgb,var(--rc) 30%,#141a3a) 38%,#141a3a 39%,#141a3a 100%) !important;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),0 6px 12px rgba(5,10,40,.35)}
+.itemcard.rr1{--rc:#3b82f6;--rt:#9cc8ff}.itemcard.rr2{--rc:#22c55e;--rt:#8ff0b0}.itemcard.rr3{--rc:#f97316;--rt:#ffc08a}.itemcard.rr4{--rc:#ec4899;--rt:#ffa6d6}.itemcard.rr5{--rc:#a855f7;--rt:#d9b3ff}
+.itemcard[class*=" rr"] .in,:is(.panel:not(.blog):not(.msg)) .itemcard[class*=" rr"] .in{color:var(--rt) !important}
+.itemcard[class*=" rr"] .ir{color:#ffd84a}
+.itemcard.rr4{animation:aura4 1.6s ease-in-out infinite alternate}
+.itemcard.rr5{animation:aura5 1.4s ease-in-out infinite alternate}
+@keyframes aura4{from{box-shadow:0 0 10px 2px rgba(236,72,153,.55),0 0 24px 6px rgba(236,72,153,.3)}to{box-shadow:0 0 18px 6px rgba(236,72,153,.85),0 0 40px 14px rgba(236,72,153,.45)}}
+@keyframes aura5{from{box-shadow:0 0 12px 3px rgba(168,85,247,.6),0 0 28px 8px rgba(168,85,247,.35)}to{box-shadow:0 0 22px 8px rgba(168,85,247,.95),0 0 48px 18px rgba(168,85,247,.55)}}
+/* ガチャの 演出（10/13） */
+.ov.ovgx{background:rgba(6,8,24,.88)}
+.gx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.gx-ring{position:absolute;width:440px;height:440px;transform:scale(0);opacity:0}
+.gx-ring img,.gx-ring .magic{width:100%;height:100%}
+.gx.go .gx-ring{animation:gxIn .55s cubic-bezier(.2,1.6,.4,1) forwards,gxRot 2.4s linear .55s infinite,gxGlow .9s ease-in-out .55s infinite alternate}
+@keyframes gxIn{0%{transform:scale(0) rotate(-120deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes gxRot{from{transform:scale(1) rotate(0)}to{transform:scale(1) rotate(360deg)}}
+@keyframes gxGlow{from{filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 14px var(--c)) brightness(1.1)}to{filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 28px var(--c)) drop-shadow(0 0 50px var(--c)) brightness(1.35)}}
+.gx-spark{position:absolute;left:50%;top:50%;width:0;height:0}
+.gx-spark i{position:absolute;width:14px;height:14px;margin:-7px;border-radius:50%;background:radial-gradient(#fff,var(--c) 60%,transparent 70%);opacity:0;animation-name:gxSp;animation-timing-function:ease-in;animation-fill-mode:forwards}
+.gx-spark i::before,.gx-spark i::after{content:'';position:absolute;left:50%;top:50%;width:26px;height:3px;margin:-1.5px -13px;background:#fff;border-radius:2px}
+.gx-spark i::after{transform:rotate(90deg)}
+@keyframes gxSp{0%{transform:translate(var(--x),var(--y)) scale(1.4);opacity:0}15%{opacity:1}100%{transform:translate(0,0) scale(.3);opacity:0}}
+.gx-flash{position:absolute;inset:0;background:radial-gradient(circle,#fff 0,var(--c) 40%,transparent 70%);opacity:0;pointer-events:none}
+.gx.bang .gx-flash{animation:gxFl .6s ease-out}
+@keyframes gxFl{0%{opacity:0;transform:scale(.2)}20%{opacity:1}100%{opacity:0;transform:scale(2.2)}}
+.gx-res{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:2}
+.gx.bang .gx-res{animation:gxBang .45s cubic-bezier(.2,1.8,.4,1)}
+@keyframes gxBang{0%{transform:scale(2.2);opacity:0}60%{transform:scale(.92);opacity:1}100%{transform:scale(1)}}
+.gx-star{font-size:34px;font-weight:900;color:#fff;text-shadow:0 0 12px var(--c),0 2px 0 rgba(0,0,0,.5)}
+.gx-card .itemcard{width:400px}
+.gx-dup{display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(255,255,255,.95);color:#1e293b;border-radius:16px;padding:8px 28px}
+.gx-bonus{font-size:30px;font-weight:900}.gx-bonus b{color:#e11d48;font-size:38px}
+.gx-skip{position:absolute;bottom:24px;color:#fff;opacity:.8}
+
+/* せいちょう・スキルの 上の ボタン（同じ 高さ）*/
+.gbt{height:44px;box-sizing:border-box;font-size:16px !important;padding:0 14px !important;display:inline-flex;align-items:center;white-space:nowrap}
+/* もちもの：並びかえ・所持のみ（10/13）。ボタンは 同じ 高さ・大きさ */
+.bkbar{display:flex;gap:8px;margin-left:auto;margin-right:12px}
+.bks{height:40px;box-sizing:border-box;font-size:18px;padding:0 16px;border-radius:999px;background:rgba(255,255,255,.9);color:#1e293b;border:2px solid #94a3b8;display:flex;align-items:center;font-weight:700;white-space:nowrap}
+.bks.on{background:#0ea5e9;color:#fff;border-color:#0369a1}
+.bko{min-width:230px;justify-content:center}.bko.on{background:#ec4899;border-color:#9d174d}
+.prog .bkbar + .coin{margin-left:0}
+.bk.fav{box-shadow:0 0 0 3px #f472b6,0 0 10px 2px rgba(244,114,182,.7);border-radius:12px}
 </style>
 <!-- UIの見た目（非公開の素材リポジトリ。なければ ふつうの見た目）-->
 <link rel="stylesheet" href="assets.local.css">

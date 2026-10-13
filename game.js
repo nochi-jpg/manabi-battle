@@ -70,14 +70,16 @@
   // p：せいかく・すがたの記録をもつもの（ふつうは S。対戦では QR の中身）
   // 第1段階を なめらか表示にする しかけ（.art-hd）。10/5 から 第1段階も ドット（手描きを pixel-refiner）なので つかわない
   // 主人公の絵：単細胞（第0段階）・第1・第2段階は K.nom さんの なめらかな手描き（10/8）。第3・第4段階は まだ ドット絵（仮）
-  const SMOOTH_G = new Set([0, 1, 2]);
+  const SMOOTH_G = new Set([0, 1, 2, 3]); // 10/13：第3段階（最終進化）も 手描き
   const handArt = (html, g) => (SMOOTH_G.has(g) ? html.replace('<span class="art">', '<span class="art art-hd">') : html);
-  const artPlayer = (type, t, p = S) => handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t, p)), lookOf(type, t, p)), lookStage(t, p));
+  // 戦闘の ふちの色：キャラの いちばん目立つ色（assets の rim。10/13）
+  const withRim = (h, k) => { const c = (A.rim || {})[k]; return c ? h.replace('<span class="art', `<span style="--rim:${c[0]};--rimD:${c[1]}" class="art`) : h; };
+  const artPlayer = (type, t, p = S) => withRim(handArt(art(g2(A, 'player', type, styleFor(p, t), lookStage(t, p)), lookOf(type, t, p)), lookStage(t, p)), `p/${type}/${styleFor(p, t)}/${lookStage(t, p)}`);
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   // 雑魚：K.nom さんの 手描き（images/zako2）は なめらかに 表示（10/12）
   // ボス：K.nom さんの 手描き（images/boss2）。なめらかに・左向きのまま（反転しない。10/12）
-  const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return /boss2\//.test(p || '') ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h; };
-  const artZako = e => { const h = art(g2(A, 'zako', e), e); return /zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', '<span class="art art-hd">') : h; };
+  const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return withRim(/boss2\//.test(p || '') ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h, `b/${b}/${g}`); };
+  const artZako = e => { const h = art(g2(A, 'zako', e), e); return withRim(/zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', '<span class="art art-hd">') : h, `z/${e}`); };
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
   // 教科のアイコン（画像がなければ 絵文字）
@@ -320,11 +322,12 @@
     el.remove();
   }
   const NEWB = '<span class="newb">NEW</span>';
+  const RCOL = ['', '#3b82f6', '#22c55e', '#f97316', '#ec4899', '#a855f7']; // レア度の 色（★1 青・★2 緑・★3 オレンジ・★4 ピンク・★5 紫。10/13）
   function itemCard(n, extra = '') {
     const it = D.ITEM[n]; const isNew = !S.owned.includes(n);
     // 名前が長いときは 文字を少し小さく。NEW は カードの右上に
     const len = [...n].length, sz = len >= 10 ? ' xl' : len >= 8 ? ' l' : '';
-    return `<div class="itemcard">${isNew ? NEWB : ''}<div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}${sz}">${esc(n)}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
+    return `<div class="itemcard rr${it.r}">${isNew ? NEWB : ''}<div class="ie">${artItem(n)}</div><div class="ir r${it.r}">${'★'.repeat(it.r)}</div><div class="in r${it.r}${sz}">${esc(n)}</div><div class="id">${esc(it.d)}</div>${extra}</div>`;
   }
   function showItem(n) {
     return new Promise(res => {
@@ -798,7 +801,7 @@
   // ---- 称号をかえる（アチーブメントの画面と同じ形。まだのものは ？？？ → タップで 手に入れかた）----
   const backToSettings = () => { home(); settings(); };
   const howTo = (a, what) => dialog({ who: '🔒', text: `まだ 手に入れていない ${what}だよ\n手に入れかた：<span class="gold">${esc(a.d)}</span>` });
-  function titlePage() {
+  function titlePage(back = backToSettings) { // back：もどる先（せってい・せいちょう）
     const have = new Set(myRewards('t')), list = ACHS().filter(a => a.r.t), cats = [...new Set(list.map(a => a.cat))];
     const row = (t, label, on) => `<div class="qrow ttl ${on ? 'sel' : ''}" data-t="${esc(t)}">${on ? '✅' : '⬜'} ${label}</div>`;
     const el = render(`
@@ -810,10 +813,10 @@
           : `<div class="qrow ttl lock" data-id="${a.id}">🔒 ？？？</div>`).join('')).join('')}
         ${(S.hidden || []).length ? `<div class="mid" style="margin:8px 0 4px">🌈 <span class="ttlb tr-rainbow">限定の称号</span></div>` + D.HIDDEN_TITLES.filter(t => S.hidden.includes(t)).map(t => row(t, titleBadge(t), S.sel.title === t)).join('') : ''}
       </div>`, 'res');
-    $('#bk', el).onclick = backToSettings;
+    $('#bk', el).onclick = back;
     el.querySelectorAll('.ttl').forEach(r => (r.onclick = () => {
       if (r.dataset.id) return howTo(D.ACH.find(a => a.id === r.dataset.id), '称号');
-      S.sel.title = r.dataset.t; save(); titlePage();
+      S.sel.title = r.dataset.t; save(); titlePage(back);
     }));
   }
   // ---- 背景をかえる ----
@@ -837,7 +840,7 @@
   }
   // ---- モンスターの名前をかえる（いつでも）----
   const NAME_RULE = '⚠️ みんなが いやな気もちに ならない 名前にしてね<br><span class="sm">（わる口・らんぼうな ことば・友だちを からかう 名前は つけないよ）</span>';
-  function renameMonster() {
+  function renameMonster(back = backToSettings) {
     const o = overlay(`<div class="panel evbox" style="text-align:center">
       <div class="who">${artPlayer(S.type, total(S.st))}</div>
       <div class="mid">✏️ モンスターの名前をかえる</div>
@@ -845,11 +848,11 @@
       <input id="nn" maxlength="8" value="${esc(S.cname)}" style="width:420px"><div class="sm red" id="ne" style="min-height:24px"></div>
       <div class="choices"><button class="btn-main" id="ok">けってい</button><button class="btn-gray" id="cl">やめる</button></div></div>`);
     const inp = $('#nn', o); inp.focus(); inp.select();
-    $('#cl', o).onclick = () => { o.remove(); backToSettings(); };
+    $('#cl', o).onclick = () => { o.remove(); back(); };
     $('#ok', o).onclick = () => {
       const v = inp.value.trim();
       if (!v) { $('#ne', o).textContent = '名前を入れてね'; return; }
-      S.cname = v; save(); o.remove(); home(); tip(`名前を「${esc(v)}」にしたよ`);
+      S.cname = v; save(); o.remove(); if (back === backToSettings) home(); else back(); tip(`名前を「${esc(v)}」にしたよ`);
     };
   }
 
@@ -1042,38 +1045,64 @@
     S.coins -= D.GACHA_COST; S.gachaN++; S.gachaToday = (S.gachaToday || 0) + 1;
     if (dup) S.bonusPt = (S.bonusPt || 0) + D.DUP_BONUS; else S.owned.push(it.n);
     save();
-    const col = ['', '#e5e7eb', '#4ade80', '#60a5fa', '#c084fc', '#fde047'][it.r];
-    const o = overlay(`<div class="center" style="gap:16px"><div class="magic spin" style="--c:${col}"></div><div id="gr"></div></div>`);
-    await wait(1600);
-    o.querySelector('.magic').classList.add('flash');
-    await wait(500);
-    o.querySelector('.magic').remove(); se('chest');
-    $('#gr', o).innerHTML = `<div class="mid ${it.r >= 4 ? 'gold' : ''}" style="text-align:center">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div><div style="filter:drop-shadow(0 0 24px ${col})">${dup ? itemCard(it.n) : itemCard(it.n).replace('<div class="itemcard">', '<div class="itemcard">' + NEWB)}</div>${dup ? `<div class="mid gold" style="text-align:center;margin-top:8px">もう持っている アイテム！ ボーナスポイント +${D.DUP_BONUS}</div>` : ''}<div style="text-align:center;margin-top:10px"><button class="btn-main">OK</button></div>`;
+    // 魔法陣の 演出（10/13）：中央から ぶわっと 拡大 → 回転・発光 → アイテムが バンッ！
+    // 色は レア度（★1 青・★2 緑・★3 オレンジ・★4 ピンク・★5 紫）。★1〜3 は 2.5秒、★4〜5 は 5秒（キラキラが 中央に あつまる）。持っている アイテムの ときだけ タップで スキップ
+    const col = RCOL[it.r], long = it.r >= 4, dur = long ? 5000 : 2500;
+    const mimg = g2(A, 'ui', 'magic', it.r);
+    const o = overlay(`<div class="gx" style="--c:${col}"><div class="gx-ring">${mimg ? `<img src="${esc(mimg)}" alt="">` : '<div class="magic"></div>'}</div><div class="gx-spark"></div><div class="gx-flash"></div><div id="gr" class="gx-res"></div>${dup ? '<div class="gx-skip xs">タップで スキップ</div>' : ''}</div>`, 'ovgx');
+    const gx = $('.gx', o);
+    let skip = null; const skipP = new Promise(r => (skip = r));
+    if (dup) gx.addEventListener('click', () => skip(), { once: true });
+    if (long) { const sp = $('.gx-spark', o); for (let k = 0; k < 28; k++) { const a = Math.random() * Math.PI * 2, d = 380 + Math.random() * 240; const e = document.createElement('i'); e.style.cssText = `--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d}px;animation-delay:${T(800 + Math.random() * 2600)}ms;animation-duration:${T(1300)}ms`; sp.appendChild(e); } }
+    se(long ? 'kira' : 'chest');
+    gx.classList.add('go'); gx.style.setProperty('--d', T(dur) + 'ms');
+    await Promise.race([wait(dur), skipP]);
+    gx.classList.add('bang'); se('chest');
+    $('.gx-ring', o).remove(); $('.gx-spark', o).remove(); const sk = $('.gx-skip', o); if (sk) sk.remove();
+    $('#gr', o).innerHTML = `<div class="gx-star r${it.r}">${it.r >= 5 ? '🌈 ' : ''}★${it.r} ゲット！</div>
+      <div class="gx-card">${dup ? itemCard(it.n) : itemCard(it.n).replace(/<div class="itemcard rr(\d)">/, (m) => m + NEWB)}</div>
+      ${dup ? `<div class="gx-dup"><div class="sm">もう持っている アイテム！</div><div class="gx-bonus">ボーナスポイント <b>+${D.DUP_BONUS}</b> ゲット！</div></div>` : ''}
+      <button class="btn-main">OK</button>`;
     await new Promise(res => ($('#gr button', o).onclick = res));
     o.remove(); gacha();
   }
 
   // =====================================================================
-  // もちもの（図鑑）：♡おきにいり ＋ 70個を効果別に。持っていないものは黒くぬりつぶし
+  // もちもの（図鑑）：♡おきにいり ＋ 100個（効果順・レア度順・入手順）。持っていないものは黒くぬりつぶし
   // =====================================================================
-  function itemBook() {
-    const sorted = D.CAT_ORDER.map(c => [c, D.ITEMS.filter(it => it.cat === c)]);
-    const cell = n => { const own = S.owned.includes(n); return `<div class="bk ${own ? '' : 'none'}" data-n="${esc(n)}" title="${own ? esc(n) : '？？？'}">${artItem(n)}</div>`; };
+  // 並びかえ・所持のみ の 設定（この ブラウザだけ。QRには 入れない。10/13）
+  const BOOK_KEY = 'manabi_battle_book';
+  const bookPref = () => { try { return { sort: 'eff', own: false, ...JSON.parse(localStorage.getItem(BOOK_KEY) || '{}') }; } catch (e) { return { sort: 'eff', own: false }; } };
+  const bookSet = p => { try { localStorage.setItem(BOOK_KEY, JSON.stringify(p)); } catch (e) {} };
+  function itemBook(keepTop = 0) {
+    const pf = bookPref();
+    const cell = n => { const own = S.owned.includes(n); return `<div class="bk ${own ? '' : 'none'}${own && S.fav.includes(n) ? ' fav' : ''}" data-n="${esc(n)}" title="${own ? esc(n) : '？？？'}">${artItem(n)}</div>`; };
+    const vis = list => (pf.own ? list.filter(n => S.owned.includes(n)) : list);
+    let body;
+    if (pf.sort === 'new') body = `<div class="bkrow">${[...S.owned].reverse().filter(n => D.ITEM[n]).map(cell).join('') || '<span class="sm dim">まだ アイテムを 持っていないよ</span>'}</div>`; // 入手順：左上が いちばん 新しい（持っているものだけ）
+    else if (pf.sort === 'rare') body = `<div class="bkrow">${vis([...D.ITEMS].sort((x, y) => x.r - y.r || x.id - y.id).map(it => it.n)).map(cell).join('')}</div>`; // レア度順：上が 低レア。同じ レア度の 中は 効果順
+    else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div><div class="bkrow">${l.map(cell).join('')}</div>` : ''; }).join('');
+    const sb = (k, t) => `<button class="bks${pf.sort === k ? ' on' : ''}" data-s="${k}">${t}</button>`;
     const el = render(`
-      <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span><span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
-      <div class="panel" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
+      <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span>
+        <span class="bkbar">${sb('eff', '効果順')}${sb('rare', 'レア度順')}${sb('new', '入手順')}<button class="bks bko${pf.own ? ' on' : ''}" id="own">所持アイテムのみ：${pf.own ? 'ON' : 'OFF'}</button></span>
+        <span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
+      <div class="panel bkp" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
         <div class="mid" style="color:#f9a8d4">♡ おきにいり</div>
         <div class="bkrow">${S.fav.filter(n => S.owned.includes(n)).map(cell).join('') || '<span class="sm dim">アイテムをタップして ♡ をおすと、ここに並ぶよ</span>'}</div>
-        ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:8px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
+        ${body}
       </div>`, 'res', 'library');
+    const pn = $('.bkp', el); if (keepTop) pn.scrollTop = keepTop; // おきにいりを おしても 上に もどらない
     $('#bk', el).onclick = () => home();
+    el.querySelectorAll('.bks[data-s]').forEach(b => (b.onclick = () => { bookSet({ ...pf, sort: b.dataset.s }); itemBook(); }));
+    $('#own', el).onclick = () => { bookSet({ ...pf, own: !pf.own }); itemBook(); };
     el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
       const n = c.dataset.n;
       if (!S.owned.includes(n)) { dialog({ who: '❓', text: '？？？\nまだ 持っていない アイテム' }); return; }
       const fav = S.fav.includes(n);
       const o = overlay(`<div class="panel center">${itemCard(n)}<div class="row"><button class="${fav ? 'btn-main' : ''}" id="fv">${fav ? '♥ おきにいり' : '♡ おきにいり'}</button><button class="btn-gray" id="cl">とじる</button></div></div>`);
       $('#cl', o).onclick = () => o.remove();
-      $('#fv', o).onclick = () => { S.fav = fav ? S.fav.filter(x => x !== n) : [...S.fav, n]; save(); o.remove(); itemBook(); };
+      $('#fv', o).onclick = () => { const top = pn.scrollTop; S.fav = fav ? S.fav.filter(x => x !== n) : [...S.fav, n]; save(); o.remove(); itemBook(top); };
     }));
   }
 
@@ -1286,12 +1315,15 @@
         <span class="sm">${has ? esc(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
     }).join('');
     const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;overflow-y:auto">
-      <div class="row" style="justify-content:space-between"><span class="big">📈 せいちょう・スキル</span>${S.bonusPt ? `<button class="btn-purple" id="gbp" style="font-size:18px;padding:4px 18px">ボーナス ${S.bonusPt} を ふる</button>` : ''}<button class="btn-gray" id="cl">とじる</button></div>
+      <div class="row" style="justify-content:space-between"><span class="big" style="white-space:nowrap">📈 せいちょう・スキル</span><span class="row" style="gap:8px;margin-left:auto;margin-right:8px">${S.bonusPt ? `<button class="btn-purple gbt" id="gbp">ボーナス ${S.bonusPt} を ふる</button>` : ''}<button class="btn-blue gbt" id="gnm">✏️ 名前をかえる</button><button class="btn-blue gbt" id="gtt">🏷️ 称号をかえる</button></span><button class="btn-gray gbt" id="cl">とじる</button></div>
       <div class="panel" style="margin:8px 0">${evo}${sei}</div>
       <div class="mid" style="margin:6px 0">スキル <span class="gold">${sk.length} / ${D.SKILLS.length}</span></div>
       <div class="sklist">${rows}</div></div>`);
     $('#cl', o).onclick = () => o.remove();
     const gb = $('#gbp', o); if (gb) gb.onclick = () => { o.remove(); bonusAlloc().then(() => { home(); growthPanel(); }); };
+    const backG = () => { home(); growthPanel(); }; // せいちょう・スキル から 名前・称号を かえる（10/13）
+    $('#gnm', o).onclick = () => { o.remove(); renameMonster(backG); };
+    $('#gtt', o).onclick = () => { o.remove(); titlePage(backG); };
   }
 
   async function startDungeon() {
@@ -2826,12 +2858,21 @@
     return n;
   }
   function qrScreen() {
-    const el = render(`<div class="scr center" style="gap:12px">
-      <div class="mid">🔳 ${esc(S.pname)} の QRコード</div>
-      <canvas id="qrc" style="background:#fff;border-radius:8px;width:520px;height:520px;image-rendering:pixelated"></canvas>
-      <div class="sm">対戦のときは、このQRを 相手のカメラに 見せてね</div>
-      <div class="xs dim">いまのステータス・アイテム・解いた問題が 入っているよ（あそぶたびに 変わるよ）</div>
-      <button class="btn-gray" id="bk">🏠 ホームへ</button></div>`, 'res');
+    // 10/13：スクショで 共有するので、だれの いつの データか わかるように（上：名前・左：モンスター・右：QR・下：日時）
+    const t = total(S.st), d = new Date(), z = n => String(n).padStart(2, '0');
+    const when = `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+    const el = render(`<div class="scr qrs">
+      <div class="qrs-h">${esc(S.pname)} の データ</div>
+      <div class="qrs-b">
+        <div class="qrs-l panel">
+          <div class="qrs-mon">${artPlayer(S.type, t)}</div>
+          <div class="qrs-nm">${esc(S.cname)}<span class="sm dim">（${S.type}タイプ）</span></div>
+          <div class="qrs-st">${SUBJ.map(s => `<span class="sbn">${subjIc(s)}${s}</span><b>${S.st[s]}</b>`).join('')}<span class="sbn">ごうけい</span><b>${t}</b></div>
+        </div>
+        <canvas id="qrc" class="qrs-qr"></canvas>
+      </div>
+      <div class="qrs-f"><span class="qrs-t">${when} の データ</span><span class="xs dim">対戦のときは、このQRを 相手のカメラに 見せてね（あそぶたびに 変わるよ）</span></div>
+      <button class="btn-gray qrs-bk" id="bk">🏠 ホームへ</button></div>`, 'res');
     drawQR($('#qrc', el), qrBytes());
     $('#bk', el).onclick = () => home();
   }
@@ -3305,7 +3346,7 @@
     return l.map(p => { const v = p.qv || 1; if (v < C.QV()) { p.qs = C.remapKeys(p.qs, v); p.miss = C.remapKeys(p.miss, v); p.qv = C.QV(); } return p; });
   }
   function teachSave(list) { try { localStorage.setItem(TEACH_KEY, JSON.stringify(list)); } catch (e) { tip('保存できませんでした'); } }
-  function rateOf(p, subj) { // 一発で正解した割合（解いた問題のうち）
+  function rateOf(p, subj) { // 解いた問題のうち、いま 復習まちで ない 割合（p.miss は QR では 復習まちの 問題）
     const ids = Object.keys(p.qs).filter(id => Q[id] && (!subj || Q[id].s === subj));
     if (!ids.length) return null;
     return (ids.length - ids.filter(id => p.miss && p.miss[id]).length) / ids.length;
@@ -3339,8 +3380,8 @@
         <table class="tt"><tr><th>名前</th><th>解いた問題</th>${SUBJ.map(s => `<th>${s}</th>`).join('')}<th>ぜんぶ</th><th>苦手な教科</th><th>遊んだ日数</th><th>最後に遊んだ日</th><th></th></tr>
         ${list.map((p, i) => `<tr><td>${esc(p.pname)}<br><span class="xs dim">${esc(p.cname)}</span></td><td>${Object.keys(p.qs).length}</td>${SUBJ.map(s => `<td>${pct(rateOf(p, s))}</td>`).join('')}<td>${pct(rateOf(p))}</td><td>${weakSubj(p)}</td><td>${p.playDays}</td><td>${esc(p.day)}</td><td><button class="btn-gray del" data-i="${i}" style="font-size:14px;padding:2px 8px">消す</button></td></tr>`).join('') || `<tr><td colspan="${SUBJ.length + 7}" class="dim">「＋ QRを読みこむ」で 子どもの QRコードを 1人ずつ 読みこんでください</td></tr>`}
         </table>
-        <div class="xs dim" style="margin:6px 0">正答率＝解いた問題のうち、育成ダンジョンで一発で正解した割合。苦手な教科＝5問以上解いた教科で、正答率がいちばん低い教科</div>
-        <div class="mid gold" style="margin-top:10px">クラスで 正答率が低い問題（上位20）</div>
+        <div class="xs dim" style="margin:6px 0">正答率＝解いた問題のうち、いま「復習まち」（まちがえたまま）に なっていない 割合（10/13：QRを 小さくするため「一発で正解したか」は 記録しない）。苦手な教科＝5問以上解いた教科で、正答率がいちばん低い教科</div>
+        <div class="mid gold" style="margin-top:10px">クラスで いま まちがえている人が 多い問題（上位20）</div>
         <table class="tt"><tr><th>順位</th><th>No.</th><th>教科</th><th>学年</th><th>問題</th><th>正答率</th></tr>
         ${rk.map((x, i) => `<tr><td>${i + 1}</td><td>${x.q.id}</td><td>${x.q.s}</td><td>${x.q.g}年</td><td style="text-align:left">${esc(x.q.t)}</td><td>${pct(x.r)}（${x.n - x.m}/${x.n}人）</td></tr>`).join('') || '<tr><td colspan="6" class="dim">まだ ありません</td></tr>'}
         </table></div>`, 'res');
