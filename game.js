@@ -78,9 +78,10 @@
   const artItem = n => art(g2(A, 'item', n), D.ITEM[n].e).replace('class="art"', 'class="art pix"'); // ドット絵は くっきり
   // 雑魚：K.nom さんの 手描き（images/zako2）は なめらかに 表示（10/12）
   // ボス：K.nom さんの 手描き（images/boss2）。なめらかに・左向きのまま（反転しない。10/12）
-  const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return withRim(/boss2\//.test(p || '') ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h, `b/${b}/${g}`); };
+  // 10/14：Canva版・1ファイル版は 画像が blob: に なり 場所（boss2/・zako2/）で 見分けられない → 画像が あれば 手描き として あつかう
+  const artBoss = (b, g) => { const p = g2(A, 'boss', b, g); const h = art(p, D.BOSSES[b].e[g]); return withRim(p ? h.replace('<span class="art">', '<span class="art art-hd art-nf">') : h, `b/${b}/${g}`); };
   const ZAKO_NF = new Set(['🫑']); // 文字が 入っている 雑魚は 反転しない（Pマンの P。10/14）
-  const artZako = e => { const h = art(g2(A, 'zako', e), e); return withRim(/zako2\//.test(g2(A, 'zako', e) || '') ? h.replace('<span class="art">', `<span class="art art-hd${ZAKO_NF.has(e) ? ' art-nf' : ''}">`) : h, `z/${e}`); };
+  const artZako = e => { const h = art(g2(A, 'zako', e), e); return withRim(g2(A, 'zako', e) ? h.replace('<span class="art">', `<span class="art art-hd${ZAKO_NF.has(e) ? ' art-nf' : ''}">`) : h, `z/${e}`); };
   const artNpc = (n, e) => art(g2(A, 'npc', n), e);
   const artUi = (k, e) => art(g2(A, 'ui', k), e);
   // 教科のアイコン（画像がなければ 絵文字）
