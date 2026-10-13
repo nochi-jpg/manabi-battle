@@ -11,12 +11,12 @@ window.DATA = (function () {
 
   // ---- 数字（【仮】④で調整）----
   const K = {
-    VERSION: '1.13.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
+    VERSION: '1.14.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
     START_STAT: 100,
     // ステータス：ダンジョンで正解（または復習まちを復習で正解）＋8 → あと1回を復習で正解＋2（合計10）
     // コイン　　：同じく ＋40 → ＋10（合計50）。不正解は0
     GAIN: 8, GAIN_REVIEW1: 8, GAIN_REVIEW2: 2, GAIN_OSARAI: 3,
-    HPK: 0.70, EXP: 0.8, CRIT: 0.10, CRIT_MUL: 1.5, ALLRES: 0.85, CUTCAP: 0.25, HPCAP: 0.40,
+    HPK: 0.70, EXP: 0.8, CRIT: 0.10, CRIT_MUL: 1.5, ALLRES: 0.9, CUTCAP: 0.25, HPCAP: 0.40,
     STAMINA_START: 100, STAMINA_DAY: 100, STAMINA_MAX: 2000, DUNGEON_COST: 50,
     COIN_OK: 40, COIN_NG: 0, COIN_OSARAI: 10, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4,
