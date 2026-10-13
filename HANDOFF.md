@@ -1,7 +1,24 @@
 # まなびバトル 引き継ぎメモ（10/13 時点・ver 1.11.0）
 
 小学4〜6年向けの 学習×育成×対戦ゲーム「まなびバトル」。前作「まなびドラゴン」（nochi-jpg/manabi-dragon）の第2作。
-**ver 1.1.0 で ひととおり完成**（クラスで子どもが実際に遊んでいる）。このあとは 先生の要望で 直す・足す段階。
+
+## ★ さいしょに 読む（いまの状況・10/13）
+- **いまは ver 1.11.0**（版番号は 1.9.0 → 1.10.0 → 1.11.0 と ふえる。1.1.0 ではない）。**まだ 子どもには 配っていない**。あと少しの 更新で マスターアップし、**2.0.0 を 基本の 最終版**にする
+- のこり：アイテムの 大型刷新（70→100個・効果／レア度／バランス。**前の QR・セーブとの 互換は 気にしなくてよい**）、第3段階（最終進化）の 絵の 差しかえ（K.N さんの 絵待ち）
+- クレジット：「企画・ゲームデザイン・キャラクターデザイン K.N」（K.nom は 古い 名義）
+- **子どもの 学校の 端末は Canva の ドメインしか 開けない**（渋谷区 i-フィルター・Windows Lenovo 11.6型・Edge 強制）→ **本番は Canva ホームページ版**（1つのHTML・**10MBまで**）。GitHub Pages は 学校では 開けない
+- **Canva の しよう**：同じURLでも HTML を 差しかえると **セーブが 消える**（根本対応は しない）→ 先生が タイトルの バージョンを 10回 タップ → QRで 復元（ver 1.10.0）。くわしくは 下の「Canva ホームページ版」「Canva の落とし穴 対策」
+- **「全バージョンに 実装」＝ この5つ**（先生に 毎回 これで わたす）：
+  1. 3つの リポジトリに push（manabi-battle・manabi-stadium・manabi-battle-assets）
+  2. 公開：`python3 tools/publish.py battle` と `stadium`（manabato・manasuta）
+  3. Canva版：`python3 tools/build_html.py --canva` → `manabi-battle-canva.html`（**10MB 以下を 確認**。いま 約9.7MB）
+  4. 1ファイル版：`python3 tools/build_html.py` → `manabi-battle.html`
+  5. Teams用ZIP：`python3 tools/build_zip.py` → `manabi-battle.zip`
+  → 3〜5 を 先生に ファイルで 送る。まなスタは `../manabi-stadium` で `python3 tools/build.py` → `python3 tools/std_test.py`（battle の game.js を 差しかえて 使うので、battle を かえたら かならず 確認）
+- 出す前に テストを ぜんぶ：`tools/*_test.py`（play flow gacha feed debugmode intro login trial vs ghost mode tower debug title）と `tools/ui_audit.py`（問題 0）
+- 先生の このみ：返事は 短い 日本語。**UIの アイコン・ボタン・文字・ゲージは 大きさ・高さを そろえる**。「まだ実装しないで」と 言われたら 案や 仕様を 見せて 待つ
+
+（むかしの メモ：ver 1.1.0 で ひととおり完成。そのあと 先生の要望で 直す・足す段階に なった）
 次回作の構想：**先生専用の「豪華版とうぎじょう」**（このゲームのQRを読みこんで戦わせる、ポケモンスタジアムのようなもの）→ 下の「次回作へ」
 
 ## ver 1.11.0（10/13）対戦・とうぎじょうを 3問×5ターンに
