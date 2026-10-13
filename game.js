@@ -1777,8 +1777,8 @@
     let nocrit = a.has('運命の指輪');
     if ('よわき' in a.status) { m *= a.opp && a.opp.has('やみの霧') ? 0.6 : 0.8; nocrit = true; delete a.status['よわき']; log(`${art(g2(A, 'status', 'よわき'), '🫧')} ${a.name}はよわきになっている…`); }
     let cr, cm;
-    if (a.has('運命の水晶')) { cr = 0.25; cm = 1.5; }
-    else { cr = K.CRIT * a.luck / 1000 + 0.1 * a.has('ねらいのメガネ') + 0.25 * a.has('一撃の角') + (a.has('ひらめき電球') && act.s3 ? 0.25 : 0); cm = 2; }
+    if (a.has('運命の水晶')) { cr = 0.25; cm = 1.25; } // 会心の倍率は ふつう 1.5倍（10/13 に 2倍から 変更）
+    else { cr = K.CRIT * a.luck / 1000 + 0.1 * a.has('ねらいのメガネ') + 0.25 * a.has('一撃の角') + (a.has('ひらめき電球') && act.s3 ? 0.25 : 0); cm = K.CRIT_MUL; }
     if (nocrit) cr = 0;
     const base = baseAtk(a, subj) * act.mult;
     const hits = sk === '連続攻撃' ? (a.has('でんせつの弓') ? [0.45, 0.45, 0.45] : [0.6, 0.6]) : [skill.pw];
@@ -1787,7 +1787,7 @@
       if (d.hp <= 0) return;
       const crit = ctx.rnd() < cr;
       let dmg = base * m * h;
-      if (crit) dmg *= d.has('赤白ぼうし') && cm === 2 ? 1.5 : cm;
+      if (crit) dmg *= d.has('赤白ぼうし') && cm === K.CRIT_MUL ? 1.25 : cm;
       else if (a.has('一撃の角')) dmg *= 0.8;
       if (sk === 'カウンター') dmg += a.lastrecv * (a.has('はね返しの鏡') ? 1 : 0.5);
       let eff = 1;
