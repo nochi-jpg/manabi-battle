@@ -1917,16 +1917,18 @@
       <div class="rl-win" id="rlw"></div></div>`);
     const wheel = o.querySelector('.roul');
     const th = win === P ? 6 + Math.random() * (pa - 12) : pa + 6 + Math.random() * (360 - pa - 12);
-    await wait(300);
+    // 対戦・とうぎじょう・まなスタ（5ターン）は 毎ターン まわすので はやく（約1.9秒。ボス戦は 約3.7秒。10/13）
+    const qk = !dunBoss(), sp = qk ? 0.5 : 1;
+    await wait(qk ? 120 : 300);
     o.querySelector('.rl').classList.add('spin');
-    let rs = se('rlSpin'); setTimeout(() => { if (rs) rs.pause(); rs = se('rlSlow'); }, T(1000)); // まわる → だんだん とまる
-    wheel.style.transitionDuration = T(2200) + 'ms';
-    wheel.style.transform = `rotate(${360 * 5 + (360 - th)}deg)`;
-    await wait(2300);
+    let rs = se('rlSpin'); setTimeout(() => { if (rs) rs.pause(); rs = se('rlSlow'); }, T(1000 * sp)); // まわる → だんだん とまる
+    wheel.style.transitionDuration = T(2200 * sp) + 'ms';
+    wheel.style.transform = `rotate(${360 * (qk ? 3 : 5) + (360 - th)}deg)`;
+    await wait(2300 * sp);
     o.querySelector('.rl').classList.remove('spin'); if (rs) rs.pause(); se('roulette');
     o.querySelector(`.rl-side.${win === P ? 'p' : 'b'}`).classList.add('win');
     $('#rlw', o).innerHTML = `✨ ${esc(win.name)} が 決める権利を ゲット！`;
-    await wait(1100); o.remove();
+    await wait(qk ? 650 : 1100); o.remove();
     return win;
   }
 
@@ -2296,8 +2298,38 @@
     if (BT.result === 'win') {
       const fb = $('#fB'); if (fb) fb.classList.add('bye');
       await cutin(`🏆 ${esc(B.name)}を たおした！`, 1800);
+      if (!BT.cont) await bonusTime();
       return finishBoss('win');
     }
+  }
+  // ボーナスタイム：3ターンより 早く たおしたら、のこりの ターンぶんの 問題（1ターン3問）を 出す。正解で ふつうに ステータス・コイン（10/13）
+  // → 早く たおしても 損しない（ボス戦は いつも 9問ぶん）。とちゅうで 閉じても つづきから
+  async function bonusTime() {
+    if (BT.bonusN === undefined) { BT.bonusN = Math.max(0, lastT() - (BT.turn - 1)) * K.BOSS_Q; BT.bonusAns = 0; BT.bonusSubj = null; save(); }
+    if (BT.bonusAns >= BT.bonusN) return;
+    hideGauges(); const tl = $('#turn'); if (tl) tl.textContent = '✨ ボーナスタイム';
+    if (BT.bonusAns === 0 && !BT.bonusSubj) {
+      se('kira'); await cutin('✨ ボーナスタイム！', 1200);
+      await dialog({ who: '✨', text: `はやく たおしたので、のこり <b class="gold">${BT.bonusN}問</b>の ボーナスタイム！\n正解すると ステータスが 上がるよ` });
+    }
+    while (BT.bonusAns < BT.bonusN) {
+      if (!BT.bonusSubj) { BT.bonusSubj = await bonusSubj(); save(); }
+      const subj = BT.bonusSubj, pre = pickQ(subj);
+      let got = null;
+      await ask(Q[pre.id], {
+        head: `✨ボーナスタイム（${BT.bonusAns + 1}/${BT.bonusN}問目）${pre.kind === 'rev' ? '（復習まち）' : pre.kind === 'osarai' ? '（おさらい）' : ''}`,
+        onAnswer: ok => { qaCount(ok); got = applyQ(subj, pre, ok); BT.bonusAns++; if (BT.bonusAns % K.BOSS_Q === 0) BT.bonusSubj = null; save(); },
+      });
+      if (got && got.gain) floatAt(260, 120, `${subj} +${got.gain}`, D.SUBJ_COLOR[subj]);
+    }
+  }
+  function bonusSubj() {
+    return new Promise(res => {
+      const st = curSt();
+      const o = overlay(`<div class="panel selp" style="width:1180px"><div class="selh"><span class="mid">✨ ボーナスタイム：教科をえらぼう</span><span class="sm dim">（${K.BOSS_Q}問ずつ）</span></div>
+        <div class="row" style="justify-content:center">${SUBJ.map(s => `<button data-s="${s}" style="width:210px;height:96px;border-color:${D.SUBJ_COLOR[s]};display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="sbn">${subjIc(s)}${s}</span><span class="sm">${st[s]}</span></button>`).join('')}</div></div>`, 'ovb');
+      o.querySelectorAll('button').forEach(b => (b.onclick = () => { o.remove(); res(b.dataset.s); }));
+    });
   }
   function finishBoss(res) {
     R.ns.boss = res; R.ns.cont = !!BT.cont; R.bt = null; BT = null; save();
