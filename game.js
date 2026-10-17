@@ -586,8 +586,8 @@
       const d = document.documentElement, req = d.requestFullscreen || d.webkitRequestFullscreen;
       if (fsEl()) { fsExit(); return; }
       let p = null; try { p = req ? req.call(d) : null; } catch (e) {}
-      if (!p) return tip('全画面にするには、キーボードの F11 を おしてね');
-      p.catch(() => tip('ここでは 全画面に できないよ。キーボードの F11 を おしてね'));
+      if (!p) return tip('F11を押すか、FnとF11を同時に押そう');
+      p.catch(() => tip('F11を押すか、FnとF11を同時に押そう'));
     };
     // かくしコマンド：バージョンを 10回 タップ → QRで セーブを 復元する（先生が そうさ。10/13）
     let verN = 0; $('#ver', el).onclick = () => { if (++verN >= 10) restoreScreen(); };
