@@ -216,6 +216,14 @@
   }
   const stageOf = t => (t < K.STAGE_LINE[0] ? 0 : t < K.STAGE_LINE[1] ? 1 : 2);
   const skillsOf = t => D.SKILLS.filter(k => !K.SKILL_LINE[k.n] || t >= K.SKILL_LINE[k.n]).map(k => k.n);
+  // 3.0.0：バトルで つかう技は 4つまで（せいちょう画面・アイテムえらびで えらぶ）。おぼえた技が 4つ以下なら ぜんぶ
+  // p.skSel：えらんだ技（セーブ・QR）。なければ／おかしければ おぼえた順に 4つ
+  const SKMAX = 4;
+  function selSk(p, t, over = null) {
+    const L = skillsOf(t); if (L.length <= SKMAX) return L;
+    const s = ((over || (p && p.skSel)) || []).filter(n => L.includes(n)).filter((n, i, a) => a.indexOf(n) === i).slice(0, SKMAX);
+    return s.length ? s : L.slice(0, SKMAX);
+  }
   // ---- 見た目：タイプ × かわいい系・かっこいい系 × 4段階 ----
   // 見た目の段階 0〜3：0＝単細胞（まだ ダンジョンに 行っていない）→ さいしょの ダンジョンの リザルトで 第1段階 → LOOK_LINE で 第2〜4段階（10/8）
   // 第3段階が 最終進化（10/13。第4段階は なくした）
@@ -748,13 +756,15 @@
         <button id="sH">📖 ゲームのせつめい<small>まいにちの ながれ・すがた</small></button>
         <button id="sV">🔊 音量<small>BGM ${Math.round(vol('vbgm') * 5)}　効果音 ${Math.round(vol('vse') * 5)}</small></button>
         <button id="sQ">📚 出題範囲<small>${QGRADE_ORDER.map(s => s[0] + chosenGrade(s)).join(' ')}</small></button>
+        <button id="sG">📖 用語集<small>ゲームの ことばの いみ</small></button>
+        <button id="sK">🔑 あいことば<small>ひみつの ことばを 入れる</small></button>
       </div>
       ${MOBILE ? sec('全画面（スマホ・タブレット）', ['on', 'off'], S.sel.full === 'off' ? 'off' : 'on', 'full', x => (x === 'on' ? 'オン' : 'オフ')) : ''}
       ${MOBILE && IOS && !fsCan() ? `<div class="sm" style="opacity:.8;margin-top:4px">iPhoneは、Safariの「共有」→「ホーム画面に追加」から ひらくと 全画面になります</div>` : ''}
       ${sec('⏩ ゲームのテンポ', ['normal', 'fast'], S.sel.tempo === 'fast' ? 'fast' : 'normal', 'tempo', x => (x === 'fast' ? 'はやい' : 'ふつう（タップで メッセージを すすめる）'))}
       ${auras.length ? sec('✨ オーラ', ['', ...auras], S.sel.aura, 'aura', x => (x ? x + 'オーラ' : 'オフ')) : ''}
       ${dbgOn() ? debugSection() : ''}
-      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sG" style="font-size:18px">📖 用語集</button><button class="btn-gray" id="sHi" style="font-size:18px">🕘 バージョン履歴</button><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
+      <div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn-gray" id="rs" style="font-size:18px">さいしょから やりなおす</button><div class="row" style="gap:10px"><button class="btn-gray" id="sHi" style="font-size:18px">🕘 バージョン履歴</button><button class="btn-gray" id="sC" style="font-size:18px">📜 クレジット</button><button class="btn-blue" id="cl">とじる</button></div></div></div>`);
     o.querySelectorAll('[data-k]').forEach(b => (b.onclick = () => { S.sel[b.dataset.k] = b.dataset.v; save(); if (b.dataset.k === 'full' && b.dataset.v === 'off') fsExit(); o.remove(); home(); settings(); }));
     $('#cl', o).onclick = () => o.remove();
     $('#sT', o).onclick = () => { o.remove(); titlePage(); };
@@ -762,6 +772,7 @@
     $('#sN', o).onclick = () => { o.remove(); renameMonster(); };
     $('#sC', o).onclick = () => { o.remove(); creditsPage(); };
     $('#sG', o).onclick = () => { o.remove(); glossPage(); };
+    $('#sK', o).onclick = () => { o.remove(); akPage(); };
     $('#sHi', o).onclick = () => { o.remove(); historyPage(); };
     $('#sV', o).onclick = () => { o.remove(); volumePage(); };
     $('#sQ', o).onclick = () => { o.remove(); gradePage(); };
@@ -861,12 +872,47 @@
           ? row(a.r.t, titleBadge(a.r.t), S.sel.title === a.r.t)
           : `<div class="qrow ttl lock" data-id="${a.id}">🔒 ？？？</div>`).join('')).join('')}
         ${(S.hidden || []).length ? `<div class="mid" style="margin:8px 0 4px">🌈 <span class="ttlb tr-rainbow">限定の称号</span></div>` + D.HIDDEN_TITLES.filter(t => S.hidden.includes(t)).map(t => row(t, titleBadge(t), S.sel.title === t)).join('') : ''}
+        ${akTitles(S).length ? `<div class="mid" style="margin:8px 0 4px">📜 <span class="ttlb tr-rainbow">ひみつの称号</span></div>` + akTitles(S).map(t => row(t, titleBadge(t), S.sel.title === t)).join('') : ''}
       </div>`, 'res');
     $('#bk', el).onclick = back;
     el.querySelectorAll('.ttl').forEach(r => (r.onclick = () => {
       if (r.dataset.id) return howTo(D.ACH.find(a => a.id === r.dataset.id), '称号');
       S.sel.title = r.dataset.t; save(); titlePage(back);
     }));
+  }
+  // ---- あいことば（3.0.0）：22個。1つにつき 1回だけ コインと 称号。照合は ハッシュ（平文は どこにも 書かない）----
+  // 入れる前は 何の あいことばか わからないように（称号も もらうまで 一覧に 出ない）
+  function akHash(s) { let x = 2166136261; for (const ch of 'aikotoba:' + s) { x ^= ch.codePointAt(0); x = Math.imul(x, 16777619) >>> 0; } return x.toString(36); }
+  const normAk = s => (s || '').replace(/\s+/g, '').replace(/[・･]/g, '').replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  function akCheck(v) { // → { n: 話の番号（0＝まちがい）, used }
+    const n = D.AK_HASHES.indexOf(akHash(normAk(v))) + 1;
+    return { n, used: n > 0 && (S.ak || []).includes(n) };
+  }
+  function akPage(back = backToSettings) {
+    const o = overlay(`<div class="panel akp">
+      <div class="big">🔑 あいことば</div>
+      <div class="sm">ひみつの あいことばを ひらがなで 入れてね</div>
+      <div class="row akrow"><input id="akin" maxlength="24" placeholder="あいことば" autocomplete="off"><button class="btn-main" id="akok">けってい</button></div>
+      <div class="akmsg sm" id="akm">&nbsp;</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn-gray" id="akx">とじる</button></div></div>`);
+    const inp = $('#akin', o), m = $('#akm', o);
+    $('#akx', o).onclick = () => { o.remove(); back(); };
+    const go = async () => {
+      const v = inp.value, r = akCheck(v);
+      if (!normAk(v)) { m.innerHTML = 'あいことばを 入れてね'; return; }
+      if (!r.n) { se('cancel'); m.innerHTML = '<span class="red">あいことばが ちがうみたい</span>'; return; }
+      if (r.used) { m.innerHTML = '<span class="red">この あいことばは もう つかったよ</span>'; return; }
+      const c = D.AK_COIN(r.n), t = D.AK_TITLES[r.n - 1];
+      S.ak = [...(S.ak || []), r.n]; S.coins += c; save();
+      o.remove(); se('money');
+      const put = await dialog({ who: '🔑', text: `「<b class="gold">${esc(normAk(v))}</b>」\nひみつの あいことばだ！\nまなびコイン <b class="gold">${c}</b> ゲット！\n称号「${titleBadge(t)}」を 手に入れた！`,
+        choices: [{ label: '称号を つける', val: 1, cls: 'btn-main' }, { label: 'あとで', val: 0, cls: 'btn-gray' }] });
+      if (put) { S.sel.title = t; save(); }
+      home(); akPage(back);
+    };
+    $('#akok', o).onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) go(); });
+    setTimeout(() => inp.focus(), 50);
   }
   // ---- 背景をかえる ----
   function bgPage() {
@@ -1013,8 +1059,9 @@
   const ACHS = () => D.ACH.filter(a => a.id !== 'boss_無' || S.ach[a.id]);
   const BOSS5 = ['国語', '算数', '理科', '社会', '英語']; // ボスの 属性（無属性は 10/12 に 廃止）
   const TCOL = { 国語: '#ff8f8f', 算数: '#7cb8ff', 理科: '#6fe3a0', 社会: '#ffc46b', 英語: '#d9a8ff', 無: '#cfd6e6' };
+  const akTitles = p => (p.ak || []).slice().sort((a, b) => a - b).map(n => D.AK_TITLES[n - 1]).filter(Boolean); // あいことばの 称号（もらったものだけ）
   function titleRank(t) {
-    if (D.HIDDEN_TITLES.includes(t)) return 'rainbow';
+    if (D.HIDDEN_TITLES.includes(t) || D.AK_TITLES.includes(t)) return 'rainbow';
     const a = D.ACH.find(x => x.r.t === t); if (!a) return 'white';
     const v = a.v, k = a.k;
     const hard = (k === 'solved' && v >= 1000) || (k === 'subj' && v >= 300) || (k === 'days' && v >= 30) || (k === 'clear' && v >= 50) || k === 'bossAll' || k === 'nocont'
@@ -1029,7 +1076,7 @@
     const r = titleRank(t), c = r.startsWith('s:') ? `style="--tc:${TCOL[r.slice(2)]}"` : '';
     return `<span class="ttlb tr-${r.startsWith('s:') ? 'subj' : r} ${cls}" ${c}>【${esc(t)}】</span>`;
   }
-  const myRewards = k => D.ACH.filter(a => (S.ach[a.id] || (k === 't' && dbg('titles')) || (k === 'bg' && dbg('bgs'))) && a.r[k]).map(a => a.r[k]).concat(k === 't' ? (S.hidden || []).filter(t => D.HIDDEN_TITLES.includes(t)) : []);
+  const myRewards = k => D.ACH.filter(a => (S.ach[a.id] || (k === 't' && dbg('titles')) || (k === 'bg' && dbg('bgs'))) && a.r[k]).map(a => a.r[k]).concat(k === 't' ? (S.hidden || []).filter(t => D.HIDDEN_TITLES.includes(t)).concat(akTitles(S)) : []);
   const auraCls = () => (S.sel.aura && myRewards('aura').includes(S.sel.aura) ? 'aura-' + D.AURAS[S.sel.aura] : '');
   let toastN = 0;
   function achToast(a) {
@@ -1368,18 +1415,15 @@
       : `<div class="row" style="align-items:center;gap:16px"><span style="font-size:64px">${artPlayer(S.type, t)}</span><div class="mid gold">さいごの すがたまで 進化した！</div></div>`;
     const sty = D.STYLE_NAME[styleOf(S.seikaku)];
     const sei = `<div class="sm" style="margin-top:8px">🍽️ せいかく：<b class="gold">${seikakuName(S.seikaku)}</b>　せいかくが かわると、すがたも すぐ かわるよ（いまは <b>${sty}</b>）<br><span class="xs dim">せいかくは 毎日の ごはん（🍬キャンディ・🍖肉）で かわる</span></div>`;
-    const rows = D.SKILLS.map(k => {
-      const line = K.SKILL_LINE[k.n] || 0, has = sk.includes(k.n);
-      return `<div class="skrow ${has ? '' : 'lock'}"><span class="mid">${has ? '✅' : '🔒'} ${esc(k.n)}</span>
-        <span class="sm">${has ? linkTerms(k.d) + (k.ct ? `　<span class="dim">CT${k.ct}</span>` : '') : `ごうけい <b class="gold">${line}</b> で おぼえる（あと ${line - t}）`}</span></div>`;
-    }).join('');
     const o = overlay(`<div class="panel" style="width:1060px;max-height:680px;display:flex;flex-direction:column">
       <div class="row" style="justify-content:space-between"><span class="big" style="white-space:nowrap">📈 せいちょう・スキル</span><span class="row" style="gap:8px;margin-left:auto;margin-right:8px">${S.bonusPt ? `<button class="btn-purple gbt" id="gbp">ボーナス ${S.bonusPt} を ふる</button>` : ''}<button class="btn-blue gbt" id="gnm">✏️ 名前をかえる</button><button class="btn-blue gbt" id="gtt">🏷️ 称号をかえる</button></span><button class="btn-gray gbt" id="cl">とじる</button></div>
       <div style="overflow-y:auto;margin-top:6px;padding-right:6px">
       <div class="panel" style="margin:8px 0">${evo}${sei}</div>
-      <div class="mid" style="margin:6px 0">スキル <span class="gold">${sk.length} / ${D.SKILLS.length}</span></div>
-      <div class="sklist">${rows}</div></div></div>`); // 10/14：上の ボタンは スクロールしない（スクロールバーと かさならない）
+      <div class="mid" style="margin:6px 0">スキル　<span class="sm">おぼえた技 <b class="gold">${sk.length} / ${D.SKILLS.length}</b></span></div>
+      <div id="gskp"></div></div></div>`); // 10/14：上の ボタンは スクロールしない（スクロールバーと かさならない）
     $('#cl', o).onclick = () => o.remove();
+    const gsel = [...selSk(S, t)]; // バトルで つかう技（3.0.0。その場で オン・オフ → セーブ）
+    skillPicker($('#gskp', o), t, gsel, v => { S.skSel = [...v]; save(); });
     const gb = $('#gbp', o); if (gb) gb.onclick = () => { o.remove(); bonusAlloc().then(() => { home(); growthPanel(); }); };
     const backG = () => { home(); growthPanel(); }; // せいちょう・スキル から 名前・称号を かえる（10/13）
     $('#gnm', o).onclick = () => { o.remove(); renameMonster(backG); };
@@ -2365,9 +2409,9 @@
     // ボスのステータス（プレイヤーの合計に合わせる）
     const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
     const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
-    const skills = skillsOf(t);
+    const skills = skillsOf(t), pskills = selSk(S, t, flags.skills); // ボスは おぼえた技 ぜんぶ・自分は えらんだ 4つ（3.0.0）
     const lt = look || { type: S.type, t };
-    const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...pst }, items: [...hand], prevType: S.type, type: look && look.st ? lt.type : undefined, hpBonus: flags.izumi ? 0.15 : 0, skills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
+    const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...pst }, items: [...hand], prevType: S.type, type: look && look.st ? lt.type : undefined, hpBonus: flags.izumi ? 0.15 : 0, skills: pskills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
     const cB = { name: bd.n[stg], emo: bd.e[stg], art: artBoss(boss, stg), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
     // 紋章が輝く：弱点の教科は、いちばん強い教科と同じくらいの攻撃力になる
     const wk = D.WEAK[boss];
@@ -2408,7 +2452,7 @@
     const wp = P.luck * (P.has('いかさまサイコロ') ? 1.25 : 1), wb = B.luck * (B.has('いかさまサイコロ') ? 1.25 : 1);
     return Math.random() < wp / (wp + wb) ? P : B;
   }
-  function simBoss({ st, boss = null, items = [], acc = 1, n = 1000, bossHp = null }) {
+  function simBoss({ st, boss = null, items = [], acc = 1, n = 1000, bossHp = null, sk = null }) {
     const bak = { st: S.st, type: S.type, BT, hp: K.BOSS_HP };
     if (bossHp) K.BOSS_HP = bossHp;
     S.st = { ...st }; S.type = typeOf(S.st, S.type);
@@ -2418,7 +2462,7 @@
       for (let i = 0; i < n; i++) {
         const b = boss || pick(BOSS5);
         const its = typeof items === 'function' ? items(i) : items;
-        const cfg = bossCfg(b, stg, its);
+        const cfg = bossCfg(b, stg, its, { skills: sk });
         const P = makeFighter(cfg.P), B = makeFighter(cfg.B);
         P.opp = B; B.opp = P; P.side = 'P'; B.side = 'B';
         BT = { P, B };
@@ -2684,6 +2728,11 @@
     for (const k of newSk) {
       $('#evt', o).innerHTML = `✨ 新しいスキル <span class="gold">「${k}」</span> を おぼえた！<div class="sm">${D.SKILLS.find(s => s.n === k).d}</div>`;
       await msgWait(2200);
+    }
+    if (skillsOf(t0).length <= SKMAX && skillsOf(t1).length > SKMAX) { // 5つ目を おぼえた → 4つ えらぶ（3.0.0）
+      if (!(S.skSel || []).length) { S.skSel = skillsOf(t0).slice(0, SKMAX); save(); }
+      $('#evt', o).innerHTML = `🎯 技を えらべるように なった！<div class="sm">バトルで つかう技は ${SKMAX}つまで。「せいちょう・スキル」で えらんでね</div>`;
+      await msgWait(2600);
     }
     $('#evb', o).innerHTML = `<button class="btn-main">${label}</button>`;
     await new Promise(r => ($('#evb button', o).onclick = r));
@@ -2951,7 +3000,14 @@
       const vd = $('#vd', o), stt = $('#stt', o), cv = document.createElement('canvas');
       let stream = null, stop = false, pause = false;
       const done = v => { if (stop) return; stop = true; scanHook = null; if (stream) stream.getTracks().forEach(t => t.stop()); o.remove(); res(v); };
-      const tryBytes = bin => { try { done(window.SAVECODE.decode(bin)); return true; } catch (e) { stt.textContent = '⚠️ ' + e.message; return false; } };
+      const tryBytes = bin => {
+        try {
+          const o = window.SAVECODE.decode(bin);
+          // 3.0.0：対戦・QRゴースト・まなスタは 新しい QR（形式4）だけ。前の バージョンの QR とは たたかえない
+          if (opt.newOnly && (o.fmt || 0) < 4) { stt.textContent = '⚠️ 前のバージョンのQRだよ。ゲームを 新しくして、QRを 出しなおしてね（前のバージョンとは 対戦できないよ）'; return false; }
+          done(o); return true;
+        } catch (e) { stt.textContent = '⚠️ ' + e.message; return false; }
+      };
       const scan = () => {
         const c = cv.getContext('2d', { willReadFrequently: true }), img = c.getImageData(0, 0, cv.width, cv.height);
         const r = window.jsQR(img.data, cv.width, cv.height);
@@ -3009,9 +3065,9 @@
   }
   function clearVs() { VSV = null; BT = null; try { localStorage.removeItem(VS_KEY); } catch (e) { } }
   const AB = { a: 'A', b: 'B' };
-  function vsCfg(pr, items) {
+  function vsCfg(pr, items, sk = null) {
     const t = total(pr.st);
-    return { name: pr.cname, pname: pr.pname, emo: lookOf(pr.type, t, pr), art: artPlayer(pr.type, t, pr), st: { ...pr.st }, items: [...items], prevType: pr.type, skills: skillsOf(t), title: pr.sel.title, aura: pr.sel.aura ? 'aura-' + D.AURAS[pr.sel.aura] : '', qs: pr.qs };
+    return { name: pr.cname, pname: pr.pname, emo: lookOf(pr.type, t, pr), art: artPlayer(pr.type, t, pr), st: { ...pr.st }, items: [...items], prevType: pr.type, skills: selSk(pr, t, sk), title: pr.sel.title, aura: pr.sel.aura ? 'aura-' + D.AURAS[pr.sel.aura] : '', qs: pr.qs };
   }
   function tapScreen(text, sub = '') {
     return new Promise(res => {
@@ -3036,9 +3092,9 @@
     for (;;) {
       if (!TR.boss) { const b = await trialSelect(); if (!b) return arena(); TR.boss = b; }
       if (!TR.picked) {
-        const it = await pickItems(S, TR.items.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ ボスえらび' });
+        const it = await pickItems(S, TR.items.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ ボスえらび', skPreset: TR.sk });
         if (!it) { TR.boss = null; continue; }
-        TR.items = it; TR.picked = true;
+        TR.items = it; TR.sk = pickItems.sk; TR.picked = true;
       }
       const res = await trialBattle();
       bgm('result');
@@ -3074,7 +3130,7 @@
     });
   }
   async function trialBattle() {
-    const tcfg = bossCfg(TR.boss, TR.stg, TR.items); if (TR.bItems) tcfg.B.items = TR.bItems; // テスト用：ボスの アイテムを かえる
+    const tcfg = bossCfg(TR.boss, TR.stg, TR.items, { skills: TR.sk }); if (TR.bItems) tcfg.B.items = TR.bItems; // テスト用：ボスの アイテムを かえる
     BT = hydrate({ trial: true, qn: K.VS_Q, cfg: tcfg, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
     BT.snap = dynAll();
     battleScreen();
@@ -3122,7 +3178,7 @@
     for (;;) {
       if (!GH) {
         render('<div class="scr center"><div style="font-size:120px">👻</div></div>', 'btl');
-        const pr = await scanQR('👻 友だちの QRコードを 読みこんでね', '友だちが「QR」ボタンで 出したQRコードを、カメラに見せてね');
+        const pr = await scanQR('👻 友だちの QRコードを 読みこんでね', '友だちが「QR」ボタンで 出したQRコードを、カメラに見せてね', { newOnly: true });
         if (!pr) return arena();
         const acc = ghostAcc(pr), items = ghostItems(pr), me = pr.pname === S.pname && pr.cname === S.cname;
         // 正解率・そうびは 見せない（人間関係に えいきょうしないように）。モンスターの せいかく と ステータスだけ
@@ -3134,9 +3190,9 @@
         GH = { pr, items, acc, mine: S.owned.filter(n => S.fav.includes(n)).slice(0, 4), picked: false };
       }
       if (!GH.picked) {
-        const it = await pickItems(S, GH.mine.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ もどる' });
+        const it = await pickItems(S, GH.mine.filter(n => S.owned.includes(n)), { noTimer: true, back: '◀ もどる', skPreset: GH.sk });
         if (!it) { GH = null; continue; }
-        GH.mine = it; GH.picked = true;
+        GH.mine = it; GH.sk = pickItems.sk; GH.picked = true;
       }
       const res = await ghostBattle();
       bgm('result');
@@ -3149,7 +3205,7 @@
     }
   }
   async function ghostBattle() {
-    const me = vsCfg(window.SAVECODE.decode(qrBytes()), GH.mine), gh = { ...vsCfg(GH.pr, GH.items), ghost: true, acc: GH.acc, name: GH.pr.cname };
+    const me = vsCfg(window.SAVECODE.decode(qrBytes()), GH.mine, GH.sk), gh = { ...vsCfg(GH.pr, GH.items), ghost: true, acc: GH.acc, name: GH.pr.cname };
     BT = hydrate({ trial: true, ghost: true, bgVs: pick(BOSS5), qn: K.VS_Q, cfg: { P: me, B: gh }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null });
     BT.snap = dynAll();
     battleScreen();
@@ -3178,7 +3234,7 @@
         // プレイヤーA＝この端末で あそんでいる人（自分のデータを そのまま使う）。読みこむのは あいて（プレイヤーB）のQRだけ
         V.prof.a = window.SAVECODE.decode(qrBytes());
         render('<div class="scr center"><div style="font-size:120px">🆚</div></div>', 'btl');
-        const pr = await scanQR(`🆚 あいての QRコードを 読みこんでね`, 'あいての人が「QR」ボタンで 出したQRコードを、カメラに見せてね', { myQr: true });
+        const pr = await scanQR(`🆚 あいての QRコードを 読みこんでね`, 'あいての人が「QR」ボタンで 出したQRコードを、カメラに見せてね', { myQr: true, newOnly: true });
         if (!pr) { clearVs(); return home(); }
         V.prof.b = pr; V.phase = 'confirm'; saveVs(); continue;
       }
@@ -3193,12 +3249,14 @@
         await tapScreen(`プレイヤー${AB[w]}（${esc(pr.pname)}）だけ<br>画面を見てください`, w === 'b' ? 'プレイヤーAは 見ないでね。画面をタップしてね' : '');
         const preset = V.picks[w].length ? V.picks[w] : V.last ? V.last[w] : [];
         bgm('vsPick');
-        V.picks[w] = await pickItems(pr, preset.filter(n => pr.owned.includes(n)));
+        V.sks = V.sks || {};
+        V.picks[w] = await pickItems(pr, preset.filter(n => pr.owned.includes(n)), { skPreset: V.sks[w] });
+        V.sks[w] = pickItems.sk;
         V.phase = w === 'a' ? 'pickB' : 'intro'; saveVs(); continue;
       }
       if (V.phase === 'intro') {
         await tapScreen('2人で 画面を見てください');
-        V.bt = { vs: true, bgVs: pick(BOSS5), cfg: { P: vsCfg(V.prof.a, V.picks.a), B: vsCfg(V.prof.b, V.picks.b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
+        V.bt = { vs: true, bgVs: pick(BOSS5), cfg: { P: vsCfg(V.prof.a, V.picks.a, (V.sks || {}).a), B: vsCfg(V.prof.b, V.picks.b, (V.sks || {}).b) }, snap: null, turn: 1, firstId: null, acts: {}, used: [], phase: 'turn', result: null };
         BT = hydrate(V.bt); BT.snap = dynAll(); V.phase = 'battle'; saveVs();
         battleScreen(); $('#turn').textContent = '🆚 対戦';
         await vsIntro(); continue;
@@ -3223,23 +3281,29 @@
   }
   // 持ちこみアイテムをえらぶ（もちものと同じ並び・4つまで・40秒）
   // noTimer：時間制限なし（おためしバトル）。back：「もどる」ボタン（おしたら null を返す）
-  function pickItems(pr, preset, { noTimer = false, back = '' } = {}) {
+  // 3.0.0：上の「アイテム」「スキル」で 切りかえ。えらんだ技は pickItems.sk に 入る（この たたかい だけ）
+  function pickItems(pr, preset, { noTimer = false, back = '', skPreset = null } = {}) {
     return new Promise(res => {
-      let sel = [...preset].slice(0, 4), left = 40, done = false, tm = null;
-      const finish = (v = sel) => { if (done) return; done = true; clearInterval(tm); app.querySelectorAll('.ov').forEach(x => x.remove()); res(v); };
+      const t = total(pr.st);
+      let sel = [...preset].slice(0, 4), left = 40, done = false, tm = null, view = 'item';
+      const sk = [...selSk(pr, t, skPreset)];
+      const finish = (v = sel) => { if (done) return; done = true; clearInterval(tm); pickItems.sk = v ? [...sk] : null; app.querySelectorAll('.ov').forEach(x => x.remove()); res(v); };
       const draw = () => {
         const cell = n => { const own = pr.owned.includes(n); return `<div class="bk ${own ? '' : 'none'} ${sel.includes(n) ? 'sel' : ''}" data-n="${esc(n)}">${artItem(n)}</div>`; };
         const el = render(`
-          <div class="prog"><span class="mid">🎒 ${esc(pr.pname)}の そうび <span class="gold">${sel.length} / 4</span></span>
+          <div class="prog"><span class="mid">🎒 ${esc(pr.pname)}の そうび</span>
             <span class="coin row">${noTimer ? '' : `<span class="vtimer" id="vt">⏱️ のこり <b id="lt">${left}</b>秒</span>`}${back ? `<button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">${back}</button>` : ''}<button class="btn-gray" id="rs" style="font-size:18px;padding:6px 12px">そうびリセット</button><button class="btn-main" id="ok" style="font-size:20px;padding:6px 16px">けってい</button></span></div>
-          <div class="row" style="position:absolute;top:66px;left:24px;font-size:30px;gap:10px">${sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>'}</div>
-          <div class="panel" style="position:absolute;top:112px;left:24px;right:24px;bottom:16px;overflow-y:auto">
-            <div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
-            ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}
+          <div class="pk-tabs"><button class="bks${view === 'item' ? ' on' : ''}" data-v="item">🎒 アイテム <b>${sel.length} / 4</b></button><button class="bks${view === 'skill' ? ' on' : ''}" data-v="skill">⚔️ スキル <b class="pk-skn">${skillsOf(t).length <= SKMAX ? skillsOf(t).length : sk.length} / ${SKMAX}</b></button>
+            <span class="row pk-sel">${view === 'item' ? (sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>') : ''}</span></div>
+          <div class="panel pk-body" style="position:absolute;top:118px;left:24px;right:24px;bottom:16px;overflow-y:${view === 'item' ? 'auto' : 'hidden'}">
+            ${view === 'item' ? `<div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
+            ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}` : '<div id="skp"></div>'}
           </div>`, 'res');
         $('#ok', el).onclick = () => finish();
         if (back) $('#bk', el).onclick = () => finish(null);
         $('#rs', el).onclick = () => { sel = []; draw(); };
+        el.querySelectorAll('.pk-tabs [data-v]').forEach(b => (b.onclick = () => { view = b.dataset.v; draw(); }));
+        if (view === 'skill') skillPicker($('#skp', el), t, sk, v => { const e = $('.pk-skn', el); if (e) e.textContent = `${v.length} / ${SKMAX}`; });
         el.querySelectorAll('.bk').forEach(c => (c.onclick = () => {
           const n = c.dataset.n;
           if (!pr.owned.includes(n)) return;
@@ -3254,6 +3318,27 @@
       if (!noTimer) tm = setInterval(() => { left--; const l = $('#lt'); if (l) l.textContent = left; const vt = $('#vt'); if (vt) vt.classList.toggle('warn', left <= 10); if (left <= 0) finish(); }, T(1000));
     });
   }
+  // 技を えらぶ ボタンの ならび（3.0.0）。画面は 切りかえず、その場で オン・オフ。5つ目は「選べる技は4つまでだよ！」
+  // root：ならびを 入れる 要素、t：ステータスの ごうけい、sel：えらんだ技（配列。じかに かえる）、onChange：かわったとき
+  function skillPicker(root, t, sel, onChange = () => {}) {
+    const L = skillsOf(t), free = L.length <= SKMAX;
+    root.innerHTML = `<div class="skp-h"><span class="mid">つかう技 <b class="gold skp-n">${free ? L.length : sel.length}</b> / ${SKMAX}</span><span class="xs dim">${free ? `おぼえた技が ${SKMAX}つ以下の あいだは ぜんぶ つかえるよ` : 'タップで オン・オフ（ボス戦の 前には かえられないよ）'}</span></div>
+      <div class="skgrid skp">${D.SKILLS.map(k => {
+        const has = L.includes(k.n), on = has && (free || sel.includes(k.n));
+        return `<button class="skb skp-b${on ? ' on' : ''}${has ? '' : ' lock'}" data-k="${esc(k.n)}"><span class="skh">${g2(A, 'skill', k.n) && has ? `<span class="skic">${art(g2(A, 'skill', k.n), '')}</span>` : ''}<b>${has ? esc(k.n) : '？？？'}</b><span class="skct">${has ? (on ? '✅ つかう' : '') : '🔒'}</span></span><span class="skd">${has ? `${linkTerms(k.d)}${k.ct ? `／CT${k.ct}` : ''}` : `ごうけい <b class="gold">${K.SKILL_LINE[k.n] || 0}</b> で おぼえる`}</span></button>`;
+      }).join('')}</div>`;
+    root.querySelectorAll('.skp-b').forEach(b => (b.onclick = () => {
+      const n = b.dataset.k;
+      if (!L.includes(n)) return;
+      if (free) { tip(`おぼえた技が ${SKMAX}つ以下の あいだは ぜんぶ つかえるよ`, 1800); return; }
+      const i = sel.indexOf(n);
+      if (i >= 0) { if (sel.length <= 1) { tip('技は 1つ以上 えらんでね', 1800); return; } sel.splice(i, 1); }
+      else { if (sel.length >= SKMAX) { tip(`選べる技は${SKMAX}つまでだよ！`, 1800); se('cancel'); return; } sel.push(n); }
+      b.classList.toggle('on', i < 0); $('.skct', b).textContent = i < 0 ? '✅ つかう' : '';
+      $('.skp-n', root).textContent = sel.length; onChange(sel);
+    }));
+  }
+
   // 対戦前の しょうかい：キャラ VS キャラ ＋ その下に そうびアイテム
   function vsIntro(la = ['プレイヤーA', 'この端末'], lb = ['プレイヤーB', 'あいて']) {
     const { P, B } = BT;
@@ -3470,7 +3555,7 @@
 
   // ---- テスト用の入口（Playwright などから使う）----
   // テスト・画面撮影用（?test のときだけ）
-  const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem } : null;
+  const GO = /[?&]test/.test(location.search) ? { titleBadge, home, titleScreen, nameScreen, settings, achList, gacha, itemBook, questionList, qrScreen, towerSelect, trialMode, vsMode, arena, ghostMode, debugRoom, teacherPage, reviewDungeon, pickItems, showItem, titlePage } : null;
   window.MB = { go: GO, get S() { return S; }, get R() { return R; }, get BT() { return BT; }, T: { trial: (pi, bi, boss = '算数') => { TR = { boss, stg: 2, items: pi, bItems: bi }; return trialBattle(); }, pickQ, applyQ, curSt, drawEventQ, dueList, lookStage, total, gradeOf }, get VS() { return VSV; }, Q, D, SAVE_KEY, qrBytes: () => Array.from(qrBytes()), simBoss, simVs, simHand, preloaded: () => KEEP.length, snd: () => SND.cur, msgWait, updBars, tut: p => tutorial(p), restore: b => restoreBytes(b), scan: b => (scanHook ? scanHook(b) : false) };
 
   // ---- 絵文字を 画像に おきかえる（assets の emo。画面に出た 文字を 見はって 自動で。'' は 消す。表にない絵文字は そのまま）----

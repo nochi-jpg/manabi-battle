@@ -3,7 +3,8 @@
 window.SAVECODE = (function () {
   'use strict';
   const D = window.DATA, SUBJ = D.SUBJ;
-  const MAGIC = [0x4d, 0x42], FMT = 3;     // 形式3（10/13 配布版）：問題の記録を 圧縮・アイテムは 手に入れた順・ごはん。形式2までは 読まない           // 'MB' ＋ 形式番号
+  const MAGIC = [0x4d, 0x42], FMT = 4;     // 形式4（3.0.0）：形式3の うしろに えらんだ技・あいことば。形式3も 引きつぎでは 読む（o.fmt。対戦は 4だけ）
+  const FMT_MIN = 3;     // 形式3（10/13 配布版）：問題の記録を 圧縮・アイテムは 手に入れた順・ごはん。形式2までは 読まない           // 'MB' ＋ 形式番号
   const KEY = 'manabi-battle/2026/まなび学園';     // チェック用の数字を作るカギ（書きかえ防止）
   const BOSS = ['国語', '算数', '理科', '社会', '英語', '無'];
   const TYPES = ['全教科', ...SUBJ], AURA = ['', '銀', '金', '虹'], BG = Object.keys(D.BGS);
@@ -92,6 +93,10 @@ window.SAVECODE = (function () {
     SUBJ.forEach(s => w.u8((S.qgrade || {})[s] || 4));
     w.vu(S.loginN || 0);
     w.u8((S.loginDay === S.day ? 1 : 0) | (S.fedDay === S.day ? 2 : 0)); // 1：きょうの ログインボーナス済み・2：きょうの ごはん済み
+    // ---- 形式4（3.0.0）----
+    w.bits(D.SKILLS.length, i => (S.skSel || []).includes(D.SKILLS[i].n)); // えらんだ技
+    const AKN = (D.AK_HASHES || []).length; w.vu(AKN); w.bits(AKN, i => (S.ak || []).includes(i + 1)); // もらった あいことば
+    w.u8((D.AK_TITLES || []).indexOf(S.sel.title) + 1); // あいことばの 称号を つけているか
     const h = hash(w.b); [24, 16, 8, 0].forEach(k => w.u8(h >>> k));
     return new Uint8Array(w.b);
   }
@@ -106,7 +111,7 @@ window.SAVECODE = (function () {
     const r = new Rd(body); r.i = 2;
     const fmt = r.u8();
     if (fmt > FMT) throw new Error('新しいバージョンのQRだよ。ゲームを新しくしてね');
-    if (fmt < FMT) throw new Error('前のバージョンのQRなので 読めないよ。いまのゲームで QRを 出しなおしてね');
+    if (fmt < FMT_MIN) throw new Error('前のバージョンのQRなので 読めないよ。いまのゲームで QRを 出しなおしてね');
     const qv = r.u8();
     if (qv > QV()) throw new Error('新しいバージョンのQRだよ。ゲームを新しくしてね');
     const o = { v: 2, pname: r.str(), cname: r.str(), st: {} };
@@ -138,6 +143,12 @@ window.SAVECODE = (function () {
     o.runGain = null; { const g = {}; SUBJ.forEach(s => (g[s] = r.vu())); if (SUBJ.some(s => g[s])) o.runGain = g; }
     o.qgrade = {}; SUBJ.forEach(s => { const g = r.u8(); o.qgrade[s] = g >= 4 && g <= 6 ? g : 4; });
     o.loginN = r.vu(); { const f = r.u8(); if (f & 1) o.loginDay = o.day; if (f & 2) o.fedDay = o.day; }
+    o.fmt = fmt; o.skSel = []; o.ak = [];
+    if (fmt >= 4) {
+      const sk = r.bits(D.SKILLS.length); o.skSel = D.SKILLS.filter((k, i) => sk[i]).map(k => k.n);
+      const n = r.vu(), ak = r.bits(n); ak.forEach((x, i) => { if (x) o.ak.push(i + 1); });
+      const ti = r.u8(); if (ti && (D.AK_TITLES || [])[ti - 1] && o.ak.includes(ti)) o.sel.title = D.AK_TITLES[ti - 1];
+    }
     o.qs = remapKeys(o.qs, qv); o.miss = remapKeys(o.miss, qv); o.qv = QV();
     o.tower = {}; o.run = null; o.dungeons = o.dungeons || 0;
     return o;

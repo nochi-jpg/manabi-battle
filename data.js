@@ -11,7 +11,7 @@ window.DATA = (function () {
 
   // ---- 数字（【仮】④で調整）----
   const K = {
-    VERSION: '2.0.4', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
+    VERSION: '3.0.0', // タイトル左下に出す。大きな変更＝まん中、小さな直し＝右を上げる
     START_STAT: 100,
     // ステータス：ダンジョンで正解（または復習まちを復習で正解）＋8 → あと1回を復習で正解＋2（合計10）
     // コイン　　：同じく ＋40 → ＋10（合計50）。不正解は0
@@ -322,6 +322,13 @@ window.DATA = (function () {
 
   // ---- 限定の隠し称号（先生の大会・イベントだけ。デバッグモードのスイッチで先生がつける）----
   const HIDDEN_TITLES = ['👑大会の覇者', '👑グランドモンスター'];
+  // ---- あいことば（3.0.0）：22個。平文は 書かない（公開リポジトリなので ハッシュで 照合）。称号は もらうまで どこにも 出ない ----
+  const AK_HASHES = ['1itsqa1', 'nlryes', 'fn2z8o', '1vi8tv7', '1j47w91', 'q3yldu', '9nvii3', 'tloul8', '1iq9jxo', '8extv1',
+    'y3xcxj', '19eye1j', 'bcxv', '5l9rl1', '1n4ca3m', 'gd5jlh', '1ap8mgw', 'pxy3ag', '1o0e34o', '4l3yw6', '1yehjlf', '1jjc7va'];
+  const AK_TITLES = ['縄文のむらびと', '邪馬台国の使者', '古墳の守り人', '和をたっとぶ者', '大化の改革者', '天平の祈り人', '摂関家の栄華', '厳島の参拝者',
+    '奉公の武士', '元寇を退けし者', '東山の茶人', '天下布武の家臣', '天下統一の立役者', '江戸の大名', '蘭学の先駆者', '無血開城の立会人',
+    '独立自尊の学徒', '条約改正の外交官', '戦後復興の担い手', '東京五輪の走者', '時をこえし者', '時をめぐる帰還者'];
+  const AK_COIN = n => (n === 22 ? 2052 : 500);
   const FOODS = { candy: { n: 'キャンディ', e: '🍬', d: -200 }, meat: { n: '肉', e: '🍖', d: 200 } };
 
   // ---- 仲間（応援） ----
@@ -395,5 +402,5 @@ window.DATA = (function () {
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
   const GACHA_COST = 200, GACHA_PITY = 10, GACHA_DAY = 50, DUP_BONUS = 5; // ガチャ：1回200・10回目ごとに★4以上・1日50回まで・ダブりはボーナス+5（10/5。もとは+3）
 
-  return { HISTORY, GLOSS, GLOSS_CATS, TERMS, LOGIN, SAY, STAFF, CREDITS, ITEM_GROUPS, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W, GACHA_W, GACHA_PITY_W };
+  return { HISTORY, GLOSS, GLOSS_CATS, TERMS, LOGIN, SAY, STAFF, CREDITS, ITEM_GROUPS, AK_HASHES, AK_TITLES, AK_COIN, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W, GACHA_W, GACHA_PITY_W };
 })();
