@@ -21,7 +21,7 @@ window.DATA = (function () {
     COIN_OK: 40, COIN_NG: 0, COIN_OSARAI: 10, COIN_RARE: 300, COIN_BOSS: 200,
     DROP_RATE: 0.35, RARE_RATE: 0.06, ITEM_MAX: 4,
     BOSS_Q: 3, VS_Q: 3, BOSS_T: 3, VS_T: 5, VS_HP: 1.4, POISON_T: 3, BOSS_ACC: 0.68, BOSS_POWER: 0.85,
-    BOSS_HP: [1.7, 1.6, 1.4],           // ボスのHP倍率（★1・★2・★3）。ノーコンティニュー勝率：アイテムあり全問正解≒90%・アイテムなし正答80%≒50% をねらう（tools/boss_balance.py）
+    BOSS_HP: [1.7, 1.52, 1.15],         // 3.0.0：技4つに 合わせて ★2・★3を 下げた（前は 1.6・1.4。tools/boss_balance.py。4つの くみあわせの 平均で 前と 同じ 勝率）。ボスのHP倍率（★1・★2・★3）。ノーコンティニュー勝率：アイテムあり全問正解≒90%・アイテムなし正答80%≒50% をねらう（tools/boss_balance.py）
     COIN_REVIEW: 40, COIN_REVIEW2: 10, TOWER_MS: 10 * 60 * 1000, /* 塔：1日10分（10/2 先生） */ TOWER_COIN: 1, /* 塔：正解1問ごと（何周目でも） */ TOWER_HEARTS: 3,
     STAGE_LINE: [2200, 5600],           // ステータス合計でボスの段階が変わる（10/5：1日の のびに 合わせて 1500・3500 から 上げた。5日目・15日目くらい）
     LOOK_LINE: [2700, 7900],            // 見た目の進化（第1→第2・第2→第3。第3が 最終）。1日約+355（ボーナスタイム込み。10/13 tools/growth_sim.py の実測）で 7日目・21日目（10/13）
@@ -172,8 +172,12 @@ window.DATA = (function () {
     I('🪶', '金色の羽', 5, 'sk', '試合開始時に、相手のアイテムをランダムで1つ無効化する'),
     I('🪶', '銀色の羽', 5, 'sk', '最初の2ターンは、お互いに会心が出ない。'),
     I('🏆', '聖杯', 5, 'sk', '最初の2ターン、お互いのすべてのアイテムの効果を無効化する（最大HPはそのまま）'),
+    I('⏱️', '時を超える銀時計', 5, 'sk', '6ターン目まで行動できる（持っているのが自分だけなら、6ターン目は自分だけ行動）'),
   ].filter(x => (typeof x === 'string' ? ((G0 = x), false) : ((x.g = G0), true)));
   const ITEM = {}; ITEMS.forEach((it, i) => { it.id = i; ITEM[it.n] = it; });
+  // 隠しアイテム（3.0.0）：ガチャ・ダンジョン・ログインボーナスに 出ない。もちものには 持っているときだけ 出る。数は 100 に 入れない（コンプ後は 101 / 100）
+  const CLOCK = '時を超える銀時計'; ITEM[CLOCK].hid = true;
+  const ITEM_N = ITEMS.filter(it => !it.hid).length;
   // 図鑑・そうび選択で見出しに使うグループ（ITEMS の // コメントと同じ）
   const ITEM_GROUPS = []; // ITEMS の // コメントの じゅん（10/13：数えずに コメントから つくる）
   { let g = null; ITEMS.forEach(it => { if (!g || g.n !== it.g) { g = { n: it.g, items: [] }; ITEM_GROUPS.push(g); } g.items.push(it.n); }); }
@@ -259,6 +263,7 @@ window.DATA = (function () {
   ];
   // ---- バージョン履歴（せってい →「バージョン履歴」。10/14）----
   const HISTORY = [
+    ['3.0', '2026/10/20', 'バトルで つかう技を4つ えらぶ・新しいQRコード・あいことば'],
     ['2.0', '2026/10/14', '用語集・用語の説明・バージョン履歴を追加、問題を2500問に、もちもののリスト表示'],
     ['1.17', '2026/10/13', '最終進化グラフィック完成、QR・ガチャ演出・UI改良'],
     ['1.16', '2026/10/13', 'アイテムバランス調整'],
@@ -321,14 +326,18 @@ window.DATA = (function () {
   ];
 
   // ---- 限定の隠し称号（先生の大会・イベントだけ。デバッグモードのスイッチで先生がつける）----
-  const HIDDEN_TITLES = ['👑大会の覇者', '👑グランドモンスター'];
+  const HIDDEN_TITLES = ['👑大会の覇者', '👑グランドモンスター', '👑初代王者', '👑連覇王', '👑学級を統べる者', '👑バトルマイスター', '👑逆転の優勝者', '👑殿堂']; // 8つまで（QRは 8ビット）。10/20：大会用 6つを 追加
   // ---- あいことば（3.0.0）：22個。平文は 書かない（公開リポジトリなので ハッシュで 照合）。称号は もらうまで どこにも 出ない ----
   const AK_HASHES = ['1itsqa1', 'nlryes', 'fn2z8o', '1vi8tv7', '1j47w91', 'q3yldu', '9nvii3', 'tloul8', '1iq9jxo', '8extv1',
-    'y3xcxj', '19eye1j', 'bcxv', '5l9rl1', '1n4ca3m', 'gd5jlh', '1ap8mgw', 'pxy3ag', '1o0e34o', '4l3yw6', '1yehjlf', '1jjc7va'];
+    'y3xcxj', '19eye1j', 'bcxv', '5l9rl1', '1n4ca3m', 'gd5jlh', '1ap8mgw', 'pxy3ag', '1o0e34o', '4l3yw6', '1yehjlf', '1jjc7va',
+    '153367z', '13q3hs7']; // 23・24：先生の ボーナス（称号なし・2000コイン）
   const AK_TITLES = ['縄文のむらびと', '邪馬台国の使者', '古墳の守り人', '和をたっとぶ者', '大化の改革者', '天平の祈り人', '摂関家の栄華', '厳島の参拝者',
     '奉公の武士', '元寇を退けし者', '東山の茶人', '天下布武の家臣', '天下統一の立役者', '江戸の大名', '蘭学の先駆者', '無血開城の立会人',
     '独立自尊の学徒', '条約改正の外交官', '戦後復興の担い手', '東京五輪の走者', '時をこえし者', '時をめぐる帰還者'];
-  const AK_COIN = n => (n === 22 ? 2052 : 500);
+  // もらえる コイン（10/20 先生。1〜22は それぞれの 時代に ちなんだ 数・23と24は 2000）
+  const AK_COINS = [550, 300, 500, 600, 645, 752, 1018, 1167, 1185, 1274, 1489, 1575, 1590, 1635, 1774, 1868, 1889, 1911, 1945, 1964, 2023, 2052, 2000, 2000];
+  const AK_COIN = n => AK_COINS[n - 1] || 0;
+  const AK_CLOCK = 22; // この あいことばで「時を超える銀時計」も もらえる
   const FOODS = { candy: { n: 'キャンディ', e: '🍬', d: -200 }, meat: { n: '肉', e: '🍖', d: 200 } };
 
   // ---- 仲間（応援） ----
@@ -394,7 +403,7 @@ window.DATA = (function () {
   ac('育成・収集', 'skill8', 'スキルを 8つすべて 覚える', 'skills', 8, { t: '技のデパート' });
   [[10, { t: 'コレクター' }], [30, { bg: '砂漠の遺跡' }], [50, { t: '収集家' }]].forEach(([v, r]) => ac('育成・収集', 'items' + v, `アイテムを ${v}個 集める`, 'items', v, r));
   // 特別
-  ac('特別', 'items70', `アイテム${ITEMS.length}個 コンプリート`, 'items', ITEMS.length, { aura: '虹', t: '図鑑マスター' });
+  ac('特別', 'items70', `アイテム${ITEM_N}個 コンプリート`, 'items', ITEM_N, { aura: '虹', t: '図鑑マスター' });
   ac('特別', 'ach70', 'アチーブメントを 70個 達成', 'ach', 70, { bg: '海の遺跡', t: '伝説のまほうつかい' });
 
   // ---- 図鑑の並び（効果別）----
@@ -402,5 +411,5 @@ window.DATA = (function () {
   const CAT_NAME = { atk: '攻撃', q: '問題とつながる', st: 'コンボ・状態異常', def: '守り・HP', sk: 'スキル・先攻後攻' };
   const GACHA_COST = 200, GACHA_PITY = 10, GACHA_DAY = 50, DUP_BONUS = 5; // ガチャ：1回200・10回目ごとに★4以上・1日50回まで・ダブりはボーナス+5（10/5。もとは+3）
 
-  return { HISTORY, GLOSS, GLOSS_CATS, TERMS, LOGIN, SAY, STAFF, CREDITS, ITEM_GROUPS, AK_HASHES, AK_TITLES, AK_COIN, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W, GACHA_W, GACHA_PITY_W };
+  return { HISTORY, GLOSS, GLOSS_CATS, TERMS, LOGIN, SAY, STAFF, CREDITS, ITEM_GROUPS, ITEM_N, CLOCK, AK_HASHES, AK_TITLES, AK_COIN, AK_CLOCK, BGS, AURAS, ACH, CAT_ORDER, CAT_NAME, GACHA_COST, GACHA_PITY, GACHA_DAY, DUP_BONUS, SUBJ, SUBJ_EMO, SUBJ_COLOR, ELEM, WEAK, RESIST, K, SKILLS, ITEMS, ITEM, STATUS, INFLICT, ZAKO, RARE_ZAKO, BOSSES, HIDDEN_TITLES, LOOK, STYLE_NAME, SEIKAKU, FOODS, FRIENDS, RARITY_W, GACHA_W, GACHA_PITY_W };
 })();

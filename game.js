@@ -902,12 +902,15 @@
       if (!normAk(v)) { m.innerHTML = 'あいことばを 入れてね'; return; }
       if (!r.n) { se('cancel'); m.innerHTML = '<span class="red">あいことばが ちがうみたい</span>'; return; }
       if (r.used) { m.innerHTML = '<span class="red">この あいことばは もう つかったよ</span>'; return; }
-      const c = D.AK_COIN(r.n), t = D.AK_TITLES[r.n - 1];
-      S.ak = [...(S.ak || []), r.n]; S.coins += c; save();
+      const c = D.AK_COIN(r.n), t = D.AK_TITLES[r.n - 1], clock = r.n === D.AK_CLOCK && !S.owned.includes(D.CLOCK);
+      S.ak = [...(S.ak || []), r.n]; S.coins += c; if (clock) S.owned.push(D.CLOCK); save();
       o.remove(); se('money');
-      const put = await dialog({ who: '🔑', text: `「<b class="gold">${esc(normAk(v))}</b>」\nひみつの あいことばだ！\nまなびコイン <b class="gold">${c}</b> ゲット！\n称号「${titleBadge(t)}」を 手に入れた！`,
-        choices: [{ label: '称号を つける', val: 1, cls: 'btn-main' }, { label: 'あとで', val: 0, cls: 'btn-gray' }] });
-      if (put) { S.sel.title = t; save(); }
+      const msg = `「<b class="gold">${esc(normAk(v))}</b>」\nひみつの あいことばだ！\nまなびコイン <b class="gold">${c}</b> ゲット！`;
+      if (t) {
+        const put = await dialog({ who: '🔑', text: `${msg}\n称号「${titleBadge(t)}」を 手に入れた！`, choices: [{ label: '称号を つける', val: 1, cls: 'btn-main' }, { label: 'あとで', val: 0, cls: 'btn-gray' }] });
+        if (put) { S.sel.title = t; save(); }
+      } else await dialog({ who: '🔑', text: msg });
+      if (clock) { se('kira'); await dialog({ who: artItem(D.CLOCK), text: `★5 とくべつアイテム\n「<b class="gold">${D.CLOCK}</b>」を 手に入れた！\n<span class="sm">${esc(D.ITEM[D.CLOCK].d)}</span>` }); }
       home(); akPage(back);
     };
     $('#akok', o).onclick = go;
@@ -1038,7 +1041,7 @@
       case 'stage': return lookStage(t) >= a.v;
       case 'total': return t >= a.v;
       case 'skills': return skillsOf(t).length >= a.v;
-      case 'items': return S.owned.length >= a.v;
+      case 'items': return ownN() >= a.v;
       case 'ach': return Object.keys(S.ach).length >= a.v;
     }
     return false;
@@ -1103,11 +1106,12 @@
   // ガチャ（1回1000コイン・確率は固定・5回目ごとに★4以上・まだ持っていないものだけ）
   // =====================================================================
   // ガチャ：出せる アイテム ぜんぶ（持っているものも 出る。ダブりは ボーナスポイント）
-  function gachaPool() { return D.ITEMS.filter(it => reqOK(it, [])); }
+  function gachaPool() { return D.ITEMS.filter(it => !it.hid && reqOK(it, [])); } // 隠しアイテム（銀時計）は 出ない
+  const ownN = () => S.owned.filter(n => D.ITEM[n] && !D.ITEM[n].hid).length; // 持っている ふつうの アイテムの 数（100個まで）
   const gachaLeftToday = () => D.GACHA_DAY - (S.gachaToday || 0);
   function gacha() {
     applyDebug();
-    const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = S.owned.length >= D.ITEMS.length, lt = gachaLeftToday();
+    const pool = gachaPool(), left = D.GACHA_PITY - (S.gachaN % D.GACHA_PITY), done = ownN() >= D.ITEM_N, lt = gachaLeftToday();
     const el = render(`<div class="scr center" style="gap:18px">
       <div class="big">🎰 ガチャ</div>
       <div class="mid gold">🪙 ${S.coins}</div>
@@ -1173,7 +1177,8 @@
   function itemBook(keepTop = 0) {
     const pf = bookPref();
     const cell = n => { const own = S.owned.includes(n); return `<div class="bk ${own ? '' : 'none'}${own && S.fav.includes(n) ? ' fav' : ''}" data-n="${esc(n)}" title="${own ? esc(n) : '？？？'}">${artItem(n)}</div>`; };
-    const vis = list => (pf.own ? list.filter(n => S.owned.includes(n)) : list);
+    const shown = n => !D.ITEM[n].hid || S.owned.includes(n); // 隠しアイテムは 持っているときだけ 出る（？？？にも しない）
+    const vis = list => (pf.own ? list.filter(n => S.owned.includes(n)) : list.filter(shown));
     // リスト表示（10/14）：アイコン・名前・レア度・効果グループ・効果を 1行ずつ（持っていないものは ？？？）。おきにいりは アイコンのまま
     const lrow = n => { const it = D.ITEM[n], own = S.owned.includes(n);
       return `<tr class="bkl${own ? '' : ' none'}" data-n="${esc(n)}"><td>${cell(n)}</td><td class="bkl-n">${own ? esc(n) : '？？？'}</td><td class="bkl-r" style="color:${RCOL[it.r]}">${'★'.repeat(it.r)}</td><td class="bkl-g">${esc(it.g)}</td><td class="bkl-d">${own ? linkTerms(it.d) : '<span class="dim">？？？</span>'}</td></tr>`; };
@@ -1183,13 +1188,13 @@
     let body;
     if (pf.sort === 'new') body = `${hd('入手順（上の方が最新）')}${S.owned.length ? grid([...S.owned].reverse().filter(n => D.ITEM[n])) : '<div class="sm dim">まだ アイテムを 持っていないよ</div>'}`; // 入手順：左上が いちばん 新しい（持っているものだけ）
     else if (pf.sort === 'rare') body = [1, 2, 3, 4, 5].map(r => { // レア度順：★ごとに 見出し（持っている数 / ぜんぶ）。同じ レア度の 中は 効果順
-      const all = D.ITEMS.filter(it => it.r === r).map(it => it.n), l = vis(all), have = all.filter(n => S.owned.includes(n)).length;
-      return `${hd(`${'★'.repeat(r)}　<span class="gold">${have} / ${all.length}</span>`, `color:${RCOL[r]};font-weight:800`)}${l.length ? grid(l) : '<div class="sm dim">まだ 持っていないよ</div>'}`;
+      const all = D.ITEMS.filter(it => it.r === r).map(it => it.n), l = vis(all), have = all.filter(n => S.owned.includes(n)).length, nAll = all.filter(n => !D.ITEM[n].hid).length;
+      return `${hd(`${'★'.repeat(r)}　<span class="gold">${have} / ${nAll}</span>`, `color:${RCOL[r]};font-weight:800`)}${l.length ? grid(l) : '<div class="sm dim">まだ 持っていないよ</div>'}`;
     }).join('');
     else body = D.ITEM_GROUPS.map(g => { const l = vis(g.items); return l.length ? `${hd(esc(g.n))}${grid(l)}` : ''; }).join('');
     const sb = (k, t) => `<button class="bks${pf.sort === k ? ' on' : ''}" data-s="${k}">${t}</button>`;
     const el = render(`
-      <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.length} / ${D.ITEMS.length}</span></span>
+      <div class="prog"><span class="mid">🎒 もちもの　<span class="gold">${S.owned.filter(n => D.ITEM[n]).length} / ${D.ITEM_N}</span></span>
         <span class="bkbar"><span class="bkv"><button class="bks${pf.view === 'list' ? ' on' : ''}" data-v="list">リスト表示</button><button class="bks${pf.view === 'list' ? '' : ' on'}" data-v="icon">アイコン表示</button></span>${sb('eff', '効果順')}${sb('rare', 'レア度順')}${sb('new', '入手順')}<button class="bks bko${pf.own ? ' on' : ''}" id="own">所持アイテムのみ：${pf.own ? 'ON' : 'OFF'}</button></span>
         <span class="coin"><button class="btn-gray" id="bk" style="font-size:18px;padding:6px 12px">🏠 ホームへ</button></span></div>
       <div class="panel bkp" style="position:absolute;top:70px;left:24px;right:24px;bottom:20px;overflow-y:auto">
@@ -2351,6 +2356,19 @@
   function itFx(fx) {
     (fx || []).forEach(([side, n]) => { const el = $(`#${side === 'P' ? 'fP' : 'fB'} .it[data-n="${CSS.escape(n)}"]`); if (el) { el.classList.remove('fx'); void el.offsetWidth; el.classList.add('fx'); } });
   }
+  // ---- 時を超える銀時計（3.0.0）：5ターンの たたかいで 6ターン目まで。持っているのが 片方だけなら 6ターン目は その人だけ 行動 ----
+  const clockOf = f => !!(f && f.has && f.has(D.CLOCK));
+  const endT = () => lastT() + (lastT() >= K.VS_T && BT && (clockOf(BT.P) || clockOf(BT.B)) ? 1 : 0); // 分母（表示）は lastT() の まま
+  async function clockTurn(turn) { // → 動けない 側（'P'・'B'）か null
+    if (turn <= lastT()) return null;
+    const { P, B } = BT, a = clockOf(P), b = clockOf(B);
+    if (!BT.clockSaid) { BT.clockSaid = 1; await cutin(`⏱️ 時を超える銀時計の 力で ${turn}ターン目！`, 1500); }
+    if (a && b) return null;
+    const h = a ? P : B;
+    if (!BT.firstId) BT.firstId = h.side; // ルーレットなし
+    return h.opp.side;
+  }
+  const clockSkip = async (x, saveFn) => { if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveFn(); } blog(`⏱️ ${esc(x.name)}は 時の はざまで 動けない……`); await msgWait(1300); };
   async function playTurn() {
     const { P, B } = BT, turn = BT.turn;
     if (dunBoss()) P.st = BT.acts.P && BT.acts.P.st ? { ...BT.acts.P.st } : curSt(); // 前のターンで 上がった分は ここから
@@ -2358,6 +2376,7 @@
     $('#turn').textContent = `ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
     await turnIntro(turn);
+    const frozen = await clockTurn(turn);
     if (!BT.firstId) {
       const fo = forcedOrder(P, B, turn);
       if (fo) { blog(fo.t); itFx(fo.fx); await msgWait(1300); }
@@ -2373,6 +2392,7 @@
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
     for (let i = 0; i < 2; i++) {
       const x = order[i];
+      if (x.side === frozen) { await clockSkip(x, save); continue; }
       if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
         x.skipNext = false;
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; save(); }
@@ -2391,9 +2411,9 @@
     const ev = resolveTurn(order, turn, false);
     let res = null;
     if (P.hp <= 0 || B.hp <= 0) res = B.hp <= 0 && (P.hp > 0 || B.hp / B.maxhp < P.hp / P.maxhp) ? 'win' : 'lose';
-    else if (turn >= lastT()) {
+    else if (turn >= endT()) {
       const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp >= rb ? 'win' : 'lose';
-      ev.push({ t: `⏱️ ${lastT()}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
+      ev.push({ t: `⏱️ ${turn}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
     }
     BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
     if (res) { BT.phase = 'end'; BT.result = res; }
@@ -2409,7 +2429,7 @@
     // ボスのステータス（プレイヤーの合計に合わせる）
     const btot = t * K.BOSS_POWER, w = SUBJ.map(s => (s === boss ? 1.5 : 1)), ws = w.reduce((a, b) => a + b);
     const bst = {}; SUBJ.forEach((s, i) => (bst[s] = R0(btot * w[i] / ws)));
-    const skills = skillsOf(t), pskills = selSk(S, t, flags.skills); // ボスは おぼえた技 ぜんぶ・自分は えらんだ 4つ（3.0.0）
+    const skills = skillsOf(t), pskills = flags.skills === 'all' ? skills : selSk(S, t, flags.skills); // 'all'：くらべる用（シミュレーション） // ボスは おぼえた技 ぜんぶ・自分は えらんだ 4つ（3.0.0）
     const lt = look || { type: S.type, t };
     const cP = { name: S.cname, emo: lookOf(lt.type, lt.t), art: artPlayer(lt.type, lt.t), st: { ...pst }, items: [...hand], prevType: S.type, type: look && look.st ? lt.type : undefined, hpBonus: flags.izumi ? 0.15 : 0, skills: pskills, power: flags.kurogane ? 1.2 : 1, title: S.sel.title, aura: auraCls() };
     const cB = { name: bd.n[stg], emo: bd.e[stg], art: artBoss(boss, stg), st: bst, items: bd.items.slice(0, stg + 1), isBoss: true, el: bd.el, fav: bd.fav, skills, type: boss, hpBonus: K.BOSS_HP[stg] - 1 };
@@ -3297,7 +3317,7 @@
             <span class="row pk-sel">${view === 'item' ? (sel.map(n => artItem(n)).join('') || '<span class="sm dim">アイテムをタップして「そうび」をおしてね（4つまで）</span>') : ''}</span></div>
           <div class="panel pk-body" style="position:absolute;top:118px;left:24px;right:24px;bottom:16px;overflow-y:${view === 'item' ? 'auto' : 'hidden'}">
             ${view === 'item' ? `<div class="sm" style="color:#f9a8d4">♡ おきにいり</div><div class="bkrow">${pr.fav.filter(n => pr.owned.includes(n)).map(cell).join('') || '<span class="xs dim">なし</span>'}</div>
-            ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.map(cell).join('')}</div>`).join('')}` : '<div id="skp"></div>'}
+            ${D.ITEM_GROUPS.map(g => `<div class="sm gold" style="margin-top:6px">${esc(g.n)}</div><div class="bkrow">${g.items.filter(n => !D.ITEM[n].hid || pr.owned.includes(n)).map(cell).join('')}</div>`).join('')}` : '<div id="skp"></div>'}
           </div>`, 'res');
         $('#ok', el).onclick = () => finish();
         if (back) $('#bk', el).onclick = () => finish(null);
@@ -3363,6 +3383,7 @@
     $('#turn').textContent = `🆚 ターン ${turn} / ${lastT()}`;
     await cutin(`ターン ${turn}`, 900, false);
     await turnIntro(turn);
+    const frozen = await clockTurn(turn);
     const fo = !BT.firstId && forcedOrder(P, B, turn);
     if (fo) { blog(fo.t); itFx(fo.fx); await msgWait(1100); if (fo.first) { BT.firstId = fo.first.side; saveVs(); } }
     if (!BT.firstId) {
@@ -3373,6 +3394,7 @@
     const first = BT.firstId === 'P' ? P : B, order = [first, first.opp];
     for (let i = 0; i < 2; i++) {
       const x = order[i], other = BT.acts[x.opp.side];
+      if (x.side === frozen) { await clockSkip(x, saveVs); continue; }
       if (BT.acts[x.side] === 'skip' || (!BT.acts[x.side] && x.skipNext)) {
         x.skipNext = false;
         if (BT.acts[x.side] !== 'skip') { BT.acts[x.side] = 'skip'; saveVs(); }
@@ -3390,9 +3412,9 @@
     if (P.hp <= 0 || B.hp <= 0) {
       if (P.hp <= 0 && B.hp <= 0) { const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = rp === rb ? 'draw' : rp > rb ? 'P' : 'B'; }
       else res = B.hp <= 0 ? 'P' : 'B';
-    } else if (turn >= lastT()) {
+    } else if (turn >= endT()) {
       const rp = P.hp / P.maxhp, rb = B.hp / B.maxhp; res = Math.abs(rp - rb) < 1e-9 ? 'draw' : rp > rb ? 'P' : 'B';
-      ev.push({ t: `⏱️ ${lastT()}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
+      ev.push({ t: `⏱️ ${turn}ターンで決着がつかなかった！ のこりHPの割合で勝負… ${esc(P.name)} ${R0(rp * 100)}% ／ ${esc(B.name)} ${R0(rb * 100)}%`, snap: vsnap() });
     }
     BT.turn = turn + 1; BT.firstId = null; BT.acts = {}; BT.snap = dynAll();
     if (res) { BT.phase = 'end'; BT.result = res; }

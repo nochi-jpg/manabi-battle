@@ -5,6 +5,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 URL = (ROOT / 'index.html').as_uri() + '?test'
 # 形式3（2.0.x）の savecode.js：形式3の QR を 作るため
 OLD = subprocess.run(['git', 'show', 'dabfb30:savecode.js'], cwd=ROOT, capture_output=True, text=True).stdout.replace('window.SAVECODE =', 'window.OLDCODE =', 1)
+BOT = (pathlib.Path(__file__).resolve().parent / 'play_test.py').read_text().split('BOT = """')[1].split('"""')[0]
 errors, fails = [], []
 def check(c, m):
     print(('OK  ' if c else 'NG  ') + m)
@@ -68,17 +69,42 @@ with sync_playwright() as p:
     check('ちがうみたい' in pg.inner_text('#akm'), 'まちがいは「あいことばが ちがうみたい」')
     pg.fill('#akin', ' カイヅカ・のしょうじょ '); pg.click('#akok'); W(300)
     txt = pg.inner_text('.ov')
-    check('500' in txt and '縄文のむらびと' in txt and pg.evaluate("MB.S.coins") == 500 and pg.evaluate("MB.S.ak") == [1], f'正しい あいことば → 500コイン・称号（カタカナ・空白・「・」も OK）')
+    check('550' in txt and '縄文のむらびと' in txt and pg.evaluate("MB.S.coins") == 550 and pg.evaluate("MB.S.ak") == [1], f'正しい あいことば → 550コイン・称号（カタカナ・空白・「・」も OK）')
     pg.click('.ov .choices button'); W(300)
     check(pg.evaluate("MB.S.sel.title") == '縄文のむらびと', '称号を つける')
     pg.fill('#akin', 'かいづかのしょうじょ'); pg.click('#akok'); W(100)
-    check('もう つかった' in pg.inner_text('#akm') and pg.evaluate("MB.S.coins") == 500, '2回目は「もう つかったよ」')
+    check('もう つかった' in pg.inner_text('#akm') and pg.evaluate("MB.S.coins") == 550, '2回目は「もう つかったよ」')
     pg.fill('#akin', 'おかえりかなた'); pg.click('#akok'); W(300)
-    check(pg.evaluate("MB.S.coins") == 2552 and '2052' in pg.inner_text('.ov'), '22話は 2052コイン')
+    check(pg.evaluate("MB.S.coins") == 2602 and '2052' in pg.inner_text('.ov'), '22話は 2052コイン')
     pg.click('.ov .choices button >> nth=1'); W(300)
     pg.evaluate("document.querySelectorAll('.ov').forEach(o=>o.remove()); void MB.go.titlePage(() => MB.go.home())"); W(200)
     t = pg.inner_text('#app')
     check('ひみつの称号' in t and '時をめぐる帰還者' in t and '古墳の守り人' not in t, '称号の一覧には もらったものだけ')
+    # ---- 時を超える銀時計 ----
+    clk = pg.evaluate("MB.D.CLOCK")
+    check(clk in pg.evaluate("MB.S.owned") and pg.evaluate("MB.S.coins") == 550 + 2052, '22話で 銀時計も もらえる（コインは 表のとおり）')
+    o4 = pg.evaluate("SAVECODE.decode(MB.qrBytes()).owned")
+    check(clk in o4, 'QRに 銀時計も 入る')
+    pg.evaluate("MB.S.owned = MB.S.owned.filter(n => n !== MB.D.CLOCK); localStorage.setItem('manabi_battle_book', JSON.stringify({view:'icon',sort:'rare'})); void MB.go.itemBook()"); W(200)
+    check(pg.locator(f'.bk[data-n="{clk}"]').count() == 0 and '/ 100' in pg.inner_text('.prog'), 'もっていないと もちものに 出ない（？？？にも しない）')
+    pg.evaluate("MB.S.owned = MB.D.ITEMS.map(i => i.n); void MB.go.itemBook()"); W(200)
+    check(pg.locator(f'.bk[data-n="{clk}"]').count() == 1 and '101 / 100' in pg.inner_text('.prog'), f"もったら ★5に 出る・コンプ後は 101 / 100（{pg.inner_text('.prog')[:20]}）")
+    pool = pg.evaluate("MB.S.gachaN = 0; MB.D.ITEMS.filter(it => !it.hid).length")
+    check(pool == 100, 'ふつうの アイテムは 100個のまま')
+    pg.evaluate("void MB.go.pickItems(MB.S, [], {noTimer:true})"); W(200)
+    check(pg.locator(f'.bk[data-n="{clk}"]').count() == 1, 'アイテムえらびに 出る（持っているとき）')
+    pg.click('#ok'); W(100)
+    # 6ターン目：自分だけ 持っている → ルーレットなし・ボスは 動けない
+    pg.evaluate(f"document.querySelectorAll('.ov').forEach(o=>o.remove()); void MB.T.trial(['{clk}'], [], '算数')"); W(600)
+    pg.evaluate("MB.BT.P.hp = MB.BT.P.maxhp = 999999; MB.BT.B.hp = MB.BT.B.maxhp = 999999; window.__lg = ''; new MutationObserver(() => { if (/はざま/.test(document.body.innerText)) window.__lg = 'frozen'; }).observe(document.body, {subtree:true, childList:true, characterData:true})")
+    log = ''
+    for i in range(4000):
+        st = pg.evaluate("(() => { const t = document.querySelector('#turn'); return [MB.BT ? MB.BT.turn : 0, MB.BT ? MB.BT.phase : '', t ? t.textContent : '', document.querySelector('#log') ? document.querySelector('#log').innerText : ''] })()")
+        if '6 / 5' in st[2]: log = 'saw6'
+        if st[1] == 'end' or (st[0] == 0): break
+        pg.evaluate(BOT, 1.0); W(20)
+    log += pg.evaluate("window.__lg")
+    check('saw6' in log and 'frozen' in log, f'6ターン目「6 / 5」・相手は 動けない（{log}）')
     # 前の 形式3から 引きつぐと 技・あいことばは からっぽ
     o3 = pg.evaluate(f"(() => {{ const o = SAVECODE.decode({old}); return [o.skSel, o.ak]; }})()")
     check(o3 == [[], []], f'形式3から 引きつぐと 技は おぼえた順・あいことばは なし {o3}')
