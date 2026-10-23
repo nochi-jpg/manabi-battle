@@ -1243,10 +1243,10 @@
         </div>
       </div>
       <div class="menuR">
-        <button class="wide" id="dun">${mb('dun', '⚔️', '育成ダンジョン', S.run ? `つづきから（${S.run.i + 1} / ${S.run.plan.length}）` : `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
+        <button class="wide${HIB ? ' hib' : ''}" id="dun">${mb('dun', '⚔️', '育成ダンジョン', HIB ? '冬眠中…（いまは 入れないよ）' : S.run ? `つづきから（${S.run.i + 1} / ${S.run.plan.length}）` : `スタミナ ${K.DUNGEON_COST} をつかう`)}</button>
         <button class="wide" id="vs">${mb('vs', '🆚', '対戦モード', '友だちと 2人で1台！ QRで しょうぶ')}</button>
         <button id="rev">${mb('rev', '📕', '復習ダンジョン', `まっている問題 ${review}問`)}</button>
-        <button id="tow">${mb('tow', '🗼', '無限の塔', `のこり ${fmtTime(towerLeft)}`)}</button>
+        <button id="tow"${HIB ? ' class="hib"' : ''}>${mb('tow', '🗼', '無限の塔', HIB ? '冬眠中…' : `のこり ${fmtTime(towerLeft)}`)}</button>
         <button id="tri">${mb('tri', '🧪', 'とうぎじょう', 'ボスと練習・QRゴースト')}</button>
         <button id="grow">${mb('grow', '📈', 'せいちょう・スキル', S.bonusPt ? `<span class="gold">ボーナス ${S.bonusPt}pt<br>ふれるよ！</span>` : growLine(t))}</button>
       </div>
@@ -1254,12 +1254,12 @@
         <button id="b1">${mb('b1', '🎰', 'ガチャ')}</button><button id="b2">${mb('b2', '🎒', 'もちもの')}</button><button id="b3">${mb('b3', '📋', '問題リスト')}</button><button id="b4">${mb('b4', '🔳', 'QR')}</button><button id="b5">${mb('b5', '🏆', 'アチーブメント')}</button>
       </div>`, 'home');
     $('#me', el).onclick = () => { $('#say', el).textContent = '「' + (lookStage(total(S.st)) === 0 ? '・・・♡' : pick(sayLines())) + '」'; };
-    $('#dun', el).onclick = () => startDungeon();
+    $('#dun', el).onclick = () => HIB ? hibMsg() : startDungeon();
     $('#set', el).onclick = () => settings();
     $('#sta', el).onclick = () => staminaHelp();
     $('#coinp', el).onclick = () => coinHelp();
     $('#rev', el).onclick = () => reviewDungeon();
-    $('#tow', el).onclick = () => towerSelect();
+    $('#tow', el).onclick = () => HIB ? hibMsg() : towerSelect();
     $('#b3', el).onclick = () => questionList();
     $('#b1', el).onclick = () => gacha();
     $('#b2', el).onclick = () => itemBook();
@@ -1270,9 +1270,9 @@
     $('#b4', el).onclick = () => qrScreen();
     if (S.tutorial === 1) { S.tutorial = 2; save(); tutorial(['cycle', 'home', 'item', 'grow']).then(() => home()); return; } // はじめての せつめい → ごはん
     if (S.loginPend && !logining) { loginItem().then(() => home()); return; } // 7日目の アイテムを まだ えらんでいない（とちゅうで 閉じた）
-    if (S.loginDay !== today() && loginOn()) { loginBonus().then(ok => { if (ok) home(); }); return; } // ログインボーナス（ごはんの前。10/13）
+    if (!HIB && S.loginDay !== today() && loginOn()) { loginBonus().then(ok => { if (ok) home(); }); return; } // ログインボーナス（ごはんの前。10/13）
     if (S.fedDay !== today()) { feedTime().then(fed => { if (fed) home(); if (fed && S.tutorial === 2) { S.tutorial = 0; save(); dialog({ who: artKoku(), name: KOKU, text: 'まずは ダンジョンに 行こう！' }); } }); return; }
-    if (S.dungeons === 0) tip('まずは「育成ダンジョン」に 行ってみよう！', 3500, true);
+    if (!HIB && S.dungeons === 0) tip('まずは「育成ダンジョン」に 行ってみよう！', 3500, true);
   }
 
   // ---- スタミナの説明 ----
@@ -1323,6 +1323,9 @@
 
   // ---- ログインボーナス（通算ログイン。1日の さいしょに 1回。7日で 1しゅう：1〜5日目 コイン10・6日目 コイン150・7日目 アイテム。10/13）----
   // 連続ログインは 記録しない。表記は 通算（2しゅう目は 8日目〜14日目）
+  // ---- 冬眠版（4.0.0）：育成ダンジョン・無限の塔は えらべない・ログボなし。あいことば・ガチャ・問題リスト・QRゴースト・対戦は つかえる ----
+  const HIB = !!K.HIBERNATE && (!/[?&]test/.test(location.search) || /[?&]hib/.test(location.search)); // テストでは 冬眠なし（?hib で 冬眠）
+  function hibMsg() { return dialog({ who: '💤', text: 'いまは 冬眠中…\nまた めざめる日を まっていてね！\n（ガチャ・対戦・とうぎじょう・あいことばは つかえるよ）' }); }
   const loginOn = () => !/[?&]test/.test(location.search) || /[?&]login/.test(location.search); // テストでは 出さない（?login で 出す）
   let logining = false;
   async function loginBonus() {
