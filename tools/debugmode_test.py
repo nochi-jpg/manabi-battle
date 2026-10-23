@@ -56,7 +56,7 @@ with sync_playwright() as p:
     s = pg.evaluate("({st: MB.S.st, sta: MB.S.stamina, c: MB.S.coins, o: MB.S.owned.length})")
     check(all(v == 9999 for v in s['st'].values()) and s['sta'] == 9999 and s['c'] == 9999 and s['o'] == pg.evaluate('MB.D.ITEMS.length'), f'スイッチ全部オン {s}')
     pg.click('#cl'); pg.wait_for_timeout(100)
-    check(('冬眠中' if pg.evaluate('MB.D.K.HIBERNATE') else '999:00') in pg.inner_text('#tow'), '塔の時間 999分（冬眠版は「冬眠中」）')
+    check('999:00' in pg.inner_text('#tow'), '塔の時間 999分')
     pg.click('#set'); pg.wait_for_timeout(100); pg.click('#dbx'); pg.wait_for_timeout(100)
     s = pg.evaluate("({st: MB.S.st, sta: MB.S.stamina, c: MB.S.coins, o: MB.S.owned.length, d: MB.S.debug})")
     check(s['st']['国語'] == 100 and s['sta'] == 77 and s['c'] == 123 and s['o'] == 0 and not s['d'], f'終わると もとにもどる {s}')

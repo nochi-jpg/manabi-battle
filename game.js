@@ -587,7 +587,7 @@
       ${S ? `<div class="mid">${esc(S.pname)} の データ</div>` : '<div class="mid">&nbsp;</div>'}
       <button class="btn-main" id="go" data-se="start">${S && S.run ? '▶ ダンジョンの つづきから' : '▶ はじめる'}</button>
       <div class="sm dim">ブラウザに 自動でセーブしています</div>
-      <div class="ver" id="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div>
+      <div class="ver" id="ver">ver ${esc(window.__HIB || K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div>
       ${IN_FRAME && !MOBILE ? '<button class="btn-gray fsbtn" id="fsb">全画面</button>' : ''}</div>`, 'title');
     const fb = $('#fsb', el);
     if (fb) fb.onclick = () => {
@@ -1324,7 +1324,7 @@
   // ---- ログインボーナス（通算ログイン。1日の さいしょに 1回。7日で 1しゅう：1〜5日目 コイン10・6日目 コイン150・7日目 アイテム。10/13）----
   // 連続ログインは 記録しない。表記は 通算（2しゅう目は 8日目〜14日目）
   // ---- 冬眠版（4.0.0）：育成ダンジョン・無限の塔は えらべない・ログボなし。あいことば・ガチャ・問題リスト・QRゴースト・対戦は つかえる ----
-  const HIB = !!K.HIBERNATE && (!/[?&]test/.test(location.search) || /[?&]hib/.test(location.search)); // テストでは 冬眠なし（?hib で 冬眠）
+  const HIB = (!!window.__HIB && !/[?&]test/.test(location.search)) || /[?&]hib/.test(location.search); // 冬眠は Canva版だけ（build_html.py --canva が window.__HIB を入れる）。テストでは なし・?hib で 冬眠
   function hibMsg() { return dialog({ who: '💤', text: 'いまは 冬眠中…\nまた めざめる日を まっていてね！\n（ガチャ・対戦・とうぎじょう・あいことばは つかえるよ）' }); }
   const loginOn = () => !/[?&]test/.test(location.search) || /[?&]login/.test(location.search); // テストでは 出さない（?login で 出す）
   let logining = false;
@@ -3640,7 +3640,7 @@
   }
   // Canva サイトでは ひらいた直後の1画面目が不安定（背景が出ない・二重に見える）→ 黒い「画面を おしてね」を1枚はさむ
   function splash(next) {
-    app.innerHTML = `<div class="scr splash"><div class="splash-t">画面を おしてね</div><div class="ver">ver ${esc(K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div></div>`;
+    app.innerHTML = `<div class="scr splash"><div class="splash-t">画面を おしてね</div><div class="ver">ver ${esc(window.__HIB || K.VERSION)}${window.__VER ? `（${esc(window.__VER)}）` : ''}</div></div>`;
     app.firstElementChild.onclick = () => next();
   }
   preload().then(() => {
