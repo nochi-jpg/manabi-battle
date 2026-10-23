@@ -22,7 +22,7 @@ with sync_playwright() as p:
                 pg.click('#mb'); pg.wait_for_timeout(40)
             pg.click('.ov .choices button >> nth=1'); pg.wait_for_timeout(100)
     start('せんせい', 'テスト')
-    pg.wait_for_selector('#lbok'); pg.click('#lbok'); pg.wait_for_timeout(120)  # ログインボーナス（10/13）
+    pg.wait_for_timeout(300); pg.locator('#lbok').click() if pg.locator('#lbok').count() else None; pg.wait_for_timeout(120)  # ログインボーナス（10/13。4.0.0 冬眠版では 出ない）
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     def to_reset(taps):
@@ -35,7 +35,7 @@ with sync_playwright() as p:
     to_reset(9)
     check(pg.query_selector('#go') is not None and pg.evaluate('MB.S') is None, '9回タッチでは ふつうに「さいしょから」になる（タイトル）')
     start('せんせい', 'テスト')
-    pg.wait_for_selector('#lbok'); pg.click('#lbok'); pg.wait_for_timeout(120)  # ログインボーナス（10/13）
+    pg.wait_for_timeout(300); pg.locator('#lbok').click() if pg.locator('#lbok').count() else None; pg.wait_for_timeout(120)  # ログインボーナス（10/13。4.0.0 冬眠版では 出ない）
     pg.click('.ov .choices button'); pg.wait_for_timeout(80); pg.click('.ov button'); pg.wait_for_timeout(80)  # ごはん
     pg.evaluate("MB.S.coins = 123; MB.S.stamina = 77")
     to_reset(10)
@@ -56,7 +56,7 @@ with sync_playwright() as p:
     s = pg.evaluate("({st: MB.S.st, sta: MB.S.stamina, c: MB.S.coins, o: MB.S.owned.length})")
     check(all(v == 9999 for v in s['st'].values()) and s['sta'] == 9999 and s['c'] == 9999 and s['o'] == pg.evaluate('MB.D.ITEMS.length'), f'スイッチ全部オン {s}')
     pg.click('#cl'); pg.wait_for_timeout(100)
-    check('999:00' in pg.inner_text('#tow'), '塔の時間 999分')
+    check(('冬眠中' if pg.evaluate('MB.D.K.HIBERNATE') else '999:00') in pg.inner_text('#tow'), '塔の時間 999分（冬眠版は「冬眠中」）')
     pg.click('#set'); pg.wait_for_timeout(100); pg.click('#dbx'); pg.wait_for_timeout(100)
     s = pg.evaluate("({st: MB.S.st, sta: MB.S.stamina, c: MB.S.coins, o: MB.S.owned.length, d: MB.S.debug})")
     check(s['st']['国語'] == 100 and s['sta'] == 77 and s['c'] == 123 and s['o'] == 0 and not s['d'], f'終わると もとにもどる {s}')
